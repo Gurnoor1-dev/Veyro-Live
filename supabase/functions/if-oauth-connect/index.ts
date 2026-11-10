@@ -31,7 +31,7 @@ Deno.serve(async (req) => {
     if (orgError) return fail(orgError.code === "23505" ? "This organization or portal slug is already connected." : "Could not create organization.", 409);
     await admin.from("profiles").upsert({ id: user.id, display_name: user.user_metadata?.name ?? user.email?.split("@")[0] ?? "Pilot" }, { onConflict: "id", ignoreDuplicates: true });
     const { error: memberError } = await admin.from("organization_memberships").insert({ organization_id: org.id, user_id: user.id, role: "owner" });
-    if (memberError) throw memberError;
+    if (memberError) { await admin.from("organizations").delete().eq("id", org.id); throw memberError; }
     const { error: connectionError } = await admin.from("if_connections").insert({
       organization_id: org.id,
       connected_by: user.id,
@@ -41,7 +41,7 @@ Deno.serve(async (req) => {
       granted_scopes: pending.granted_scopes,
       live_role: selected.role,
     });
-    if (connectionError) throw connectionError;
+    if (connectionError) { await admin.from("organizations").delete().eq("id", org.id); throw connectionError; }
     await admin.from("oauth_pending_connections").delete().eq("id", pending.id);
     return json({ organization: org });
   } catch { return fail("Organization connection failed. No Live data was saved.", 502); }
