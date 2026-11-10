@@ -167,7 +167,6 @@ create policy "discord_settings_admin_write" on public.discord_settings for all 
 
 create policy "booking_select_own_or_admin" on public.booking_requests for select to authenticated using (pilot_user_id = (select auth.uid()) or public.is_org_admin(organization_id));
 create policy "booking_insert_own" on public.booking_requests for insert to authenticated with check (pilot_user_id = (select auth.uid()) and public.is_org_member(organization_id));
-create policy "booking_cancel_own_pending" on public.booking_requests for update to authenticated using (pilot_user_id = (select auth.uid()) and status = 'pending_approval') with check (pilot_user_id = (select auth.uid()) and status = 'cancelled');
 create policy "booking_admin_review" on public.booking_requests for update to authenticated using (public.is_org_admin(organization_id)) with check (public.is_org_admin(organization_id));
 
 create policy "audit_admin_read" on public.audit_events for select to authenticated using (organization_id is not null and public.is_org_admin(organization_id));
@@ -178,7 +177,9 @@ revoke all on public.if_connections from anon, authenticated;
 revoke all on public.oauth_transactions from anon, authenticated;
 revoke all on public.oauth_pending_connections from anon, authenticated;
 revoke insert, update, delete on public.profiles from anon, authenticated;
-grant select on public.organizations, public.organization_memberships, public.booking_requests to authenticated;
+revoke insert, update, delete on public.booking_requests from anon, authenticated;
+grant select, insert on public.booking_requests to authenticated;
+grant select on public.organizations, public.organization_memberships to authenticated;
 grant select, update on public.organizations to authenticated;
 grant select on public.discord_settings to authenticated;
 grant select on public.audit_events to authenticated;
