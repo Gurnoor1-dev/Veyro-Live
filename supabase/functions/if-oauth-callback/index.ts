@@ -1,7 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.56.0";
 import { fail } from "../_shared/http.ts";
 import { decryptSecret, encryptSecret } from "../_shared/crypto.ts";
-import { exchangeAuthorizationCode, ifRequest } from "../_shared/infinite-flight.ts";
+import { exchangeAuthorizationCode } from "../_shared/infinite-flight.ts";
 Deno.serve(async (req) => {
   if (req.method !== "GET") return fail("Method not allowed", 405);
   const url = new URL(req.url);
@@ -17,14 +17,20 @@ Deno.serve(async (req) => {
   try {
     const verifier = await decryptSecret(transaction.code_verifier_ciphertext);
     const token = await exchangeAuthorizationCode(code, verifier);
-    const accessToken = token.access_token as string;
-    const organizations = await ifRequest<Array<{ id: string; role: number }>>(accessToken, "/live/organizations");
-    // Organization selection and encrypted token persistence are completed in the next onboarding milestone.
-    const encryptedAccess = await encryptSecret(accessToken);
-    const encryptedRefresh = token.refresh_token ? await encryptSecret(token.refresh_token as string) : null;
-    // Avoid returning credentials or ciphertext to the browser. The token payload is deliberately not persisted by this scaffold.
-    void encryptedAccess; void encryptedRefresh; void transaction.user_id; void organizations;
-    return new Response(null, { status: 302, headers: { Location: (Deno.env.get("APP_BASE_URL") ?? "/") + "/login?oauth=authorized" } });
+    const pendingId = crypto.randomUUID();
+    const expiresAt = new Date(Date.now() + 10 * 60_000).toISOString();
+    const { error: saveError } = await admin.from("oauth_pending_connections").insert({
+      id: pendingId,
+      user_id: transaction.user_id,
+      access_token_ciphertext: await encryptSecret(token.access_token as string),
+      refresh_token_ciphertext: token.refresh_token ? await encryptSecret(token.refresh_token as string) : null,
+      access_token_expires_at: new Date(Date.now() + Number(token.expires_in ?? 1800) * 1000).toISOString(),
+      granted_scopes: String(token.scope ?? "").split(" ").filter(Boolean),
+      expires_at: expiresAt,
+    });
+    if (saveError) throw saveError;
+    const base = Deno.env.get("APP_BASE_URL") ?? "/";
+    return new Response(null, { status: 302, headers: { Location: base + "/login?oauth=pending&pending=" + encodeURIComponent(pendingId) } });
   } catch {
     return fail("Infinite Flight authorization failed", 502);
   }
