@@ -11,7 +11,10 @@ Deno.serve(async (req) => {
   const signature = req.headers.get("x-signature-ed25519") ?? "";
   const timestamp = req.headers.get("x-signature-timestamp") ?? "";
   const publicKey = Deno.env.get("DISCORD_PUBLIC_KEY") ?? "";
-  if (!signature || !timestamp || !publicKey || !await verify(raw, signature, timestamp, publicKey)) return fail("Invalid Discord signature", 401);
+  if (!signature || !timestamp || !publicKey) return fail("Invalid Discord signature", 401);
+  const timestampMs = Number(timestamp) * 1000;
+  if (!Number.isFinite(timestampMs) || Math.abs(Date.now() - timestampMs) > 5 * 60_000) return fail("Expired Discord interaction", 401);
+  if (!await verify(raw, signature, timestamp, publicKey)) return fail("Invalid Discord signature", 401);
   const interaction = JSON.parse(raw);
   if (interaction.type === 1) return json({ type: 1 });
   if (interaction.type !== 3) return json({ type: 4, data: { content: "Unsupported interaction.", flags: 64 } });
