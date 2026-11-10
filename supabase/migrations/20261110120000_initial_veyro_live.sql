@@ -156,20 +156,23 @@ alter table public.oauth_pending_connections enable row level security;
 create policy "profiles_select_self" on public.profiles for select to authenticated using (id = (select auth.uid()));
 
 create policy "organizations_select_member" on public.organizations for select to authenticated using (private.is_org_member(id));
-create policy "organizations_update_admin" on public.organizations for update to authenticated using (private.is_org_admin(id)) with check (public.is_org_admin(id));
+create policy "organizations_update_admin" on public.organizations for update to authenticated using (private.is_org_admin(id)) with check (private.is_org_admin(id));
 
-create policy "memberships_select_org_member" on public.organization_memberships for select to authenticated using (public.is_org_member(organization_id));
-create policy "memberships_admin_manage" on public.organization_memberships for all to authenticated using (public.is_org_admin(organization_id)) with check (public.is_org_admin(organization_id));
+create policy "memberships_select_org_member" on public.organization_memberships for select to authenticated using (private.is_org_member(organization_id));
+create policy "memberships_admin_manage" on public.organization_memberships for all to authenticated using (private.is_org_admin(organization_id)) with check (private.is_org_admin(organization_id));
 
 create policy "connections_no_client_access" on public.if_connections for all to authenticated using (false) with check (false);
-create policy "discord_settings_admin_read" on public.discord_settings for select to authenticated using (public.is_org_admin(organization_id));
-create policy "discord_settings_admin_write" on public.discord_settings for all to authenticated using (public.is_org_admin(organization_id)) with check (public.is_org_admin(organization_id));
+create policy "discord_settings_admin_read" on public.discord_settings for select to authenticated using (private.is_org_admin(organization_id));
+create policy "discord_settings_admin_write" on public.discord_settings for all to authenticated using (private.is_org_admin(organization_id)) with check (private.is_org_admin(organization_id));
 
-create policy "booking_select_own_or_admin" on public.booking_requests for select to authenticated using (pilot_user_id = (select auth.uid()) or public.is_org_admin(organization_id));
-create policy "booking_insert_own" on public.booking_requests for insert to authenticated with check (pilot_user_id = (select auth.uid()) and public.is_org_member(organization_id));
-create policy "booking_admin_review" on public.booking_requests for update to authenticated using (public.is_org_admin(organization_id)) with check (public.is_org_admin(organization_id));
+create policy "booking_select_own_or_admin" on public.booking_requests for select to authenticated using (pilot_user_id = (select auth.uid()) or private.is_org_admin(organization_id));
+create policy "booking_insert_own" on public.booking_requests for insert to authenticated with check (
+  pilot_user_id = (select auth.uid())
+  and private.is_org_member(organization_id)
+  and pilot_if_user_id = (select p.infinite_flight_user_id from public.profiles p where p.id = (select auth.uid()))
+);
 
-create policy "audit_admin_read" on public.audit_events for select to authenticated using (organization_id is not null and public.is_org_admin(organization_id));
+create policy "audit_admin_read" on public.audit_events for select to authenticated using (organization_id is not null and private.is_org_admin(organization_id));
 create policy "oauth_transactions_no_client_access" on public.oauth_transactions for all to authenticated using (false) with check (false);
 create policy "oauth_pending_no_client_access" on public.oauth_pending_connections for all to authenticated using (false) with check (false);
 
