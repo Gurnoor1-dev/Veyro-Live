@@ -7,6 +7,9 @@
 4. Complete the organization's membership verification.
 5. Open your pilot dashboard.
 
+## Account linking status
+The pilot-facing Infinite Flight identity-link flow is not yet enabled in this foundation release. A pilot must have a verified Infinite Flight user ID linked to their VEYRO profile before a leg request can be submitted. Do not manually edit or guess this identifier; the completed OAuth identity-verification flow must populate it.
+
 ## Finding a flight
 - **Available flights** shows schedules currently published in Infinite Flight Live.
 - Open a flight to inspect the live schedule details returned by the API.
