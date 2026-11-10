@@ -29,6 +29,7 @@ Deno.serve(async (req) => {
       created_by: user.id,
     }).select("id,slug,display_name").single();
     if (orgError) return fail(orgError.code === "23505" ? "This organization or portal slug is already connected." : "Could not create organization.", 409);
+    await admin.from("profiles").upsert({ id: user.id, display_name: user.user_metadata?.name ?? user.email?.split("@")[0] ?? "Pilot" }, { onConflict: "id", ignoreDuplicates: true });
     const { error: memberError } = await admin.from("organization_memberships").insert({ organization_id: org.id, user_id: user.id, role: "owner" });
     if (memberError) throw memberError;
     const { error: connectionError } = await admin.from("if_connections").insert({
