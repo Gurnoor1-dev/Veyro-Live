@@ -29,3 +29,9 @@ verify_jwt = true
 
 [functions.health]
 verify_jwt = false
+
+[functions.if-oauth-organizations]
+verify_jwt = true
+
+[functions.if-oauth-connect]
+verify_jwt = true
