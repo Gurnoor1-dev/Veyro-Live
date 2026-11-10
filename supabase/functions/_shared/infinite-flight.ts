@@ -18,3 +18,14 @@ export async function exchangeAuthorizationCode(code: string, verifier: string) 
   if (!response.ok) throw new Error("Token exchange failed");
   return await response.json();
 }
+
+export async function refreshAuthorizationToken(refreshToken: string) {
+  const clientId = Deno.env.get("INFINITE_FLIGHT_CLIENT_ID");
+  const clientSecret = Deno.env.get("INFINITE_FLIGHT_CLIENT_SECRET");
+  if (!clientId) throw new Error("OAuth is not configured");
+  const body = new URLSearchParams({ grant_type: "refresh_token", client_id: clientId, refresh_token: refreshToken });
+  if (clientSecret) body.set("client_secret", clientSecret);
+  const response = await fetch(IF_AUTH + "/token", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body });
+  if (!response.ok) throw new Error("Token refresh failed");
+  return await response.json();
+}
