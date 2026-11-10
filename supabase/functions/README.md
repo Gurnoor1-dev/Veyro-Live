@@ -24,4 +24,4 @@ The Supabase runtime provides SUPABASE_URL, SUPABASE_ANON_KEY and SUPABASE_SERVI
 6. Test in a dedicated Infinite Flight OAuth testing client.
 
 ## Scaffold status
-OAuth callback persistence/organization selection, Discord message creation, approval sync authorization and token refresh rotation require completion and end-to-end tests before production. These handlers are an initial scaffold, not a production security certification.
+OAuth PKCE state handling, encrypted pending-token staging, organization selection, V3 reads, Discord approval-card creation, signed Discord interactions and a basic crew-assignment sync path are scaffolded. Pilot OAuth identity linking, bot installation/setup UX, full production token-rotation race handling, robust retries/notifications and end-to-end tests remain before production. These handlers are an initial scaffold, not a production security certification.
