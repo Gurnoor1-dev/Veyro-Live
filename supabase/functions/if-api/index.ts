@@ -1,6 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2.56.0";
 import { json, fail } from "../_shared/http.ts";
-import { decryptSecret } from "../_shared/crypto.ts";
+import { getOrganizationAccessToken } from "../_shared/org-token.ts";
 import { ifRequest } from "../_shared/infinite-flight.ts";
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return json({ ok: true });
@@ -16,11 +16,8 @@ Deno.serve(async (req) => {
   if (!org) return fail("Organization not found", 404);
   const { data: member } = await userClient.from("organization_memberships").select("user_id").eq("organization_id", org.id).eq("user_id", user.id).eq("is_active", true).single();
   if (!member) return fail("Forbidden", 403);
-  const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-  const { data: connection } = await admin.from("if_connections").select("access_token_ciphertext").eq("organization_id", org.id).single();
-  if (!connection) return fail("Organization integration is not connected", 409);
   try {
-    const token = await decryptSecret(connection.access_token_ciphertext);
+    const token = await getOrganizationAccessToken(org.id);
     const path = body.action === "organization" ? "/live/organizations/" + org.live_organization_id : body.action === "aircraft" ? "/live/organizations/" + org.live_organization_id + "/aircraft" : "/live/organizations/" + org.live_organization_id + "/schedules";
     const result = await ifRequest(token, path);
     return json({ result });
