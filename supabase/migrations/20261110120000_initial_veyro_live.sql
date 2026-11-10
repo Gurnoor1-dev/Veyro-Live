@@ -41,7 +41,7 @@ create table public.if_connections (
   refresh_token_ciphertext text,
   token_expires_at timestamptz,
   granted_scopes text[] not null default '{}',
-  connected_if_user_id text not null,
+  connected_if_user_id text,
   live_role smallint not null check (live_role in (1,2)),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -90,6 +90,17 @@ create table public.audit_events (
   created_at timestamptz not null default now()
 );
 
+create table public.oauth_pending_connections (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  access_token_ciphertext text not null,
+  refresh_token_ciphertext text,
+  access_token_expires_at timestamptz,
+  granted_scopes text[] not null default '{}',
+  expires_at timestamptz not null,
+  created_at timestamptz not null default now()
+);
+
 create table public.oauth_transactions (
   state_hash text primary key,
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -108,17 +119,29 @@ create trigger organizations_set_updated_at before update on public.organization
 create trigger if_connections_set_updated_at before update on public.if_connections for each row execute function public.set_updated_at();
 create trigger booking_requests_set_updated_at before update on public.booking_requests for each row execute function public.set_updated_at();
 
-create function public.is_org_member(target_org uuid) returns boolean
-language sql stable security invoker set search_path = '' as $$
-  select exists (select 1 from public.organization_memberships m
-    where m.organization_id = target_org and m.user_id = (select auth.uid()) and m.is_active = true);
+create schema if not exists private;
+revoke all on schema private from public, anon;
+grant usage on schema private to authenticated;
+
+create function private.is_org_member(target_org uuid) returns boolean
+language sql stable security definer set search_path = '' as $$
+  select auth.uid() is not null and exists (
+    select 1 from public.organization_memberships m
+    where m.organization_id = target_org and m.user_id = auth.uid() and m.is_active = true
+  );
 $$;
-create function public.is_org_admin(target_org uuid) returns boolean
-language sql stable security invoker set search_path = '' as $$
-  select exists (select 1 from public.organization_memberships m
-    where m.organization_id = target_org and m.user_id = (select auth.uid())
-    and m.is_active = true and m.role in ('owner','admin'));
+create function private.is_org_admin(target_org uuid) returns boolean
+language sql stable security definer set search_path = '' as $$
+  select auth.uid() is not null and exists (
+    select 1 from public.organization_memberships m
+    where m.organization_id = target_org and m.user_id = auth.uid()
+    and m.is_active = true and m.role in ('owner','admin')
+  );
 $$;
+revoke all on function private.is_org_member(uuid) from public, anon;
+revoke all on function private.is_org_admin(uuid) from public, anon;
+grant execute on function private.is_org_member(uuid) to authenticated;
+grant execute on function private.is_org_admin(uuid) to authenticated;
 
 alter table public.profiles enable row level security;
 alter table public.organizations enable row level security;
@@ -128,13 +151,12 @@ alter table public.discord_settings enable row level security;
 alter table public.booking_requests enable row level security;
 alter table public.audit_events enable row level security;
 alter table public.oauth_transactions enable row level security;
+alter table public.oauth_pending_connections enable row level security;
 
 create policy "profiles_select_self" on public.profiles for select to authenticated using (id = (select auth.uid()));
-create policy "profiles_insert_self" on public.profiles for insert to authenticated with check (id = (select auth.uid()));
-create policy "profiles_update_self" on public.profiles for update to authenticated using (id = (select auth.uid())) with check (id = (select auth.uid()));
 
-create policy "organizations_select_member" on public.organizations for select to authenticated using (public.is_org_member(id));
-create policy "organizations_update_admin" on public.organizations for update to authenticated using (public.is_org_admin(id)) with check (public.is_org_admin(id));
+create policy "organizations_select_member" on public.organizations for select to authenticated using (private.is_org_member(id));
+create policy "organizations_update_admin" on public.organizations for update to authenticated using (private.is_org_admin(id)) with check (public.is_org_admin(id));
 
 create policy "memberships_select_org_member" on public.organization_memberships for select to authenticated using (public.is_org_member(organization_id));
 create policy "memberships_admin_manage" on public.organization_memberships for all to authenticated using (public.is_org_admin(organization_id)) with check (public.is_org_admin(organization_id));
@@ -150,11 +172,13 @@ create policy "booking_admin_review" on public.booking_requests for update to au
 
 create policy "audit_admin_read" on public.audit_events for select to authenticated using (organization_id is not null and public.is_org_admin(organization_id));
 create policy "oauth_transactions_no_client_access" on public.oauth_transactions for all to authenticated using (false) with check (false);
+create policy "oauth_pending_no_client_access" on public.oauth_pending_connections for all to authenticated using (false) with check (false);
 
 revoke all on public.if_connections from anon, authenticated;
 revoke all on public.oauth_transactions from anon, authenticated;
+revoke all on public.oauth_pending_connections from anon, authenticated;
+revoke insert, update, delete on public.profiles from anon, authenticated;
 grant select on public.organizations, public.organization_memberships, public.booking_requests to authenticated;
-grant insert, update on public.profiles to authenticated;
 grant select, update on public.organizations to authenticated;
 grant select on public.discord_settings to authenticated;
 grant select on public.audit_events to authenticated;
