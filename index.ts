@@ -61,14 +61,6 @@ async function saveState(state: CountdownState): Promise<void> {
   await writeFile(STATE_FILE, JSON.stringify(state, null, 2), "utf8");
 }
 
-async function clearState(): Promise<void> {
-  try {
-    await writeFile(STATE_FILE, "", "utf8");
-  } catch (error) {
-    console.error("Could not clear countdown state:", error);
-  }
-}
-
 function makeEmbed() {
   const parts = getCountdownParts();
   const embed = new EmbedBuilder()
@@ -150,49 +142,49 @@ async function launchCountdown(interaction: ChatInputCommandInteraction): Promis
   }
   launchInProgress = true;
   try {
-  if (countdownMessage) {
-    await interaction.editReply({
-      content: `The single VEYRO countdown is already running: ${countdownMessage.url}`,
+    if (countdownMessage) {
+      await interaction.editReply({
+        content: `The single VEYRO countdown is already running: ${countdownMessage.url}`,
+      });
+      return;
+    }
+
+    const existing = await getExistingMessage();
+    if (existing) {
+      countdownMessage = existing;
+      startMinuteUpdates(existing);
+      await interaction.editReply({
+        content: `The VEYRO countdown is already running: ${existing.url}`,
+      });
+      return;
+    }
+
+    if (!interaction.channel?.isTextBased()) {
+      await interaction.editReply("Please run /countdown in a text channel where the bot can send messages.");
+      return;
+    }
+
+    if (Date.now() >= TARGET_TIMESTAMP) {
+      await interaction.editReply("The configured countdown target has already passed.");
+      return;
+    }
+
+    const image = await createCountdownImage();
+    const message = await interaction.channel.send({
+      embeds: [makeEmbed()],
+      files: [new AttachmentBuilder(image, { name: IMAGE_NAME })],
+      allowedMentions: { parse: [] },
     });
-    return;
-  }
 
-  const existing = await getExistingMessage();
-  if (existing) {
-    countdownMessage = existing;
-    startMinuteUpdates(existing);
-    await interaction.editReply({
-      content: `The VEYRO countdown is already running: ${existing.url}`,
+    countdownMessage = message;
+    await saveState({
+      channelId: message.channelId,
+      messageId: message.id,
+      startedAt: new Date().toISOString(),
     });
-    return;
-  }
+    startMinuteUpdates(message);
 
-  if (!interaction.channel?.isTextBased()) {
-    await interaction.editReply("Please run /countdown in a text channel where the bot can send messages.");
-    return;
-  }
-
-  if (Date.now() >= TARGET_TIMESTAMP) {
-    await interaction.editReply("The configured countdown target has already passed.");
-    return;
-  }
-
-  const image = await createCountdownImage();
-  const message = await interaction.channel.send({
-    embeds: [makeEmbed()],
-    files: [new AttachmentBuilder(image, { name: IMAGE_NAME })],
-    allowedMentions: { parse: [] },
-  });
-
-  countdownMessage = message;
-  await saveState({
-    channelId: message.channelId,
-    messageId: message.id,
-    startedAt: new Date().toISOString(),
-  });
-  startMinuteUpdates(message);
-
-  await interaction.editReply(`Countdown launched. This single message will refresh every minute: ${message.url}`);
+    await interaction.editReply(`Countdown launched. This single message will refresh every minute: ${message.url}`);
   } finally {
     launchInProgress = false;
   }
