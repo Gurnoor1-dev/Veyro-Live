@@ -9,8 +9,8 @@
   "scripts": {
     "start": "bun run index.ts",
     "dev": "bun --watch run index.ts",
-    "check": "bun build ./index.ts --target=bun --outdir=/tmp/veyro-discord-check",
-    "check:countdown": "bun build ./countdown.ts --target=bun --outdir=/tmp/veyro-countdown-check"
+    "check": "bun build ./index.ts --target=bun --external discord.js --external @napi-rs/canvas --outdir=/tmp/veyro-discord-check",
+    "check:countdown": "bun build ./countdown.ts --target=bun --external @napi-rs/canvas --outdir=/tmp/veyro-countdown-check"
   },
   "dependencies": {
     "@napi-rs/canvas": "^0.1.80",
