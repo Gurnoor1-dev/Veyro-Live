@@ -1,7 +1,32 @@
+import { createClient } from "npm:@supabase/supabase-js@2.56.0";
+
 export const IF_AUTH = "https://api.infiniteflight.com/auth/v2/connect";
 export const IF_API = "https://api.infiniteflight.com/public/v3";
 
 type ApiEnvelope<T> = { errorCode: number; result: T };
+
+export class IfApiRateLimitError extends Error {
+  retryAfterSeconds: number;
+  constructor(retryAfterSeconds: number) {
+    super("VEYRO has reached its Infinite Flight API request limit. Please retry shortly.");
+    this.name = "IfApiRateLimitError";
+    this.retryAfterSeconds = retryAfterSeconds;
+  }
+}
+
+async function reserveIfApiRequest(): Promise<void> {
+  const url = Deno.env.get("SUPABASE_URL");
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!url || !serviceKey) throw new Error("API rate-limit guard is not configured");
+  const admin = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
+  const { data, error } = await admin.rpc("consume_if_api_request");
+  if (error || !Array.isArray(data) || !data[0]) {
+    throw new Error("Could not verify the Infinite Flight API request allowance");
+  }
+  if (!data[0].allowed) {
+    throw new IfApiRateLimitError(Math.max(1, Number(data[0].retry_after_seconds) || 3));
+  }
+}
 
 export async function ifRequest<T>(token: string, path: string, init: RequestInit = {}): Promise<T> {
   if (!path.startsWith("/live/") || path.includes("..")) throw new Error("Unsupported API path");
@@ -14,6 +39,9 @@ export async function ifRequest<T>(token: string, path: string, init: RequestIni
   }
 
   const send = async (url: URL): Promise<ApiEnvelope<T>> => {
+    // Reserve centrally in Postgres before every outbound PublicApi v3 request.
+    // This rolling-window guard is shared by every Edge Function instance.
+    await reserveIfApiRequest();
     const response = await fetch(url, {
       ...init,
       headers: {
@@ -24,6 +52,10 @@ export async function ifRequest<T>(token: string, path: string, init: RequestIni
       },
     });
     const payload = await response.json().catch(() => null);
+    if (response.status === 429) {
+      const retry = Number(response.headers.get("Retry-After")) || 5;
+      throw new IfApiRateLimitError(retry);
+    }
     if (!response.ok || payload?.errorCode !== 0) {
       const status = response.status;
       const code = Number(payload?.errorCode);
