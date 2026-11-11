@@ -1,7 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.56.0";
 import { json, fail } from "../_shared/http.ts";
 import { decryptSecret } from "../_shared/crypto.ts";
-import { ifRequest } from "../_shared/infinite-flight.ts";
+import { ifRequest, IfApiRateLimitError } from "../_shared/infinite-flight.ts";
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return json({ ok: true });
   if (req.method !== "POST") return fail("Method not allowed", 405);
@@ -19,5 +19,5 @@ Deno.serve(async (req) => {
     const token = await decryptSecret(pending.access_token_ciphertext);
     const organizations = await ifRequest<Array<{ id: string; name?: string; role: number }>>(token, "/live/organizations");
     return json({ organizations: organizations.map((org) => ({ id: org.id, name: org.name ?? "Live organization", role: org.role })) });
-  } catch { return fail("Could not load your Live organizations.", 502); }
+  } catch (error) { if (error instanceof IfApiRateLimitError) return fail(error.message, 429, { "Retry-After": String(error.retryAfterSeconds) }); return fail("Could not load your Live organizations.", 502); }
 });
