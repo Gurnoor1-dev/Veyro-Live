@@ -1,7 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.56.0";
 import { json, fail } from "../_shared/http.ts";
 import { getOrganizationAccessToken } from "../_shared/org-token.ts";
-import { ifRequest } from "../_shared/infinite-flight.ts";
+import { ifRequest, IfApiRateLimitError } from "../_shared/infinite-flight.ts";
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return json({ ok: true });
   if (req.method !== "POST") return fail("Method not allowed", 405);
@@ -21,5 +21,5 @@ Deno.serve(async (req) => {
     const path = body.action === "organization" ? "/live/organizations/" + org.live_organization_id : body.action === "aircraft" ? "/live/organizations/" + org.live_organization_id + "/aircraft" : "/live/organizations/" + org.live_organization_id + "/schedules";
     const result = await ifRequest(token, path);
     return json({ result });
-  } catch { return fail("Live data could not be retrieved. Retry or reconnect the organization.", 502); }
+  } catch (error) { if (error instanceof IfApiRateLimitError) return fail(error.message, 429, { "Retry-After": String(error.retryAfterSeconds) }); return fail("Live data could not be retrieved. Retry or reconnect the organization.", 502); }
 });
