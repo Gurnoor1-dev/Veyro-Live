@@ -1,7 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.56.0";
 import { json, fail } from "../_shared/http.ts";
 import { getOrganizationAccessToken } from "../_shared/org-token.ts";
-import { ifRequest } from "../_shared/infinite-flight.ts";
+import { ifRequest, IfApiRateLimitError } from "../_shared/infinite-flight.ts";
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return json({ ok: true });
   if (req.method !== "POST") return fail("Method not allowed", 405);
@@ -72,7 +72,8 @@ Deno.serve(async (req) => {
     }
     await admin.from("booking_requests").update({ discord_message_id: discordMessage.id }).eq("id", booking.id);
     return json({ booking });
-  } catch {
+  } catch (error) {
+    if (error instanceof IfApiRateLimitError) return fail(error.message, 429, { "Retry-After": String(error.retryAfterSeconds) });
     return fail("Could not verify the current Live schedule or create the approval request.", 502);
   }
 });
