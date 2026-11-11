@@ -1,14 +1,14 @@
 {
-  "name": "veyro-live-discord-bot",
-  "private": true,
+  "name": "veyro-live-discord",
   "version": "1.0.0",
+  "private": true,
   "type": "module",
   "scripts": {
     "start": "bun run index.ts",
-    "dev": "bun --watch run index.ts"
+    "dev": "bun --watch run index.ts",
+    "check": "bun build ./index.ts --target=bun --outdir=/tmp/veyro-discord-check"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.56.0"
-  },
-  "devDependencies": {}
+    "@supabase/supabase-js": "2.56.0"
+  }
 }
