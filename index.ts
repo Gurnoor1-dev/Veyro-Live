@@ -9,7 +9,6 @@ import {
   SlashCommandBuilder,
   type ChatInputCommandInteraction,
   type Message,
-  type TextBasedChannel,
 } from "discord.js";
 import { readFile, writeFile } from "node:fs/promises";
 import {
@@ -37,6 +36,7 @@ type CountdownState = {
 let countdownMessage: Message | null = null;
 let updateTimer: ReturnType<typeof setInterval> | null = null;
 let updateInProgress = false;
+let launchInProgress = false;
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds],
@@ -134,7 +134,7 @@ async function getExistingMessage(): Promise<Message | null> {
 
   try {
     const channel = await client.channels.fetch(state.channelId);
-    if (!channel?.isTextBased() || !("messages" in channel)) return null;
+    if (!channel?.isTextBased()) return null;
     return await channel.messages.fetch(state.messageId);
   } catch {
     return null;
@@ -144,6 +144,12 @@ async function getExistingMessage(): Promise<Message | null> {
 async function launchCountdown(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply({ ephemeral: true });
 
+  if (launchInProgress) {
+    await interaction.editReply("The countdown is currently being initialised. Please try again in a moment.");
+    return;
+  }
+  launchInProgress = true;
+  try {
   if (countdownMessage) {
     await interaction.editReply({
       content: `The single VEYRO countdown is already running: ${countdownMessage.url}`,
@@ -161,7 +167,7 @@ async function launchCountdown(interaction: ChatInputCommandInteraction): Promis
     return;
   }
 
-  if (!interaction.channel || !interaction.channel.isTextBased() || !("send" in interaction.channel)) {
+  if (!interaction.channel?.isTextBased()) {
     await interaction.editReply("Please run /countdown in a text channel where the bot can send messages.");
     return;
   }
@@ -187,6 +193,9 @@ async function launchCountdown(interaction: ChatInputCommandInteraction): Promis
   startMinuteUpdates(message);
 
   await interaction.editReply(`Countdown launched. This single message will refresh every minute: ${message.url}`);
+  } finally {
+    launchInProgress = false;
+  }
 }
 
 client.once(Events.ClientReady, async (readyClient) => {
