@@ -1,7 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.56.0";
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": Deno.env.get("APP_BASE_URL") ?? "https://example.invalid",
+  "Access-Control-Allow-Origin": process.env."APP_BASE_URL" ?? "https://example.invalid",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
@@ -49,14 +49,14 @@ async function verifyDiscordSignature(
   }
 }
 
-Deno.serve(async (req) => {
+Bun.serve({ port: Number(process.env.PORT ?? 3000), async fetch(req) {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return fail("Method not allowed", 405);
 
   const raw = await req.text();
-  const signature = req.headers.get("x-signature-ed25519") ?? "";
-  const timestamp = req.headers.get("x-signature-timestamp") ?? "";
-  const publicKey = Deno.env.get("DISCORD_PUBLIC_KEY") ?? "";
+  const signature = req.headers.get("x-signature-ed25519" ?? "";
+  const timestamp = req.headers.get("x-signature-timestamp" ?? "";
+  const publicKey = Deno.env.get("DISCORD_PUBLIC_KEY" ?? "";
 
   if (!signature || !timestamp || !publicKey) return fail("Invalid Discord signature", 401);
 
@@ -179,4 +179,5 @@ Deno.serve(async (req) => {
   }
 
   return json({ type: 4, data: { content: "Request rejected.", flags: 64 } });
+  },
 });
