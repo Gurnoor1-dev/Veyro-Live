@@ -1,14 +1,19 @@
 {
   "name": "veyro-live-discord",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "type": "module",
+  "engines": {
+    "bun": ">=1.2.0"
+  },
   "scripts": {
     "start": "bun run index.ts",
     "dev": "bun --watch run index.ts",
-    "check": "bun build ./index.ts --target=bun --outdir=/tmp/veyro-discord-check"
+    "check": "bun build ./index.ts --target=bun --outdir=/tmp/veyro-discord-check",
+    "check:countdown": "bun build ./countdown.ts --target=bun --outdir=/tmp/veyro-countdown-check"
   },
   "dependencies": {
-    "@supabase/supabase-js": "2.56.0"
+    "@napi-rs/canvas": "^0.1.80",
+    "discord.js": "^14.25.1"
   }
 }
