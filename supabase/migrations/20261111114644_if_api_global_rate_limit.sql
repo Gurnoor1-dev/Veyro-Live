@@ -22,19 +22,19 @@ AS $$
 DECLARE
   request_count integer;
   oldest_request timestamptz;
-  current_time timestamptz := clock_timestamp();
+  v_now timestamptz := clock_timestamp();
 BEGIN
-  UPDATE private.if_api_rate_limit_lock SET touched_at = current_time WHERE id = true;
-  DELETE FROM private.if_api_request_events WHERE requested_at <= current_time - interval '2 minutes';
+  UPDATE private.if_api_rate_limit_lock SET touched_at = v_now WHERE id = true;
+  DELETE FROM private.if_api_request_events WHERE requested_at <= v_now - interval '2 minutes';
   SELECT count(*), min(requested_at) INTO request_count, oldest_request
     FROM private.if_api_request_events
-    WHERE requested_at > current_time - interval '1 minute';
+    WHERE requested_at > v_now - interval '1 minute';
   IF request_count >= 20 THEN
     RETURN QUERY SELECT false,
-      greatest(1, ceil(extract(epoch FROM (oldest_request + interval '1 minute' - current_time)))::integer);
+      greatest(1, ceil(extract(epoch FROM (oldest_request + interval '1 minute' - v_now)))::integer);
     RETURN;
   END IF;
-  INSERT INTO private.if_api_request_events(requested_at) VALUES (current_time);
+  INSERT INTO private.if_api_request_events(requested_at) VALUES (v_now);
   RETURN QUERY SELECT true, 0;
 END;
 $$;
