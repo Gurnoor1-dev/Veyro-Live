@@ -4,6 +4,7 @@ import {
   EmbedBuilder,
   Events,
   GatewayIntentBits,
+  PermissionFlagsBits,
   REST,
   Routes,
   SlashCommandBuilder,
@@ -44,7 +45,8 @@ const client = new Client({
 
 const countdownCommand = new SlashCommandBuilder()
   .setName("countdown")
-  .setDescription("Launch the VEYRO LIVE countdown in this channel.");
+  .setDescription("Launch the VEYRO LIVE countdown in this channel.")
+  .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild);
 
 async function loadState(): Promise<CountdownState | null> {
   try {
