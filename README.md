@@ -1,40 +1,33 @@
-# VEYRO Live
+# VEYRO Live — Discord interactions bot
 
-A multi-organization operations and pilot portal for Infinite Flight Live organizations.
+This branch contains only the standalone Discord interactions service. It is intentionally kept at the repository root rather than inside a `Discord bot/` directory.
 
-> **Status:** Initial foundation. Infinite Flight PublicApi v3 is a preview; production use must wait for API stability and application approval.
+## Runtime
 
-## Product
-VEYRO Live gives each participating Virtual Airline an isolated organization portal on one shared platform. Organization owners connect their Live organization, pilots sign in, browse published Live schedules, reserve a leg, and request approval. Authorized administrators can approve or reject requests through Discord. Approved assignments are synchronized to Infinite Flight Live through PublicApi v3.
+- Deno
+- Supabase JS client
+- Discord Interactions Endpoint (HTTP; no Gateway process or privileged message-content intent)
 
-## Documentation
-- [Architecture](docs/ARCHITECTURE.md)
-- [Organization guide](docs/ORGANISATIONS.md)
-- [Pilot guide](docs/PILOTS.md)
-- [Developer contribution guide](docs/CONTRIBUTING.md)
-- [Security guide](docs/SECURITY.md)
-- [Infinite Flight data compliance](docs/API-COMPLIANCE.md)
-- [Proprietary licence](LICENSE)
+## Required environment variables
 
-## Stack
-- React, TypeScript and Vite
-- Supabase Auth, PostgreSQL and Edge Functions
-- Vercel hosting (configuration prepared; **not deployed**)
+- `DISCORD_PUBLIC_KEY` — application public key from Discord Developer Portal
+- `SUPABASE_URL` — Supabase project URL
+- `SUPABASE_SERVICE_ROLE_KEY` — service-role key; keep private and configure only in the server runtime
+- `APP_BASE_URL` — optional allowed origin for CORS responses
 
-## Local development
-1. Copy `.env.example` to `.env.local` and fill in the public Supabase project URL and publishable/anon key.
-2. Install dependencies with `npm install`.
-3. Run `npm run dev`.
-4. Apply migrations using the Supabase CLI after linking your own Supabase project: `supabase db push`.
-5. Configure Edge Function secrets using the Supabase dashboard or CLI. Never put privileged secrets in Vite variables.
+Never commit secrets or place them in frontend code.
 
-## Security boundary
-The browser may call Supabase Edge Functions, but it must never call Infinite Flight's authenticated API directly. OAuth code exchange, token refresh, Live API requests, Discord interaction verification and V3 crew assignment belong in server-side Edge Functions.
+## Run locally
 
-## Current scaffold boundaries
-The initial codebase includes the Vite shell, tenant schema, OAuth PKCE start/callback staging, organization selection, read-only V3 Edge Function, booking-request persistence, Discord approval message creation and signed interaction handling. The pilot identity-link flow, end-to-end Discord installation/configuration, full token-refresh race handling, production approval/retry UX and complete pilot/admin screens still need implementation and tests. Booking requests are gated until a verified Infinite Flight user ID is linked to the pilot profile.
+```sh
+deno task check
+deno task start
+```
 
-## Important limitations
-PublicApi v3 is under active development. Its endpoint contracts, scopes, response fields and approval requirements can change. Live API data-use rules also restrict retention and sharing. This scaffold deliberately does not persist mirrored fleet, member, schedule, flight-log or pilot-time snapshots. Review [API compliance](docs/API-COMPLIANCE.md) and obtain Infinite Flight approval before a public launch.
+Configure the Discord application's **Interactions Endpoint URL** to the deployed HTTPS endpoint for this service. Discord sends a signed PING during endpoint validation.
 
-VEYRO Live is an independent third-party project and is not affiliated with Infinite Flight.
+## Approval flow
+
+The service verifies Discord's Ed25519 signature and timestamp, validates the configured guild, channel, and approver role, then verifies that the Discord account is linked to an active VEYRO organization owner/admin profile. It records the decision in Supabase and invokes the `sync-approval` Edge Function for accepted requests.
+
+The service expects the VEYRO Live database tables and Edge Function to exist in the connected Supabase project. It does not include frontend, database migrations, or unrelated application files.
