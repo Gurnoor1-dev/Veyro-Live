@@ -1,7 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.56.0";
 import { json, fail } from "../_shared/http.ts";
 import { getOrganizationAccessToken } from "../_shared/org-token.ts";
-import { ifRequest } from "../_shared/infinite-flight.ts";
+import { ifRequest, IfApiRateLimitError } from "../_shared/infinite-flight.ts";
 Deno.serve(async (req) => {
   if (req.method !== "POST") return fail("Method not allowed", 405);
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -26,7 +26,8 @@ Deno.serve(async (req) => {
     if (error) throw error;
     await admin.from("audit_events").insert({ organization_id: booking.organization_id, actor_user_id: booking.reviewed_by, event_type: "booking.live_assignment_confirmed", subject_id: booking.id });
     return json({ success: true, result });
-  } catch {
+  } catch (error) {
+    if (error instanceof IfApiRateLimitError) return fail(error.message, 429, { "Retry-After": String(error.retryAfterSeconds) });
     await admin.from("booking_requests").update({ sync_error_code: "live_assignment_failed" }).eq("id", booking.id);
     return fail("Live crew assignment failed. Request remains retryable.", 502);
   }
