@@ -141,9 +141,7 @@ function drawTimeCard(
 
   ctx.fillStyle = "#91a8c7";
   ctx.font = "700 15px Arial";
-  ctx.letterSpacing = "3px";
   ctx.fillText(label, x + width / 2, y + 151);
-  ctx.letterSpacing = "0px";
 }
 
 function drawCompletion(ctx: SKRSContext2D) {
