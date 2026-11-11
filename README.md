@@ -45,8 +45,9 @@ No Supabase credentials, Discord public key, HTTP interaction endpoint, or datab
 2. Enable the **bot** and **applications.commands** scopes in its OAuth2 invite URL.
 3. Invite it to the server.
 4. Grant it **View Channel**, **Send Messages**, **Embed Links**, **Attach Files**, and **Read Message History** permissions in the channel where the countdown should appear.
-5. Add `DISCORD_BOT_TOKEN` to the host's private secrets.
-6. Start the service and wait for the `/countdown` command to register.
+5. The person running `/countdown` must have Discord's **Manage Server** permission.
+6. Add `DISCORD_BOT_TOKEN` to the host's private secrets.
+7. Start the service and wait for the `/countdown` command to register.
 
 Run `/countdown` once in the channel where the image should live. Re-running the command will point to the existing countdown instead of creating another one.
 
