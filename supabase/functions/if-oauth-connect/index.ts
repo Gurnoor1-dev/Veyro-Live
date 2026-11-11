@@ -1,7 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.56.0";
 import { json, fail } from "../_shared/http.ts";
 import { decryptSecret } from "../_shared/crypto.ts";
-import { ifRequest } from "../_shared/infinite-flight.ts";
+import { ifRequest, IfApiRateLimitError } from "../_shared/infinite-flight.ts";
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return json({ ok: true });
   if (req.method !== "POST") return fail("Method not allowed", 405);
@@ -44,5 +44,5 @@ Deno.serve(async (req) => {
     if (connectionError) { await admin.from("organizations").delete().eq("id", org.id); throw connectionError; }
     await admin.from("oauth_pending_connections").delete().eq("id", pending.id);
     return json({ organization: org });
-  } catch { return fail("Organization connection failed. No Live data was saved.", 502); }
+  } catch (error) { if (error instanceof IfApiRateLimitError) return fail(error.message, 429, { "Retry-After": String(error.retryAfterSeconds) }); return fail("Organization connection failed. No Live data was saved.", 502); }
 });
