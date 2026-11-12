@@ -10,6 +10,7 @@ let savedState: CountdownState | null = null;
 let botToken = "";
 let updateTimer: ReturnType<typeof setInterval> | null = null;
 let updateInProgress = false;
+let launchInProgress: Promise<string> | null = null;
 
 function messageUrl(state: CountdownState) {
   return "https://discord.com/channels/" + (state.guildId ?? "@me") + "/" + state.channelId + "/" + state.messageId;
@@ -101,7 +102,7 @@ export async function startCountdownService(token: string) {
   }
 }
 
-export async function launchCountdown(channelId: string, token: string): Promise<string> {
+async function createOrFindCountdown(channelId: string, token: string): Promise<string> {
   botToken = token;
   if (!botToken) throw new Error("The Discord bot token is not configured.");
   if (savedState) {
@@ -357,4 +358,12 @@ export async function createCountdownImage(now = Date.now()): Promise<Buffer> {
   ctx.fillText("VEYRO LIVE  •  COUNTDOWN SYSTEM", 800, 835);
 
   return canvas.toBuffer("image/png");
+}
+
+export function launchCountdown(channelId: string, token: string): Promise<string> {
+  if (launchInProgress) return launchInProgress;
+  launchInProgress = createOrFindCountdown(channelId, token).finally(() => {
+    launchInProgress = null;
+  });
+  return launchInProgress;
 }
