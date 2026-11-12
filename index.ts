@@ -364,15 +364,24 @@ async function registerCountdownCommand() {
   });
   if (!meResponse.ok) throw new Error(`Could not identify the Discord bot (${meResponse.status}).`);
   const me = await meResponse.json() as { id: string };
-  const response = await fetch(`https://discord.com/api/v10/applications/${me.id}/commands`, {
+  const commandsUrl = `https://discord.com/api/v10/applications/${me.id}/commands`;
+  const currentResponse = await fetch(commandsUrl, {
+    headers: { Authorization: `Bot ${env.discordBotToken}` },
+  });
+  if (!currentResponse.ok) throw new Error(`Could not read existing application commands (${currentResponse.status}).`);
+  const currentCommands = await currentResponse.json() as Array<Record<string, unknown> & { name: string }>;
+  const commands = currentCommands.filter((command) => command.name !== "countdown");
+  commands.push({
+    name: "countdown",
+    description: "Launch the VEYRO LIVE countdown in this channel.",
+    type: 1,
+    default_member_permissions: "32",
+  });
+
+  const response = await fetch(commandsUrl, {
     method: "PUT",
     headers: { Authorization: `Bot ${env.discordBotToken}`, "Content-Type": "application/json" },
-    body: JSON.stringify([{
-      name: "countdown",
-      description: "Launch the VEYRO LIVE countdown in this channel.",
-      type: 1,
-      default_member_permissions: "32",
-    }]),
+    body: JSON.stringify(commands),
   });
   if (!response.ok) throw new Error(`Could not register /countdown (${response.status}): ${await response.text()}`);
   console.log("Registered /countdown (Manage Server permission required).");
