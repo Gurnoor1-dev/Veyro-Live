@@ -1,5 +1,128 @@
 import { createCanvas, type SKRSContext2D } from "@napi-rs/canvas";
 
+import { readFile, writeFile } from "node:fs/promises";
+
+const STATE_FILE = new URL("./countdown-state.json", import.meta.url);
+const UPDATE_INTERVAL_MS = 60_000;
+const IMAGE_NAME = "veyro-countdown.png";
+type CountdownState = { channelId: string; messageId: string };
+let savedState: CountdownState | null = null;
+let botToken = "";
+let updateTimer: ReturnType<typeof setInterval> | null = null;
+let updateInProgress = false;
+
+function messageUrl(state: CountdownState) {
+  return "https://discord.com/channels/@me/" + state.channelId + "/" + state.messageId;
+}
+
+async function discordRequest(path: string, init: RequestInit = {}) {
+  const response = await fetch("https://discord.com/api/v10" + path, {
+    ...init,
+    headers: { Authorization: "Bot " + botToken, ...(init.headers ?? {}) },
+  });
+  if (!response.ok) throw new Error("Discord API request failed (" + response.status + "): " + await response.text());
+  return response;
+}
+
+async function persistState(state: CountdownState | null) {
+  savedState = state;
+  if (state) {
+    await writeFile(STATE_FILE, JSON.stringify(state, null, 2), "utf8");
+  } else {
+    try { await writeFile(STATE_FILE, "", "utf8"); } catch { /* no previous state */ }
+  }
+}
+
+async function buildMessageForm(now = Date.now()) {
+  const parts = getCountdownParts(now);
+  const image = await createCountdownImage(now);
+  const form = new FormData();
+  form.append("payload_json", JSON.stringify({
+    embeds: [{
+      color: parts.complete ? 6543037 : 3777791,
+      title: parts.complete ? "The countdown is complete" : "A moment worth counting down to",
+      description: parts.complete
+        ? "The target time — **" + TARGET_LABEL + "** — has arrived."
+        : "**Target:** " + TARGET_LABEL + "\n**Format:** DD  HH  MM  SS",
+      image: { url: "attachment://" + IMAGE_NAME },
+      footer: { text: parts.complete ? "VEYRO LIVE • THE MOMENT IS HERE" : "VEYRO LIVE • AUTO-REFRESHES EVERY MINUTE" },
+    }],
+    attachments: [{ id: 0, filename: IMAGE_NAME }],
+    allowed_mentions: { parse: [] },
+  }));
+  form.append("files[0]", new Blob([image], { type: "image/png" }), IMAGE_NAME);
+  return form;
+}
+
+async function updateSavedMessage() {
+  if (!savedState || !botToken || updateInProgress) return;
+  updateInProgress = true;
+  try {
+    const form = await buildMessageForm();
+    await discordRequest("/channels/" + savedState.channelId + "/messages/" + savedState.messageId, {
+      method: "PATCH",
+      body: form,
+    });
+    if (getCountdownParts().complete && updateTimer) {
+      clearInterval(updateTimer);
+      updateTimer = null;
+      console.log("VEYRO countdown completed.");
+    }
+  } finally {
+    updateInProgress = false;
+  }
+}
+
+function beginUpdates() {
+  if (updateTimer) clearInterval(updateTimer);
+  if (getCountdownParts().complete) {
+    void updateSavedMessage().catch((error) => console.error("Final countdown update failed:", error));
+    return;
+  }
+  updateTimer = setInterval(() => {
+    void updateSavedMessage().catch((error) => console.error("Countdown refresh failed:", error));
+  }, UPDATE_INTERVAL_MS);
+}
+
+export async function startCountdownService(token: string) {
+  botToken = token;
+  if (!botToken) return;
+  try {
+    const raw = await readFile(STATE_FILE, "utf8");
+    const parsed = JSON.parse(raw) as CountdownState;
+    if (parsed.channelId && parsed.messageId) {
+      await discordRequest("/channels/" + parsed.channelId + "/messages/" + parsed.messageId);
+      savedState = parsed;
+      beginUpdates();
+      console.log("Restored the existing VEYRO countdown message.");
+    }
+  } catch {
+    // No saved countdown yet, or the previous Discord message no longer exists.
+  }
+}
+
+export async function launchCountdown(channelId: string, token: string): Promise<string> {
+  botToken = token;
+  if (!botToken) throw new Error("The Discord bot token is not configured.");
+  if (savedState) {
+    try {
+      await discordRequest("/channels/" + savedState.channelId + "/messages/" + savedState.messageId);
+      return messageUrl(savedState);
+    } catch {
+      await persistState(null);
+    }
+  }
+  if (getCountdownParts().complete) throw new Error("The configured countdown target has already passed.");
+  const form = await buildMessageForm();
+  const response = await discordRequest("/channels/" + channelId + "/messages", { method: "POST", body: form });
+  const message = await response.json() as { id: string; channel_id: string };
+  const state = { channelId: message.channel_id, messageId: message.id };
+  await persistState(state);
+  beginUpdates();
+  return messageUrl(state);
+}
+
+
 export const TARGET_TIMESTAMP = Date.UTC(2026, 10, 13, 0, 0, 0);
 export const TARGET_LABEL = "13 NOVEMBER 2026  ·  00:00 UTC";
 
