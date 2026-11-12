@@ -5,14 +5,14 @@ import { readFile, writeFile } from "node:fs/promises";
 const STATE_FILE = new URL("./countdown-state.json", import.meta.url);
 const UPDATE_INTERVAL_MS = 60_000;
 const IMAGE_NAME = "veyro-countdown.png";
-type CountdownState = { channelId: string; messageId: string };
+type CountdownState = { channelId: string; messageId: string; guildId?: string };
 let savedState: CountdownState | null = null;
 let botToken = "";
 let updateTimer: ReturnType<typeof setInterval> | null = null;
 let updateInProgress = false;
 
 function messageUrl(state: CountdownState) {
-  return "https://discord.com/channels/@me/" + state.channelId + "/" + state.messageId;
+  return "https://discord.com/channels/" + (state.guildId ?? "@me") + "/" + state.channelId + "/" + state.messageId;
 }
 
 async function discordRequest(path: string, init: RequestInit = {}) {
@@ -115,8 +115,8 @@ export async function launchCountdown(channelId: string, token: string): Promise
   if (getCountdownParts().complete) throw new Error("The configured countdown target has already passed.");
   const form = await buildMessageForm();
   const response = await discordRequest("/channels/" + channelId + "/messages", { method: "POST", body: form });
-  const message = await response.json() as { id: string; channel_id: string };
-  const state = { channelId: message.channel_id, messageId: message.id };
+  const message = await response.json() as { id: string; channel_id: string; guild_id?: string };
+  const state = { channelId: message.channel_id, messageId: message.id, guildId: message.guild_id };
   await persistState(state);
   beginUpdates();
   return messageUrl(state);
