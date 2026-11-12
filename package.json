@@ -9,11 +9,12 @@
   "scripts": {
     "start": "bun run index.ts",
     "dev": "bun --watch run index.ts",
-    "check": "bun build ./index.ts --target=bun --external discord.js --external @napi-rs/canvas --outdir=/tmp/veyro-discord-check",
+    "check": "bun build ./index.ts --target=bun --external @napi-rs/canvas --outdir=/tmp/veyro-discord-check",
     "check:countdown": "bun build ./countdown.ts --target=bun --external @napi-rs/canvas --outdir=/tmp/veyro-countdown-check"
   },
   "dependencies": {
     "@napi-rs/canvas": "^0.1.80",
-    "discord.js": "^14.25.1"
+    "discord.js": "^14.25.1",
+    "@supabase/supabase-js": "2.56.0"
   }
 }
