@@ -24,6 +24,7 @@ const env = {
 const missing = Object.entries(env)
   .filter(([, value]) => !value)
   .map(([key]) => key);
+const missingDiscord = ["discordPublicKey", "discordBotToken"].filter((key) => !env[key as keyof typeof env]);
 
 const supabase = env.supabaseUrl && env.serviceRoleKey
   ? createClient(env.supabaseUrl, env.serviceRoleKey, {
@@ -284,13 +285,17 @@ async function handleInteraction(interaction: Interaction): Promise<Response> {
     if (!interaction.channel_id) {
       return json({ type: 4, data: { content: "Run /countdown inside a server text channel.", flags: 64 } });
     }
-    void launchCountdown(interaction.channel_id, env.discordBotToken)
-      .then((url) => editInteractionReply(interaction, `VEYRO LIVE countdown is running: ${url}`))
-      .catch(async (error) => {
-        console.error("Could not launch the countdown:", error);
-        await editInteractionReply(interaction, error instanceof Error ? error.message : "Could not start the countdown.");
-      });
-    return json({ type: 5, data: { flags: 64 } });
+    // Return the deferred acknowledgement before rendering the PNG or calling Discord's API.
+    const acknowledgement = json({ type: 5, data: { flags: 64 } });
+    setTimeout(() => {
+      void launchCountdown(interaction.channel_id!, env.discordBotToken)
+        .then((url) => editInteractionReply(interaction, `VEYRO LIVE countdown is running: ${url}`))
+        .catch(async (error) => {
+          console.error("Could not launch the countdown:", error);
+          await editInteractionReply(interaction, error instanceof Error ? error.message : "Could not start the countdown.");
+        });
+    }, 0);
+    return acknowledgement;
   }
 
   if (interaction.type !== 3) {
@@ -320,16 +325,17 @@ Bun.serve({
     if (request.method === "GET" && (url.pathname === "/" || url.pathname === "/health")) {
       return json({
         service: "veyro-live-discord",
-        status: missing.length === 0 ? "ready" : "configuration_required",
-        missing,
-      }, missing.length === 0 ? 200 : 503);
+        status: missingDiscord.length === 0 ? "ready" : "configuration_required",
+        missing: missingDiscord,
+        bookingIntegration: supabase ? "configured" : "not_configured",
+      }, missingDiscord.length === 0 ? 200 : 503);
     }
 
     if (url.pathname !== "/discord/interactions") {
       return json({ error: "Not found" }, 404);
     }
     if (request.method !== "POST") return json({ error: "Method not allowed" }, 405);
-    if (missing.length > 0) return json({ error: "Discord service is not configured", missing }, 503);
+    if (missingDiscord.length > 0) return json({ error: "Discord service is not configured", missing: missingDiscord }, 503);
 
     const rawBody = await request.text();
     if (rawBody.length > 256_000) return json({ error: "Payload too large" }, 413);
