@@ -43,7 +43,7 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.organization-application]
-verify_jwt = true
+verify_jwt = false
 
 [functions.organization-application-discord]
 verify_jwt = false
