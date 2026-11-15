@@ -41,3 +41,9 @@ verify_jwt = true
 
 [functions.pilot-live-data]
 verify_jwt = true
+
+[functions.organization-application]
+verify_jwt = true
+
+[functions.organization-application-discord]
+verify_jwt = false
