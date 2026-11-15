@@ -172,7 +172,7 @@ A normal Live Member must never be able to create the portal or elevate themselv
 
 ## 10. Pilot sign-in and organization selection
 
-For dashboard testing, any signed-in Infinite Flight user can select any organization returned by their own `GET /live/organizations` response, including organizations where they are only a Member and organizations not yet connected to Veyro. The `pilot-live-data` Edge Function verifies membership with the user's token and reads schedules/aircraft directly. It stores only encrypted OAuth credentials in `user_if_connections`; it does not store Live data. Apply migration `20261115130000_pilot_personal_if_connections.sql` and deploy `pilot-live-data` to enable this preview. The preview is read-only and does not bypass Infinite Flight membership checks.
+For dashboard testing, any signed-in Infinite Flight user can select any organization returned by their own `GET /live/organizations` response, including organizations where they are only a Member and organizations not yet connected to Veyro. The `pilot-live-data` Edge Function verifies membership with the user's token and reads schedules/aircraft directly. It stores only encrypted OAuth credentials in `user_if_connections`; it does not store Live data. Apply migration `20261115083550_pilot_personal_if_connections.sql` and deploy `pilot-live-data` to enable this preview. The preview is read-only and does not bypass Infinite Flight membership checks.
 
 
 
