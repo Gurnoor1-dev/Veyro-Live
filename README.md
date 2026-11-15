@@ -10,7 +10,8 @@ VEYRO Live is a multi-tenant operations portal for Infinite Flight Live Virtual 
 - **Infinite Flight is the source of truth:** organization, aircraft and schedule data are fetched from the Live API when needed. Veyro does not mirror schedule/fleet/member snapshots into its database.
 - **Pilot preview:** any authenticated pilot can select any Live organization returned for their own Infinite Flight account, including Member-only organizations that have never been onboarded into Veyro. This preview is read-only and fetches schedules/fleet directly using the pilot's own OAuth token.
 - **Booking workflow:** pilots request an available schedule; the server validates membership and current schedule state, stores a pending request, and sends a Discord approval message. Approval triggers a Live crew assignment; a booking is shown as approved only after synchronization succeeds.
-- **VA onboarding:** Infinite Flight Owners/Admins apply for a public portal. Applications are reviewed in Discord; approval creates the portal and lists it on the public homepage. Applicants track progress using a private tracking code.\n- **VA administration:** organization owners/admins manage portal settings and members, configure Discord approval, and review operational activity.
+- **VA onboarding:** Infinite Flight Owners/Admins apply for a public portal. Applications are reviewed in Discord; approval creates the portal and lists it on the public homepage. Applicants track progress using a private tracking code.
+- **VA administration:** organization owners/admins manage portal settings and members, configure Discord approval, and review operational activity.
 - **Secure integrations:** Infinite Flight client secrets, OAuth tokens, Discord bot tokens, Supabase service-role keys and encryption keys stay in Supabase Edge Function secrets. Never put them in Vite environment variables.
 
 ## User journeys
@@ -42,7 +43,8 @@ VEYRO Live is a multi-tenant operations portal for Infinite Flight Live Virtual 
 | --- | --- |
 | [Developer setup](docs/DEVELOPER-SETUP.md) | Fork, create Supabase, migrations, secrets, first admin, local development, deployment and troubleshooting |
 | [Architecture](docs/ARCHITECTURE.md) | System boundaries, data flow, tenancy and integration design |
-| [Organization guide](docs/ORGANISATIONS.md) | Owner/admin setup, VA onboarding and organization lifecycle |\n| [Organisation applications](docs/ORG-APPLICATIONS.md) | Applicant flow, tracking codes, Discord review and required secrets |
+| [Organization guide](docs/ORGANISATIONS.md) | Owner/admin setup, VA onboarding and organization lifecycle |
+| [Organisation applications](docs/ORG-APPLICATIONS.md) | Applicant flow, tracking codes, Discord review and required secrets |
 | [Pilot guide](docs/PILOTS.md) | Pilot sign-in, membership selection, schedules and bookings |
 | [Discord setup](docs/DISCORD-SETUP.md) | Bot permissions, interactions endpoint and approval channel |
 | [Security guide](docs/SECURITY.md) | RLS, secrets, OAuth, roles and production hardening |
