@@ -3,7 +3,7 @@ import type { FormEvent } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { ArrowUpRight, CheckCircle2, Clock3, ExternalLink, FileText, ImagePlus, ShieldCheck } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
-import { isSupabaseConfigured, supabase } from "../lib/supabase";
+import { supabase } from "../lib/supabase";
 
 type LiveOrg = { id: string; name: string; role: number; alreadyConnected: boolean };
 type PublicOrg = { id: string; slug: string; display_name: string; logo_url: string | null; tagline: string | null; description: string | null; website_url: string | null; discord_invite_url: string | null };
@@ -21,7 +21,8 @@ export function OrganizationDirectory() {
   const [loading, setLoading] = useState(true);
   useEffect(() => {
     let active = true;
-    supabase?.functions.invoke("organization-application", { body: { action: "directory" } })
+    if (!supabase) { setLoading(false); return () => { active = false; }; }
+    supabase.functions.invoke("organization-application", { body: { action: "directory" } })
       .then(({ data, error }) => { if (active && !error) setOrganizations(data?.organizations ?? []); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
@@ -178,7 +179,8 @@ export function PublicOrganizationPage() {
   const [loading, setLoading] = useState(true);
   useEffect(() => {
     let active = true;
-    supabase?.functions.invoke("organization-application", { body: { action: "directory" } })
+    if (!supabase) { setLoading(false); return () => { active = false; }; }
+    supabase.functions.invoke("organization-application", { body: { action: "directory" } })
       .then(({ data }) => { if (active) setOrg((data?.organizations ?? []).find((o: PublicOrg) => o.slug === slug) ?? null); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
