@@ -137,7 +137,7 @@ export function OrganizationApplicationPage() {
       <div className="application-step"><span>03</span><div><h2>Organisation branding</h2><p>Upload the logo to display in the directory and your portal.</p></div></div>
       <label className="logo-upload"><input type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => void chooseLogo(e.target.files?.[0])}/>{logoPreview ? <img src={logoPreview} alt="Logo preview"/> : <ImagePlus size={24}/>}<span><strong>{logo?.name || "Upload organisation logo"}</strong><small>PNG, JPG or WebP · Maximum 2 MB</small></span></label>
       <div className="notice">Your Infinite Flight organisation name and role are verified automatically. Your logo and public information will be published only after approval.</div>
-      {error && <div className="notice error">{error}</div>}
+      {error && <><div className="notice error">{error}</div><Link className="button button-quiet full" to="/login">Connect Infinite Flight / return to sign in <ArrowUpRight size={14}/></Link></>}
       <button className="button button-primary full" type="submit" disabled={busy || loadingOrgs || !chosen || chosen.alreadyConnected}>{busy ? "Submitting application…" : "Submit for review"} <ArrowUpRight size={15}/></button>
     </form>}
     <footer className="footer"><span>© {new Date().getFullYear()} VEYRO LIVE</span><span>Organisation applications</span></footer>
