@@ -19,38 +19,40 @@ async function userFromRequest(req: Request) {
 
 async function connectionFor(userId: string, pendingId?: string) {
   const db = admin();
-  const { data: saved } = await db.from("user_if_connections").select("*").eq("user_id", userId).maybeSingle();
-  if (saved) {
-    let accessToken = await decryptSecret(saved.access_token_ciphertext);
-    let accessCipher = saved.access_token_ciphertext;
-    let refreshCipher = saved.refresh_token_ciphertext;
-    let expiresAt = saved.token_expires_at;
-    if (saved.token_expires_at && new Date(saved.token_expires_at).getTime() < Date.now() + 60_000) {
-      if (!saved.refresh_token_ciphertext) throw new Error("Your Infinite Flight connection expired. Reconnect Infinite Flight and try again.");
-      const refreshed = await refreshAuthorizationToken(await decryptSecret(saved.refresh_token_ciphertext));
-      accessToken = String(refreshed.access_token);
-      const refreshToken = refreshed.refresh_token ? String(refreshed.refresh_token) : await decryptSecret(saved.refresh_token_ciphertext);
-      accessCipher = await encryptSecret(accessToken);
-      refreshCipher = await encryptSecret(refreshToken);
-      expiresAt = new Date(Date.now() + Number(refreshed.expires_in ?? 1800) * 1000).toISOString();
-      await db.from("user_if_connections").update({
-        access_token_ciphertext: accessCipher,
-        refresh_token_ciphertext: refreshCipher,
-        token_expires_at: expiresAt,
-      }).eq("user_id", userId);
-    }
-    return { accessToken, accessCipher, refreshCipher, expiresAt, scopes: saved.granted_scopes ?? [] };
+  // A fresh OAuth callback always wins over an older saved connection.
+  if (pendingId) {
+    const { data: pending } = await db.from("oauth_pending_connections").select("*").eq("id", pendingId).eq("user_id", userId).single();
+    if (!pending || new Date(pending.expires_at).getTime() < Date.now()) throw new Error("Your Infinite Flight authorization expired. Reconnect and try again.");
+    return {
+      accessToken: await decryptSecret(pending.access_token_ciphertext),
+      accessCipher: pending.access_token_ciphertext,
+      refreshCipher: pending.refresh_token_ciphertext,
+      expiresAt: pending.access_token_expires_at,
+      scopes: pending.granted_scopes ?? [],
+    };
   }
-  if (!pendingId) throw new Error("Connect your Infinite Flight account before applying.");
-  const { data: pending } = await db.from("oauth_pending_connections").select("*").eq("id", pendingId).eq("user_id", userId).single();
-  if (!pending || new Date(pending.expires_at).getTime() < Date.now()) throw new Error("Your Infinite Flight authorization expired. Reconnect and try again.");
-  return {
-    accessToken: await decryptSecret(pending.access_token_ciphertext),
-    accessCipher: pending.access_token_ciphertext,
-    refreshCipher: pending.refresh_token_ciphertext,
-    expiresAt: pending.access_token_expires_at,
-    scopes: pending.granted_scopes ?? [],
-  };
+
+  const { data: saved } = await db.from("user_if_connections").select("*").eq("user_id", userId).maybeSingle();
+  if (!saved) throw new Error("Connect your Infinite Flight account before applying.");
+  let accessToken = await decryptSecret(saved.access_token_ciphertext);
+  let accessCipher = saved.access_token_ciphertext;
+  let refreshCipher = saved.refresh_token_ciphertext;
+  let expiresAt = saved.token_expires_at;
+  if (saved.token_expires_at && new Date(saved.token_expires_at).getTime() < Date.now() + 60_000) {
+    if (!saved.refresh_token_ciphertext) throw new Error("Your Infinite Flight connection expired. Reconnect Infinite Flight and try again.");
+    const refreshed = await refreshAuthorizationToken(await decryptSecret(saved.refresh_token_ciphertext));
+    accessToken = String(refreshed.access_token);
+    const refreshToken = refreshed.refresh_token ? String(refreshed.refresh_token) : await decryptSecret(saved.refresh_token_ciphertext);
+    accessCipher = await encryptSecret(accessToken);
+    refreshCipher = await encryptSecret(refreshToken);
+    expiresAt = new Date(Date.now() + Number(refreshed.expires_in ?? 1800) * 1000).toISOString();
+    await db.from("user_if_connections").update({
+      access_token_ciphertext: accessCipher,
+      refresh_token_ciphertext: refreshCipher,
+      token_expires_at: expiresAt,
+    }).eq("user_id", userId);
+  }
+  return { accessToken, accessCipher, refreshCipher, expiresAt, scopes: saved.granted_scopes ?? [] };
 }
 
 async function eligibleOrganizations(userId: string, pendingId?: string) {
