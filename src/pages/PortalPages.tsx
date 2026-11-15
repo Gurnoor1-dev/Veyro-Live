@@ -49,6 +49,7 @@ export function OrganizationApplicationPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [trackingCode, setTrackingCode] = useState("");
+  const [connectingIF, setConnectingIF] = useState(false);
   const [logo, setLogo] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -85,6 +86,20 @@ export function OrganizationApplicationPage() {
   }, [session, pendingId, preselected]);
 
   const chosen = useMemo(() => organizations.find((o) => o.id === selected), [organizations, selected]);
+
+  const connectInfiniteFlight = async () => {
+    if (!supabase) return;
+    setConnectingIF(true); setError("");
+    try {
+      const { data, error: invokeError } = await supabase.functions.invoke("if-oauth-start", { body: { returnTo: "/apply" } });
+      if (invokeError) throw invokeError;
+      if (!data?.authorizationUrl) throw new Error(data?.error || "Could not start Infinite Flight authorization.");
+      window.location.assign(data.authorizationUrl);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not connect Infinite Flight.");
+      setConnectingIF(false);
+    }
+  };
   useEffect(() => {
     if (!chosen) return;
     setDisplayName(chosen.name);
@@ -124,9 +139,10 @@ export function OrganizationApplicationPage() {
     {trackingCode ? <section className="panel application-success"><CheckCircle2 size={28}/><h2>Application submitted</h2><p>Your application has been sent to the VEYRO review team in Discord. Save this tracking code to follow its progress.</p><div className="tracking-code">{trackingCode}</div><Link className="button button-primary full" to={"/application-status/" + trackingCode}>Track application <ArrowUpRight size={15}/></Link></section>
     : authLoading ? <section className="panel"><p>Checking your VEYRO sign-in…</p></section>
     : !session ? <section className="panel application-panel"><ShieldCheck size={24}/><h2>Sign in before applying</h2><p>We verify your Infinite Flight organisation role after you sign in. Only Owners and Admins can submit a portal application.</p><Link className="button button-primary full" to={"/login?next=" + encodeURIComponent("/apply")}>Sign in to continue <ArrowUpRight size={15}/></Link></section>
+    : !pendingId ? <section className="panel application-panel"><ShieldCheck size={24}/><h2>Connect Infinite Flight</h2><p>Your email sign-in is complete. Now connect the Infinite Flight account that owns or administers the organisation. We will return you here automatically and load your eligible organisations.</p>{error && <div className="notice error">{error}</div>}<button className="button button-primary full" type="button" onClick={connectInfiniteFlight} disabled={connectingIF}>{connectingIF ? "Redirecting to Infinite Flight…" : "Connect Infinite Flight"} <ArrowUpRight size={15}/></button></section>
     : <form className="panel application-panel" onSubmit={submit}>
       <div className="application-step"><span>01</span><div><h2>Verify your organisation</h2><p>Choose an organisation where your Infinite Flight role is Owner or Admin.</p></div></div>
-      {loadingOrgs ? <div className="directory-empty">Loading your Live organisations…</div> : <><label className="field-label">Infinite Flight organisation</label><select className="text-field" required value={selected} onChange={(e) => setSelected(e.target.value)}><option value="">Select an organisation</option>{organizations.map((org) => <option key={org.id} value={org.id} disabled={org.alreadyConnected}>{org.name} · {org.role === 2 ? "Owner" : "Admin"}{org.alreadyConnected ? " · Already connected/applied" : ""}</option>)}</select></>}
+      {loadingOrgs ? <div className="directory-empty">Loading your Live organisations…</div> : organizations.length === 0 ? <div className="notice">No eligible Owner/Admin organisations were returned. Check that you authorized the correct Infinite Flight account and granted organisation access, then reconnect.</div> : <><label className="field-label">Infinite Flight organisation</label><select className="text-field" required value={selected} onChange={(e) => setSelected(e.target.value)}><option value="">Select an organisation</option>{organizations.map((org) => <option key={org.id} value={org.id} disabled={org.alreadyConnected}>{org.name} · {org.role === 2 ? "Owner" : "Admin"}{org.alreadyConnected ? " · Already connected/applied" : ""}</option>)}</select></>}
       {chosen && <div className="notice success">Verified from Infinite Flight Live: {chosen.role === 2 ? "Owner" : "Admin"} access for {chosen.name}. Portal creation still requires VEYRO approval.</div>}
       <div className="application-step"><span>02</span><div><h2>Public portal details</h2><p>This information will appear on your organisation's public VEYRO page.</p></div></div>
       <label className="field-label">Portal display name *</label><input className="text-field" required minLength={2} maxLength={80} value={displayName} onChange={(e) => setDisplayName(e.target.value)}/>
