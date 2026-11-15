@@ -21,7 +21,7 @@ async function connectionFor(userId: string, pendingId?: string) {
   const db = admin();
   const { data: saved } = await db.from("user_if_connections").select("*").eq("user_id", userId).maybeSingle();
   if (saved) {
-    let accessToken = await decryptSecret(saved.access_token_ciphertext);
+    let accessToken = await decryptSecret(saved.access_token_ciphertext);\n    let accessCipher = saved.access_token_ciphertext;\n    let refreshCipher = saved.refresh_token_ciphertext;\n    let expiresAt = saved.token_expires_at;
     if (saved.token_expires_at && new Date(saved.token_expires_at).getTime() < Date.now() + 60_000) {
       if (!saved.refresh_token_ciphertext) throw new Error("Your Infinite Flight connection expired. Reconnect Infinite Flight and try again.");
       const refreshed = await refreshAuthorizationToken(await decryptSecret(saved.refresh_token_ciphertext));
@@ -33,7 +33,7 @@ async function connectionFor(userId: string, pendingId?: string) {
         token_expires_at: new Date(Date.now() + Number(refreshed.expires_in ?? 1800) * 1000).toISOString(),
       }).eq("user_id", userId);
     }
-    return { accessToken, accessCipher: saved.access_token_ciphertext, refreshCipher: saved.refresh_token_ciphertext, expiresAt: saved.token_expires_at, scopes: saved.granted_scopes ?? [] };
+    return { accessToken, accessCipher, refreshCipher, expiresAt, scopes: saved.granted_scopes ?? [] };
   }
   if (!pendingId) throw new Error("Connect your Infinite Flight account before applying.");
   const { data: pending } = await db.from("oauth_pending_connections").select("*").eq("id", pendingId).eq("user_id", userId).single();
@@ -88,7 +88,7 @@ async function sendApplicationToDiscord(application: Record<string, unknown>) {
       { name: "Website", value: String(application.website_url || "Not provided"), inline: true },
       { name: "Discord", value: String(application.discord_invite_url || "Not provided"), inline: true },
       { name: "Tracking code", value: String(application.tracking_code), inline: true },
-      { name: "Applicant", value: "<@" + String(application.applicant_discord_id || "0") + "> · " + String(application.applicant_email), inline: false },
+      { name: "Applicant", value: String(application.applicant_email), inline: false },
     ],
     footer: { text: "Application ID: " + String(application.id) },
     timestamp: new Date().toISOString(),
