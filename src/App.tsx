@@ -20,9 +20,65 @@ function Login(){const [session,setSession]=useState<Session|null>(null);const [
  const openPilot=async()=>{if(!supabase||!selected)return;setBusy(true);setError("");const {data,error}=await supabase.functions.invoke("pilot-live-data",{body:{pendingId:pending,organizationId:selected}});if(error||!data?.organization){setError(data?.error||error?.message||"Could not open pilot dashboard.");setBusy(false);return}navigate("/pilot/"+selected)};
  const signOut=async()=>{await supabase?.auth.signOut();setSession(null);setPending("");setOrgs([])};
  if(!isSupabaseConfigured)return <main className="shell narrow"><Header/><section className="panel login-panel"><h1>Backend not configured</h1><p>Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in the Vercel project environment, then redeploy.</p></section><Footer/></main>;
- return <main className="shell narrow"><Header right={session?<button className="top-link" onClick={signOut}><LogOut size={14}/> Sign out</button>:<Link className="top-link" to="/">Back home</Link>}/><section className="panel login-panel"><div className="feature-icon"><ShieldCheck size={20}/></div><h1>{!session?"Sign in to VEYRO Live":pending?"Connect an organization":"Connect Infinite Flight"}</h1>
- {!session?<><p>Sign in with your email first. We use a secure one-time link to create your VEYRO session.</p><form onSubmit={signIn}><label className="field-label">Email address</label><input className="text-field" type="email" autoComplete="email" required value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@example.com"/><button className="button button-primary full" disabled={busy}>{busy?"Sending…":"Send secure sign-in link"} <ChevronRight size={16}/></button></form></>:!pending?<><p>Your VEYRO session is active. Authorize Infinite Flight to connect an organization you own or administer.</p><button className="button button-primary full" onClick={connect} disabled={busy}>{busy?"Connecting…":"Continue with Infinite Flight"} <ChevronRight size={16}/></button></>:<><p>Select any Infinite Flight organization you belong to. You can open its read-only pilot dashboard even if the VA has not connected a Veyro admin portal yet. Member access is enough.</p>{orgs.length===0&&!busy?<div className="notice">No organizations were returned. Confirm that this Infinite Flight account belongs to an active Live organization and that the OAuth client has the required scopes.</div>:<><label className="field-label">Your Infinite Flight organizations</label><select className="text-field" value={selected} onChange={e=>setSelected(e.target.value)}><option value="">Select an organization</option>{orgs.map(o=><option key={o.id} value={o.id}>{o.name} · {o.role===2?"Owner":o.role===1?"Admin":"Member"}{o.portal?" · Veyro portal connected":""}</option>)}</select>{selected&&<><div className="notice success">You have Infinite Flight membership in this organization. Veyro will load schedules and fleet directly using your own authorization.</div><button className="button button-primary full" disabled={busy} onClick={openPilot}>{busy?"Opening pilot dashboard…":"Open pilot dashboard"} <ChevronRight size={16}/></button></>}{selected&&[1,2].includes(orgs.find(o=>o.id===selected)?.role)&&!orgs.find(o=>o.id===selected)?.portal?<><div className="notice">Want to set up the VA's shared Veyro portal as well? You can create it as an Owner/Admin.</div><label className="field-label">Portal display name</label><input className="text-field" value={displayName} onChange={e=>setDisplayName(e.target.value)} placeholder="Your Virtual Airline"/><label className="field-label">Portal URL slug</label><input className="text-field" value={slug} onChange={e=>setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g,""))} placeholder="your-airline"/><button className="button button-quiet full" disabled={busy||!slug||!displayName.trim()} onClick={create}>{busy?"Creating portal…":"Create organization portal"} <ChevronRight size={16}/></button></>:null}</>}
- {message&&<div className="notice success">{message}</div>}{error&&<div className="notice error">{error}</div>}</section><Footer/></main>}
+ return (
+  <main className="shell narrow">
+   <Header right={session?<button className="top-link" onClick={signOut}><LogOut size={14}/> Sign out</button>:<Link className="top-link" to="/">Back home</Link>}/>
+   <section className="panel login-panel">
+    <div className="feature-icon"><ShieldCheck size={20}/></div>
+    <h1>{!session?"Sign in to VEYRO Live":pending?"Choose your Live organization":"Connect Infinite Flight"}</h1>
+    {!session ? (
+     <>
+      <p>Sign in with your email first. We use a secure one-time link to create your VEYRO session.</p>
+      <form onSubmit={signIn}>
+       <label className="field-label">Email address</label>
+       <input className="text-field" type="email" autoComplete="email" required value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@example.com"/>
+       <button className="button button-primary full" disabled={busy}>{busy?"Sending…":"Send secure sign-in link"} <ChevronRight size={16}/></button>
+      </form>
+     </>
+    ) : !pending ? (
+     <>
+      <p>Your VEYRO session is active. Connect your own Infinite Flight account to see every Live organization you belong to.</p>
+      <button className="button button-primary full" onClick={connect} disabled={busy}>{busy?"Connecting…":"Continue with Infinite Flight"} <ChevronRight size={16}/></button>
+     </>
+    ) : (
+     <>
+      <p>Select any Infinite Flight organization you belong to. You can open its read-only pilot dashboard even if the VA has not connected a Veyro admin portal. Member access is enough.</p>
+      {orgs.length===0&&!busy ? (
+       <div className="notice">No organizations were returned. Confirm that this Infinite Flight account belongs to an active Live organization and that the OAuth client has the required scopes.</div>
+      ) : (
+       <>
+        <label className="field-label">Your Infinite Flight organizations</label>
+        <select className="text-field" value={selected} onChange={e=>setSelected(e.target.value)}>
+         <option value="">Select an organization</option>
+         {orgs.map(o=><option key={o.id} value={o.id}>{o.name} · {o.role===2?"Owner":o.role===1?"Admin":"Member"}{o.portal?" · Veyro portal connected":""}</option>)}
+        </select>
+        {selected ? (
+         <>
+          <div className="notice success">Your Infinite Flight membership is verified for this organization. Veyro will fetch its schedules and fleet using your own authorization.</div>
+          <button className="button button-primary full" disabled={busy} onClick={openPilot}>{busy?"Opening pilot dashboard…":"Open pilot dashboard"} <ChevronRight size={16}/></button>
+         </>
+        ) : null}
+        {selected && [1,2].includes(orgs.find(o=>o.id===selected)?.role) && !orgs.find(o=>o.id===selected)?.portal ? (
+         <>
+          <div className="notice">Want to set up the VA's shared Veyro portal as well? You can create it as an Owner/Admin.</div>
+          <label className="field-label">Portal display name</label>
+          <input className="text-field" value={displayName} onChange={e=>setDisplayName(e.target.value)} placeholder="Your Virtual Airline"/>
+          <label className="field-label">Portal URL slug</label>
+          <input className="text-field" value={slug} onChange={e=>setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g,""))} placeholder="your-airline"/>
+          <button className="button button-quiet full" disabled={busy||!slug||!displayName.trim()} onClick={create}>{busy?"Creating portal…":"Create organization portal"} <ChevronRight size={16}/></button>
+         </>
+        ) : null}
+       </>
+      )}
+     </>
+    )}
+    {message&&<div className="notice success">{message}</div>}
+    {error&&<div className="notice error">{error}</div>}
+   </section>
+   <Footer/>
+  </main>
+ }
+
 function Organization(){const {slug=""}=useParams();const [session,setSession]=useState<Session|null>(null);const [org,setOrg]=useState<any>(null);const [aircraft,setAircraft]=useState<any[]>([]);const [schedules,setSchedules]=useState<any[]>([]);const [error,setError]=useState("");const [loading,setLoading]=useState(true);const [tab,setTab]=useState<"schedules"|"fleet">("schedules");
  useEffect(()=>{supabase?.auth.getSession().then(({data})=>setSession(data.session))},[]);
  const load=async()=>{if(!supabase||!session)return;setLoading(true);setError("");const {data:organization,error:orgError}=await supabase.from("organizations").select("id,slug,display_name,live_organization_id").eq("slug",slug).eq("is_active",true).single();if(orgError||!organization){setError("This organization is unavailable to your account.");setLoading(false);return}setOrg(organization);const [a,s]=await Promise.all([supabase.functions.invoke("if-api",{body:{organizationSlug:slug,action:"aircraft"}}),supabase.functions.invoke("if-api",{body:{organizationSlug:slug,action:"schedules"}})]);if(a.error||s.error){setError(a.error?.message||s.error?.message||"Live data could not be loaded.");setLoading(false);return}setAircraft(a.data?.result||[]);setSchedules(s.data?.result||[]);setLoading(false)};
