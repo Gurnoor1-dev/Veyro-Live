@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import type { FormEvent } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { ArrowUpRight, CheckCircle2, Clock3, ExternalLink, FileText, ImagePlus, ShieldCheck } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
@@ -100,7 +101,7 @@ export function OrganizationApplicationPage() {
     setLogoPreview(await readFile(file));
   };
 
-  const submit = async (event: React.FormEvent) => {
+  const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (!supabase || !chosen) return;
     setBusy(true); setError("");
@@ -184,7 +185,7 @@ export function PublicOrganizationPage() {
   }, [slug]);
   return <main className="shell"><header className="topbar"><Link className="brand" to="/"><span className="brand-mark">V</span><span>VEYRO<span className="brand-light"> LIVE</span></span></Link><Link className="top-link" to="/">Explore network</Link></header>
     {loading ? <div className="directory-empty">Loading organisation portal…</div> : !org ? <section className="panel portal-empty"><h1>Portal not found</h1><p>This organisation is not listed in the public VEYRO directory.</p><Link className="button button-primary" to="/">Explore organisations</Link></section> :
-      <section className="public-org-hero"><div className="public-org-brand">{org.logo_url ? <img src={org.logo_url} alt={org.display_name + " logo"}/> : <span>{org.display_name.slice(0,1)}</span>}</div><div className="eyebrow">INFINITE FLIGHT LIVE ORGANISATION</div><h1>{org.display_name}</h1><p className="public-org-tagline">{org.tagline}</p><p className="public-org-description">{org.description}</p><div className="hero-actions">{org.website_url && <a className="button button-quiet" href={org.website_url} target="_blank" rel="noreferrer">Official website <ExternalLink size={14}/></a>}{org.discord_invite_url && <a className="button button-quiet" href={org.discord_invite_url} target="_blank" rel="noreferrer">Join Discord <ExternalLink size={14}/></a>}<Link className="button button-primary" to={"/login?next=" + encodeURIComponent("/login")}>Pilot sign in <ArrowUpRight size={15}/></Link></div><div className="hero-footnote">Schedules and fleet are provided by Infinite Flight Live. VEYRO is an independent third-party platform.</div></section>}
+      <section className="public-org-hero"><div className="public-org-brand">{org.logo_url ? <img src={org.logo_url} alt={org.display_name + " logo"}/> : <span>{org.display_name.slice(0,1)}</span>}</div><div className="eyebrow">INFINITE FLIGHT LIVE ORGANISATION</div><h1>{org.display_name}</h1><p className="public-org-tagline">{org.tagline}</p><p className="public-org-description">{org.description}</p><div className="hero-actions">{org.website_url && <a className="button button-quiet" href={org.website_url} target="_blank" rel="noreferrer">Official website <ExternalLink size={14}/></a>}{org.discord_invite_url && <a className="button button-quiet" href={org.discord_invite_url} target="_blank" rel="noreferrer">Join Discord <ExternalLink size={14}/></a>}<Link className="button button-primary" to="/login">Pilot sign in <ArrowUpRight size={15}/></Link></div><div className="hero-footnote">Schedules and fleet are provided by Infinite Flight Live. VEYRO is an independent third-party platform.</div></section>}
     <footer className="footer"><span>© {new Date().getFullYear()} VEYRO LIVE</span><span>Organisation portal</span></footer>
   </main>;
 }
