@@ -143,6 +143,7 @@ After linking the correct project, deploy the functions:
 supabase functions deploy if-oauth-start
 supabase functions deploy if-oauth-callback
 supabase functions deploy if-oauth-organizations
+supabase functions deploy pilot-join
 supabase functions deploy if-oauth-connect
 supabase functions deploy if-api
 supabase functions deploy booking-request
