@@ -47,7 +47,7 @@ Verify the project reference before running database writes or deploying functio
 
 ## 4. Create the database from migrations
 
-The migrations in supabase/migrations are the database source of truth. They create profiles, organizations, memberships, encrypted Infinite Flight connections, Discord settings, booking requests, audit events, OAuth transactions, policies, indexes and helper functions.
+The migrations in supabase/migrations are the database source of truth. They create profiles, organizations, memberships, encrypted organization and per-pilot Infinite Flight connections, Discord settings, booking requests, audit events, OAuth transactions, policies, indexes and helper functions. The pilot preview migration adds a server-only encrypted token table; it does not persist Live schedules or fleet data.
 
 For a brand-new empty project:
 
@@ -144,6 +144,7 @@ supabase functions deploy if-oauth-start
 supabase functions deploy if-oauth-callback
 supabase functions deploy if-oauth-organizations
 supabase functions deploy pilot-join
+supabase functions deploy pilot-live-data
 supabase functions deploy if-oauth-connect
 supabase functions deploy if-api
 supabase functions deploy booking-request
@@ -168,6 +169,10 @@ There is no public “make me admin” button and no client-side role override.
 A normal Live Member must never be able to create the portal or elevate themselves to Veyro owner/admin. The first-owner bootstrap is performed server-side only after verifying the Live role.
 
 ## 10. Pilot sign-in and organization selection
+
+For dashboard testing, any signed-in Infinite Flight user can select any organization returned by their own `GET /live/organizations` response, including organizations where they are only a Member and organizations not yet connected to Veyro. The `pilot-live-data` Edge Function verifies membership with the user's token and reads schedules/aircraft directly. It stores only encrypted OAuth credentials in `user_if_connections`; it does not store Live data. Apply migration `20261115130000_pilot_personal_if_connections.sql` and deploy `pilot-live-data` to enable this preview. The preview is read-only and does not bypass Infinite Flight membership checks.
+
+
 
 A pilot does not need to own or administer a Live organization.
 
