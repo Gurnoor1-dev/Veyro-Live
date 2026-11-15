@@ -1,41 +1,44 @@
 # Pilot guide
 
-## Who can use a VA portal?
+## Who can use the pilot preview?
 
-A pilot needs:
-- A VEYRO account authenticated through Supabase email sign-in.
-- An Infinite Flight account that is an active member of the VA's Live organization.
-- An active Veyro membership for that organization.
+Any authenticated Veyro user can connect their own Infinite Flight account and open a read-only dashboard for **any active Live organization that account belongs to**. The organization does not need to have been onboarded into Veyro, and the pilot does not need to be an Owner or Admin. A Live Member is enough.
 
-The pilot does **not** need to be an Infinite Flight Owner or Admin. Live Owner/Admin is required only when initially connecting a VA and creating its portal.
+This is deliberately separate from the shared VA portal:
+- **Pilot preview:** personal, read-only access using the pilot's own Infinite Flight OAuth token. Works for any organization returned by the user's `GET /live/organizations`.
+- **Connected VA portal:** shared Veyro workspace with organization membership, admin controls, Discord approval and (when fully identity-verified) booking workflows. The VA Owner/Admin must onboard this portal.
 
-## First-time sign-in
+## First-time sign-in and dashboard access
 
-1. Open the VA's Veyro portal link or the global sign-in page.
-2. Enter your email and use the secure one-time sign-in link.
-3. Choose **Continue with Infinite Flight** and authorize the requested scopes.
-4. Veyro retrieves the Live organizations associated with the signed-in Infinite Flight account.
-5. Select the VA you want to access:
-   - If the VA already has a Veyro portal, select it and continue as a pilot. A Live Member role is sufficient.
-   - If the VA has not connected a Veyro portal, ask its Owner/Admin to onboard the VA first.
-   - If you are a Live Owner/Admin for a VA that has no portal, you can create the portal through the owner onboarding flow.
-6. Veyro verifies membership on the server and adds an active pilot membership without changing an existing owner/admin role.
-7. You are redirected to that VA's workspace.
+1. Open the Veyro website and sign in with your email magic link.
+2. Choose **Continue with Infinite Flight**.
+3. Authorize the requested scopes: `live:organizations.read`, `live:aircraft.read`, and `live:schedules.read` (plus other scopes shown for the full application).
+4. Veyro retrieves the Live organizations associated with your Infinite Flight account.
+5. Select **any** organization in that list, including one where your role is Member and which has never been connected to Veyro.
+6. Choose **Open pilot dashboard**.
+7. The server verifies that the selected organization is in the authenticated user's Live organization list, then fetches the organization's current aircraft and schedules using that pilot's own token.
+8. You land on the read-only Pilot Workspace. Use the Schedules/Fleet tabs and Refresh to fetch current data again.
 
-The organization list is based on the Infinite Flight OAuth identity, not a list of all Veyro tenants. A pilot should only see VA portals that correspond to Live organizations they belong to.
+You can only see organizations that Infinite Flight itself returns for your signed-in account. Veyro does not provide a bypass to private organizations or organizations you are not a member of.
 
-## What a pilot can see
+## How personal OAuth credentials are handled
 
-The organization workspace currently reads:
-- Current Live organization information
-- Current fleet aircraft
-- Current published schedules
+The pilot's access/refresh tokens are encrypted server-side and stored in `user_if_connections`, separate from the VA owner's `if_connections`. The browser never reads these credentials. Expired access tokens are refreshed server-side. The database does not store schedules, aircraft, member lists or other Live API response snapshots; the dashboard fetches those when requested.
 
-Data is fetched on demand from Infinite Flight through the server-side if-api Edge Function. The browser does not receive the VA's stored OAuth token. Veyro should not persist Live schedule/fleet snapshots unless the applicable Infinite Flight agreement explicitly permits it.
+A new migration, `20261115130000_pilot_personal_if_connections.sql`, creates this protected token table. Apply it before deploying `pilot-live-data`.
 
-## Booking and crew assignment
+## What the pilot preview displays
 
-The intended booking lifecycle is:
+- The selected Live organization's name and the signed-in user's Live role.
+- Current organization fleet aircraft.
+- Current published schedules.
+- Counts and last refresh time.
+
+The preview is intentionally read-only. It does not create bookings, assign crew, or grant Veyro admin privileges. A pilot does not gain access to another user's organizations by changing the organization ID in the browser; the Edge Function checks membership with Infinite Flight on every request.
+
+## Connected VA portal and booking workflow
+
+For a VA that has onboarded a Veyro portal, a pilot can additionally join the Veyro organization. The shared portal uses organization membership and RLS. The intended booking lifecycle is:
 
 1. Pilot opens a schedule and reviews route, callsign, aircraft and other available details.
 2. Pilot requests the leg and may include a short note.
@@ -46,31 +49,21 @@ The intended booking lifecycle is:
 7. On approval, Veyro calls the Live crew assignment endpoint.
 8. The request becomes Approved only after Live confirms the assignment. A failed synchronization remains retryable and must not be displayed as a successful assignment.
 
-Possible statuses:
-- Pending approval
-- Approved
-- Rejected
-- Sync failed
-- Cancelled
+Possible statuses: Pending approval, Approved, Rejected, Sync failed, Cancelled.
 
-## Identity and booking safety
-
-Booking requests require profiles.infinite_flight_user_id. That ID must be bound to the same Infinite Flight OAuth account that the pilot authorized. Do not type or paste another person's user ID into a profile and do not trust a browser-supplied user ID.
-
-The backend must verify the linked ID against the selected Live organization's members list before allowing a booking. If the OAuth profile identity cannot be verified against the Live member userId, the app must keep booking disabled and show a clear explanation rather than accepting an unverified ID.
+**Booking remains a separate privileged workflow.** The pilot preview intentionally does not enable booking or crew assignment. The backend must securely bind the OAuth-authenticated pilot to the correct Live member `userId` before crew assignment can be enabled.
 
 ## Troubleshooting
 
 | Problem | What to do |
 | --- | --- |
-| No organizations appear | Confirm you signed into the correct Infinite Flight account and that the account belongs to a Live organization. |
-| VA is missing from the selection list | Ask the VA Owner/Admin whether the organization has connected a Veyro portal. |
-| You can see the VA but schedules fail | Ask an admin to check the organization's Infinite Flight connection and schedule-read scope. |
-| Booking says your IF account is not linked | Reconnect Infinite Flight and let the server verify the profile identity. Never enter a guessed user ID. |
-| Booking says schedule is unavailable | Refresh the schedule list; the VA may have changed or removed the schedule. |
-| Discord approval is not received | Ask the VA admin to check Discord integration settings and bot permissions. |
-| Approval is pending for a long time | Contact the VA admin; Discord approval is an administrator-controlled step. |
-| Approved request is not assigned in Live | The request may be in Sync failed. The VA admin should inspect the synchronization error and retry. |
-| You cannot open a different VA | Sign in with the Infinite Flight account that is a member of that VA and select it from the organization chooser. |
+| No organizations appear | Confirm you signed into the correct Infinite Flight account and that it belongs to a Live organization. |
+| An organization is missing | Infinite Flight only returns organizations where the signed-in account is an active member. |
+| Dashboard says reconnect | The personal OAuth session expired or no refresh token was issued. Reconnect Infinite Flight. |
+| Missing scope message | Reconnect and approve organization, aircraft and schedule read scopes. |
+| Schedules or fleet fail | Check Edge Function logs, API availability and rate-limit responses. |
+| Refresh returns 429 | Wait for the Retry-After interval. The app has a shared 20 requests/minute guard for the approved testing allowance. |
+| VA is not in the shared portal | Ask the VA Owner/Admin to onboard it. The read-only preview can still work without that portal. |
+| Booking is unavailable | This is expected in pilot preview mode. Booking requires a connected Veyro VA and verified pilot identity binding. |
 
 Never share your email sign-in link, password, OAuth access token or refresh token with anyone.
