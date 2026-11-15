@@ -8,7 +8,7 @@ VEYRO Live is a multi-tenant operations portal for Infinite Flight Live Virtual 
 
 - **One portal, multiple VAs:** every organization is isolated by organization membership and PostgreSQL Row Level Security.
 - **Infinite Flight is the source of truth:** organization, aircraft and schedule data are fetched from the Live API when needed. Veyro does not mirror schedule/fleet/member snapshots into its database.
-- **Pilot workspace:** authenticated pilots should be able to choose any Veyro-connected VA for which their Infinite Flight account is a member, including when their Live role is Member. Pilot access is separate from VA administrator privileges.
+- **Pilot preview:** any authenticated pilot can select any Live organization returned for their own Infinite Flight account, including Member-only organizations that have never been onboarded into Veyro. This preview is read-only and fetches schedules/fleet directly using the pilot's own OAuth token.
 - **Booking workflow:** pilots request an available schedule; the server validates membership and current schedule state, stores a pending request, and sends a Discord approval message. Approval triggers a Live crew assignment; a booking is shown as approved only after synchronization succeeds.
 - **VA administration:** organization owners/admins connect the VA, manage portal settings and members, configure Discord approval, and review operational activity.
 - **Secure integrations:** Infinite Flight client secrets, OAuth tokens, Discord bot tokens, Supabase service-role keys and encryption keys stay in Supabase Edge Function secrets. Never put them in Vite environment variables.
@@ -30,13 +30,11 @@ VEYRO Live is a multi-tenant operations portal for Infinite Flight Live Virtual 
 
 1. Open the VA portal or the global sign-in page and authenticate with email.
 2. Connect Infinite Flight to prove which Live organizations the pilot belongs to.
-3. Select a VA from the matched Veyro organizations. A Live Member is eligible; the pilot does not need to be an Owner/Admin.
-4. Enter the pilot workspace. The app loads current schedules and fleet data from Live through the server-side Edge Function.
-5. Open a schedule, review the route and details, and request the leg.
-6. Track the request as Pending, Approved, Rejected, Cancelled or Sync failed.
-7. On approval, Veyro asks Infinite Flight Live to assign the pilot to the schedule. The app must not show a successful assignment until the Live API confirms it.
+3. Select any organization returned by Infinite Flight, even if it has no Veyro portal and the pilot is only a Live Member.
+4. Open the read-only pilot dashboard. The app fetches current schedules and fleet using the pilot's own token.
+5. A connected Veyro VA portal is a separate layer for administration, Discord approvals and the eventual booking workflow.
 
-**Important:** membership discovery and safe binding of the authenticated OAuth identity to the Infinite Flight userId are separate security requirements. Do not trust a pilot-entered user ID or a client-supplied organization ID. See [Pilot identity and onboarding](docs/PILOTS.md) and [the implementation notes](docs/DEVELOPER-SETUP.md).
+**Important:** the pilot preview verifies membership against Infinite Flight on every data request and is read-only. Booking/crew assignment remains disabled until the authenticated OAuth identity is safely bound to the Live member `userId`. See [Pilot guide](docs/PILOTS.md).
 
 ## Documentation
 
