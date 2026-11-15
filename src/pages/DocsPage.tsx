@@ -3,7 +3,6 @@ import type { JSX } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ArrowLeft, ArrowUpRight, BookOpen, ChevronRight, Code2, Copy, FileText, Menu, Search, Shield, X } from "lucide-react";
 
-type DocModule = { default: string };
 const modules = import.meta.glob("../../docs/*.md", { eager: true, query: "?raw", import: "default" }) as Record<string, string>;
 
 const groups = [
