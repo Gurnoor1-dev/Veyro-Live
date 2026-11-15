@@ -49,15 +49,16 @@ Verify the project reference before running database writes or deploying functio
 
 The migrations in supabase/migrations are the database source of truth. They create profiles, organizations, memberships, encrypted organization and per-pilot Infinite Flight connections, Discord settings, booking requests, audit events, OAuth transactions, policies, indexes and helper functions. The pilot preview migration adds a server-only encrypted token table; it does not persist Live schedules or fleet data.
 
-For a brand-new empty project:
+For a brand-new empty project, preview the pending changes and then explicitly target the linked hosted project. Supabase CLI v3 now targets the local stack by default, so include `--remote` for hosted database operations:
 
 ~~~bash
-supabase migration list
-supabase db push
-supabase migration list
+supabase migration list --remote
+supabase db push --dry-run --remote
+supabase db push --remote
+supabase migration list --remote
 ~~~
 
-The first command checks migration history; db push applies pending migration files in timestamp order; the final command verifies the history.
+Review the dry-run output before confirming the push. The final command verifies the remote migration history. If you use CLI v2, the older `--linked` flag still targets the linked project; prefer the current v3 `--remote` syntax.
 
 ### Add a future migration
 
@@ -89,8 +90,9 @@ using (private.is_org_member(organization_id));
 Before applying a migration, verify RLS on every exposed table, tenant-scoped policies, UPDATE policies with USING and WITH CHECK, restricted function execution, foreign-key indexes, and behavior on both clean and existing databases.
 
 ~~~bash
-supabase db push
-supabase migration list
+supabase db push --dry-run --remote
+supabase db push --remote
+supabase migration list --remote
 ~~~
 
 For production changes, take a backup first and review the SQL. Never put real user data or secrets in migration files.
