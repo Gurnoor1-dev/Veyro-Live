@@ -25,7 +25,7 @@ You can only see organizations that Infinite Flight itself returns for your sign
 
 The pilot's access/refresh tokens are encrypted server-side and stored in `user_if_connections`, separate from the VA owner's `if_connections`. The browser never reads these credentials. Expired access tokens are refreshed server-side. The database does not store schedules, aircraft, member lists or other Live API response snapshots; the dashboard fetches those when requested.
 
-A new migration, `20261115130000_pilot_personal_if_connections.sql`, creates this protected token table. Apply it before deploying `pilot-live-data`.
+A new migration, `20261115083550_pilot_personal_if_connections.sql`, creates this protected token table. Apply it before deploying `pilot-live-data`.
 
 ## What the pilot preview displays
 
