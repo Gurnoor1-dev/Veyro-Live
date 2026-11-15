@@ -40,7 +40,7 @@ Apply `supabase/migrations/20261115150000_organization_application_portals.sql` 
 
 Deploy:
 
-- `organization-application` with JWT verification enabled.
+- `organization-application` with gateway JWT verification disabled so its public directory and tracking actions are reachable. Private applicant actions validate the Supabase user JWT inside the function before reading or writing any application data.
 - `organization-application-discord` with JWT verification disabled because it verifies Discord Ed25519 request signatures itself.
 
 Do not put the Discord bot token, service-role key, encryption key or Infinite Flight OAuth secret in Vercel client environment variables.
