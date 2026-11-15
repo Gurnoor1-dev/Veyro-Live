@@ -27,6 +27,9 @@ async function approveApplication(application: any, reviewerId: string) {
   const { data: connection } = await admin.from("user_if_connections").select("*").eq("user_id", application.submitted_by).maybeSingle();
   if (!connection) throw new Error("The applicant's Infinite Flight connection is no longer available. Ask them to reconnect and resubmit.");
 
+  const { data: authUser } = await admin.auth.admin.getUserById(application.submitted_by);
+  await admin.from("profiles").upsert({ id: application.submitted_by, display_name: authUser.user?.user_metadata?.name ?? authUser.user?.email?.split("@")[0] ?? "Pilot" }, { onConflict: "id", ignoreDuplicates: true });
+
   const { data: org, error: orgError } = await admin.from("organizations").insert({
     slug: application.requested_slug,
     display_name: application.display_name,
