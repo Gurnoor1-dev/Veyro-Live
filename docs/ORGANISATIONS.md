@@ -1,36 +1,55 @@
-# Organization guide
+# Organization owner and administrator guide
 
-This guide is for Live organization owners and administrators launching a portal on VEYRO Live.
+## Organization model
 
-## Before onboarding
-- Your Infinite Flight account must be an Owner or Admin of the target Live organization for schedule/crew write operations.
-- Create an Infinite Flight PublicApi v3 OAuth client and register the exact callback URL supplied by VEYRO.
-- Request only the scopes required by the product: `openid profile offline_access live:organizations.read live:members.read live:aircraft.read live:schedules.read live:schedules.write`.
-- During the API preview, OAuth testing clients are limited to their owner and up to five invited test users until the app is reviewed.
+Every VA has one isolated Veyro organization record linked to exactly one Infinite Flight Live organization ID. The portal slug is the public URL segment; the display name and optional logo are presentation settings. Memberships are stored separately from Infinite Flight roles.
 
-## Launch checklist
-1. Sign in to VEYRO Live and choose **Connect organization**.
-2. Complete Infinite Flight authorization.
-3. Select the organization returned for your account.
-4. Confirm the role shown by Live. The account used for assignment sync must be an Owner/Admin with `live:schedules.write`.
-5. Choose an organization slug and display settings.
-6. Connect the VEYRO Discord bot to your server.
-7. Select the approval channel and configure the Discord role IDs allowed to approve requests.
-8. Test a request using a test pilot and verify both the Discord action and the resulting Live crew assignment.
-9. Share your portal URL: `/org/<your-slug>`.
+Veyro roles:
+- **Owner:** initial portal creator and highest-level organization administrator.
+- **Admin:** can manage the VA's Veyro settings and approve operational workflows.
+- **Pilot:** can access the pilot workspace and request eligible flights.
 
-## Schedule publishing
-Schedules are created, edited, reordered and removed in Infinite Flight Live. VEYRO Live reads the current published schedule list; it is not an alternative schedule editor.
+Infinite Flight roles are separate. A Live Member can join an existing Veyro portal as a pilot. Only a Live Owner/Admin can create a new Veyro portal and establish its first Veyro owner.
 
-A pilot can request a published schedule. The request is not a confirmed crew assignment until an authorized administrator approves it and the V3 assignment endpoint confirms success.
+## Connect a VA for the first time
 
-## Discord approvals
-- Keep the approval channel private to trusted staff.
-- Configure only trusted Discord role IDs.
-- Do not share the bot token or OAuth credentials.
-- Use the Discord message's Approve/Reject controls; do not approve requests by forwarding or editing messages.
-- If V3 is temporarily unavailable, the request remains in a retryable sync-failed state and must not be shown as confirmed.
-- Discord role membership is checked at interaction time; VEYRO app administrator status is also required.
+1. Sign in to Veyro using your email.
+2. Authorize Infinite Flight.
+3. Choose the Live organization where your Infinite Flight role is Owner or Admin.
+4. Enter a display name and unique URL slug.
+5. Confirm the connection. The server verifies the Live role and required schedule-write scope.
+6. Veyro creates the organization, encrypts and stores the OAuth tokens server-side, and adds the creator as the Veyro owner.
 
-## Disconnecting
-Disconnecting Infinite Flight revokes or invalidates the integration where supported, removes stored encrypted credentials and stops synchronization. Pending reservations should be resolved or cancelled first. Live API-derived transient data is discarded.
+The first owner is created by the server-side if-oauth-connect function. There is no public endpoint that lets a user promote themselves.
+
+## Invite and onboard pilots
+
+Share the VA portal URL with pilots. Each pilot signs in with their own email and authorizes their own Infinite Flight account. They select the VA from the list of Live organizations returned for that account. The server matches the Live organization ID to the Veyro portal and adds a pilot membership after verifying the membership. The pilot does not need Live Owner/Admin privileges.
+
+If a VA is not shown, check that:
+- The VA owner completed initial portal connection.
+- The Live organization ID is the expected one.
+- The pilot's Infinite Flight account is an active member of that organization.
+- The OAuth client has the approved organization-read scope.
+
+## Discord approval setup
+
+Follow [Discord setup](DISCORD-SETUP.md). Configure a guild, approval channel and allowed approver roles for each organization. The Discord interaction endpoint must verify the signature, guild, channel, Discord role and the actor's Veyro owner/admin membership for the same organization.
+
+## Schedule and fleet data
+
+Infinite Flight Live remains the source of truth. Veyro reads the current organization, aircraft and schedule data through the if-api Edge Function. Do not use Veyro as a second schedule editor or persist a mirrored schedule database unless Infinite Flight has explicitly approved the data use and retention.
+
+## Booking review
+
+Pilots create pending requests. The approval message includes pilot, route, callsign and request ID. Admins review it in the configured channel. Approval is not complete until the crew assignment call succeeds in Live. If synchronization fails, retain a retryable state and inspect the server logs; do not tell the pilot the crew assignment succeeded.
+
+## Operational checklist
+
+- Keep the OAuth connection valid and rotate credentials if compromised.
+- Confirm Discord bot permissions and channel access.
+- Keep allowed approver roles limited to trusted staff.
+- Review membership changes and audit events.
+- Monitor Edge Function logs and rate-limit responses.
+- Do not share or expose OAuth tokens, encryption keys or service-role credentials.
+- Keep a separate test organization for destructive testing.
