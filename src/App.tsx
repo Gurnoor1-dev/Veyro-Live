@@ -76,7 +76,8 @@ function Login(){const [session,setSession]=useState<Session|null>(null);const [
    </section>
    <Footer/>
   </main>
- }
+ );
+}
 
 function Organization(){const {slug=""}=useParams();const [session,setSession]=useState<Session|null>(null);const [org,setOrg]=useState<any>(null);const [aircraft,setAircraft]=useState<any[]>([]);const [schedules,setSchedules]=useState<any[]>([]);const [error,setError]=useState("");const [loading,setLoading]=useState(true);const [tab,setTab]=useState<"schedules"|"fleet">("schedules");
  useEffect(()=>{supabase?.auth.getSession().then(({data})=>setSession(data.session))},[]);
