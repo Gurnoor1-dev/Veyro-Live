@@ -108,7 +108,8 @@ function Markdown({ source }: { source: string }) {
 }
 
 export default function DocsPage() {
-  const params = useParams();\n  const doc = params["*"] || params.doc || "";
+  const params = useParams();
+  const doc = params["*"] || params.doc || "";
   const [query, setQuery] = useState("");
   const [mobileOpen, setMobileOpen] = useState(false);
   const currentFile = orderedFiles.find(file => slug(file) === doc) || (doc ? "" : orderedFiles[0]);
@@ -133,7 +134,8 @@ export default function DocsPage() {
         <label className="docs-search"><Search size={15}/><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search documentation"/><kbd>⌘ K</kbd></label>
         <nav>
           <Link className={"docs-nav-item docs-overview" + (!doc ? " active" : "")} to="/docs"><BookOpen size={15}/> Overview</Link>
-          {filteredGroups.map(group => <section className="docs-nav-group" key={group.name}><div>{group.name}</div>{group.items.map(file => <Link key={file} onClick={() => setMobileOpen(false)} className={"docs-nav-item" + (currentFile === file ? " active" : "")} to={"/docs/" + slug(file)}><FileText size={14}/><span>{humanize(file)}</span>{currentFile === file && <ChevronRight size={13}/>}</Link>)}</section>)}\n          {orderedFiles.some(file => !groups.some(group => group.items.includes(file))) && <section className="docs-nav-group"><div>REFERENCE</div>{orderedFiles.filter(file => !groups.some(group => group.items.includes(file)) && (humanize(file) + " " + (descriptions[file] || "")).toLowerCase().includes(query.toLowerCase())).map(file => <Link key={file} onClick={() => setMobileOpen(false)} className={"docs-nav-item" + (currentFile === file ? " active" : "")} to={"/docs/" + slug(file)}><FileText size={14}/><span>{humanize(file)}</span>{currentFile === file && <ChevronRight size={13}/>}</Link>)}</section>}
+          {filteredGroups.map(group => <section className="docs-nav-group" key={group.name}><div>{group.name}</div>{group.items.map(file => <Link key={file} onClick={() => setMobileOpen(false)} className={"docs-nav-item" + (currentFile === file ? " active" : "")} to={"/docs/" + slug(file)}><FileText size={14}/><span>{humanize(file)}</span>{currentFile === file && <ChevronRight size={13}/>}</Link>)}</section>)}
+          {orderedFiles.some(file => !groups.some(group => group.items.includes(file))) && <section className="docs-nav-group"><div>REFERENCE</div>{orderedFiles.filter(file => !groups.some(group => group.items.includes(file)) && (humanize(file) + " " + (descriptions[file] || "")).toLowerCase().includes(query.toLowerCase())).map(file => <Link key={file} onClick={() => setMobileOpen(false)} className={"docs-nav-item" + (currentFile === file ? " active" : "")} to={"/docs/" + slug(file)}><FileText size={14}/><span>{humanize(file)}</span>{currentFile === file && <ChevronRight size={13}/>}</Link>)}</section>}
           {query && !filteredGroups.length && <p className="docs-no-results">No guides match your search.</p>}
         </nav>
         <div className="docs-sidebar-foot"><span className="docs-status-dot"/> Documentation sourced from repository Markdown</div>
