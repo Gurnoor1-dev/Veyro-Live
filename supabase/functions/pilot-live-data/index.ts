@@ -95,14 +95,13 @@ Deno.serve(async (req) => {
         : (body.isPro ? 20 : 5);
       const observeRateLimit = (state: IfApiRateLimitState) => {
         rateLimitState = state;
-        if (state.remaining !== null) remainingBudget = Math.min(remainingBudget, state.remaining);
+        remainingBudget = state.remaining !== null ? state.remaining : Math.max(0, remainingBudget - 1);
       };
       const cachedAircraft = pilotAircraftCache.get(cacheKey);
       let knownAircraft = cachedAircraft && cachedAircraft.expiresAt > Date.now() ? cachedAircraft.aircraft : null;
       if (!knownAircraft) {
         if (remainingBudget <= 0) return json({ positions, latestFlights, failures, completed, total: requestedIds.length, rateLimited: true, retryAfterSeconds, rateLimit: rateLimitState, updatedAt: new Date().toISOString() });
         knownAircraft = await ifRequest<Array<{ id: string; registration?: string }>>(token, "/live/organizations/" + body.organizationId + "/aircraft", {}, observeRateLimit);
-        remainingBudget = Math.max(0, remainingBudget - 1);
         pilotAircraftCache.set(cacheKey, { expiresAt: Date.now() + 5 * 60_000, aircraft: knownAircraft });
       }
       const allowedIds = new Set(knownAircraft.map((item) => item.id));
@@ -112,11 +111,9 @@ Deno.serve(async (req) => {
         if (remainingBudget <= 0) { rateLimited = true; break; }
         try {
           positions[aircraftId] = await ifRequest(token, "/live/aircraft/" + aircraftId + "/position", {}, observeRateLimit);
-          remainingBudget = Math.max(0, remainingBudget - 1);
           if (body.action === "aircraft_operations") {
             if (remainingBudget <= 0) { rateLimited = true; latestFlights[aircraftId] = null; completed += 1; break; }
             const flights = await ifRequest<Array<Record<string, unknown>>>(token, "/live/aircraft/" + aircraftId + "/flights?page=1&pageSize=1", {}, observeRateLimit);
-            remainingBudget = Math.max(0, remainingBudget - 1);
             latestFlights[aircraftId] = flights[0] ?? null;
           }
           completed += 1;
