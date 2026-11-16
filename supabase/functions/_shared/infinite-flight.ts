@@ -5,10 +5,7 @@ export const IF_API = "https://api.infiniteflight.com/public/v3";
 
 type ApiEnvelope<T> = { errorCode: number; result: T };
 export type IfApiRateLimitState = { remaining: number | null; resetAt: string | null; isPro: boolean };
-let lastIfApiRateLimitState: IfApiRateLimitState = { remaining: null, resetAt: null, isPro: false };
-export function getIfApiRateLimitState(): IfApiRateLimitState {
-  return { ...lastIfApiRateLimitState };
-}
+type IfApiRateLimitObserver = (state: IfApiRateLimitState) => void;
 
 export class IfApiRateLimitError extends Error {
   retryAfterSeconds: number;
@@ -45,7 +42,7 @@ function isPagedLiveEndpoint(pathname: string): boolean {
   return PAGED_LIVE_ENDPOINTS.some((pattern) => pattern.test(pathname));
 }
 
-export async function ifRequest<T>(token: string, path: string, init: RequestInit = {}): Promise<T> {
+export async function ifRequest<T>(token: string, path: string, init: RequestInit = {}, onRateLimit?: IfApiRateLimitObserver): Promise<T> {
   if (!path.startsWith("/live/") || path.includes("..")) throw new Error("Unsupported API path");
 
   const method = (init.method ?? "GET").toUpperCase();
@@ -74,11 +71,11 @@ export async function ifRequest<T>(token: string, path: string, init: RequestIni
     const remainingHeader = response.headers.get("X-Rate-Limit-Remaining");
     const resetHeader = response.headers.get("X-Rate-Limit-Reset");
     const proHeader = response.headers.get("X-User-Pro");
-    lastIfApiRateLimitState = {
-      remaining: remainingHeader === null ? lastIfApiRateLimitState.remaining : Math.max(0, Number(remainingHeader) || 0),
-      resetAt: resetHeader ?? lastIfApiRateLimitState.resetAt,
-      isPro: proHeader === null ? lastIfApiRateLimitState.isPro : proHeader.toLowerCase() === "true",
-    };
+    onRateLimit?.({
+      remaining: remainingHeader === null ? null : Math.max(0, Number(remainingHeader) || 0),
+      resetAt: resetHeader,
+      isPro: proHeader?.toLowerCase() === "true",
+    });
     const payload = await response.json().catch(() => null);
     if (response.status === 429) {
       const retry = Number(response.headers.get("Retry-After")) || 5;
