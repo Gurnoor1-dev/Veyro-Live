@@ -8,6 +8,13 @@ import { supabase } from "../lib/supabase";
 type LiveOrg = { id: string; name: string; role: number; alreadyConnected: boolean };
 type PublicOrg = { id: string; slug: string; display_name: string; logo_url: string | null; tagline: string | null; description: string | null; website_url: string | null; discord_invite_url: string | null };
 
+let oauthStartRequest: Promise<any> | null = null;
+function prepareInfiniteFlightOAuth() {
+  if (!supabase) return Promise.resolve({ data: null, error: new Error("Supabase is not configured.") });
+  if (!oauthStartRequest) oauthStartRequest = supabase.functions.invoke("if-oauth-start", { body: { returnTo: "/apply" } }).then((result) => { if (result.error) oauthStartRequest = null; return result; });
+  return oauthStartRequest;
+}
+
 const slugify = (v: string) => v.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 48);
 let publicDirectoryCache: { organizations: PublicOrg[]; expiresAt: number } | null = null;
 let publicDirectoryRequest: Promise<PublicOrg[]> | null = null;
@@ -77,6 +84,8 @@ export function OrganizationApplicationPage() {
     return () => { active = false; data.subscription.unsubscribe(); };
   }, []);
 
+  useEffect(() => { if (session && !pendingId) void prepareInfiniteFlightOAuth(); }, [session, pendingId]);
+
   useEffect(() => {
     if (!session || !supabase) return;
     let active = true;
@@ -101,7 +110,7 @@ export function OrganizationApplicationPage() {
     if (!supabase) return;
     setConnectingIF(true); setError("");
     try {
-      const { data, error: invokeError } = await supabase.functions.invoke("if-oauth-start", { body: { returnTo: "/apply" } });
+      const { data, error: invokeError } = await prepareInfiniteFlightOAuth();
       if (invokeError) throw invokeError;
       if (!data?.authorizationUrl) throw new Error(data?.error || "Could not start Infinite Flight authorization.");
       window.location.assign(data.authorizationUrl);
