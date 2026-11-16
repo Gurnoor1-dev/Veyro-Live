@@ -145,7 +145,7 @@ Deno.serve(async (req) => {
         try {
           positions[aircraftId] = await ifRequest(token, "/live/aircraft/" + aircraftId + "/position", {}, observePositionRateLimit);
           if (body.action === "aircraft_operations") {
-            if (remainingBudget <= 0) { rateLimited = true; latestFlights[aircraftId] = null; completed += 1; break; }
+            if (remainingBudget <= 0) { rateLimited = true; completed += 1; break; }
             const flights = await ifRequest<Array<Record<string, unknown>>>(token, "/live/aircraft/" + aircraftId + "/flights?page=1&pageSize=1", {}, observePositionRateLimit);
             latestFlights[aircraftId] = flights[0] ?? null;
           }
