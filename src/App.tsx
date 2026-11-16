@@ -95,6 +95,14 @@ type AircraftPosition = {
  altitude?: number; heading?: number; speed?: number; verticalSpeed?: number;
  lastPilotId?: string|null; lastPilotUsername?: string|null; updatedAt?: string;
 };
+function getPilotCacheScope(){
+ try{
+  const key="veyro-live-if-cache-scope";
+  let scope=sessionStorage.getItem(key);
+  if(!scope){scope=crypto.randomUUID();sessionStorage.setItem(key,scope)}
+  return scope;
+ }catch{return undefined}
+}
 function currentRateBudget(rateLimit:{remaining:number|null;resetAt:string|null;isPro:boolean}|null){
  if(!rateLimit)return undefined;
  const value=rateLimit.resetAt;const numeric=value?Number(value):NaN;
@@ -186,6 +194,7 @@ function FleetAircraftCard({aircraft}:{aircraft:any}){
 function PilotDashboard(){
  const {organizationId="",slug="",pilotId=""}=useParams();
  const [resolvedOrganizationId,setResolvedOrganizationId]=useState(organizationId);
+ const [cacheScope]=useState(()=>getPilotCacheScope());
  const [portalId,setPortalId]=useState("");
  const [bookings,setBookings]=useState<any[]>([]);
  const [members,setMembers]=useState<any[]>([]);
@@ -234,7 +243,7 @@ function PilotDashboard(){
  const load=async()=>{
   if(!supabase||!session||!resolvedOrganizationId)return;
   setLoading(true);setError("");
-  const {data,error}=await invokeFunction(supabase,"pilot-live-data",{body:{organizationId:resolvedOrganizationId}});
+  const {data,error}=await invokeFunction(supabase,"pilot-live-data",{body:{organizationId:resolvedOrganizationId,cacheScope}});
   if(error||!data?.organization){setError(data?.error||error?.message||"Could not load this Live organization.");setLoading(false);return}
   setOrganization(data.organization);setPortalId(data.portal?.id||"");setAircraft(data.aircraft||[]);setSchedules(data.schedules||[]);setSchedulePagination(data.schedulesPagination||{page:1,pageSize:100,totalCount:(data.schedules||[]).length,totalPages:1});setMembers([]);if(data.rateLimit)setApiRateLimit(data.rateLimit);
   if(data.portal?.id){const {data:rows}=await supabase.from("booking_requests").select("id,live_schedule_id,status,request_note,created_at,reviewed_at,rejection_reason").eq("organization_id",data.portal.id).eq("pilot_user_id",session.user.id).order("created_at",{ascending:false}).limit(30);setBookings(rows||[])}
@@ -248,7 +257,7 @@ function PilotDashboard(){
   try{
    const budget=currentRateBudget(apiRateLimit);
    const orderedAircraft=aircraft.length?[...aircraft.slice(aircraftCursor),...aircraft.slice(0,aircraftCursor)]:[];
-   const {data,error}=await invokeFunction(supabase,"pilot-live-data",{body:{organizationId:resolvedOrganizationId,action:includeFlights?"aircraft_operations":"aircraft_positions",aircraftIds:orderedAircraft.map(item=>item.id),apiRateRemaining:budget,apiRateResetAt:apiRateLimit?.resetAt,isPro:apiRateLimit?.isPro??false}});
+   const {data,error}=await invokeFunction(supabase,"pilot-live-data",{body:{organizationId:resolvedOrganizationId,cacheScope,action:includeFlights?"aircraft_operations":"aircraft_positions",aircraftIds:orderedAircraft.map(item=>item.id),apiRateRemaining:budget,apiRateResetAt:apiRateLimit?.resetAt,isPro:apiRateLimit?.isPro??false}});
    if(error)throw error;
    const nextPositions=(data?.positions||{}) as Record<string,AircraftPosition>;
    setPositions(previous=>({...previous,...nextPositions}));
@@ -277,7 +286,7 @@ function PilotDashboard(){
  useEffect(()=>{
   if(page!=="members"||!session||!resolvedOrganizationId||!supabase)return;
   let active=true;setMembersLoading(true);setMembersError("");
-  invokeFunction(supabase,"pilot-live-data",{body:{organizationId:resolvedOrganizationId,action:"organization_members",apiRateRemaining:currentRateBudget(apiRateLimit),apiRateResetAt:apiRateLimit?.resetAt,isPro:apiRateLimit?.isPro??false}})
+  invokeFunction(supabase,"pilot-live-data",{body:{organizationId:resolvedOrganizationId,cacheScope,action:"organization_members",apiRateRemaining:currentRateBudget(apiRateLimit),apiRateResetAt:apiRateLimit?.resetAt,isPro:apiRateLimit?.isPro??false}})
    .then(({data,error})=>{if(error)throw error;if(active){setMembers(data?.members||[]);if(data?.rateLimit)setApiRateLimit(data.rateLimit);if(data?.rateLimited)setMembersError("Infinite Flight request allowance is currently exhausted. Try again after the rate-limit reset.")}})
    .catch(e=>{if(active)setMembersError(e instanceof Error?e.message:"Could not load organization crew.")})
    .finally(()=>{if(active)setMembersLoading(false)});
@@ -295,7 +304,7 @@ function PilotDashboard(){
   if(!supabase||scheduleLoadingMore||schedulePagination.page>=schedulePagination.totalPages)return;
   setScheduleLoadingMore(true);setScheduleLoadError("");
   try{
-   const {data,error}=await invokeFunction(supabase,"pilot-live-data",{body:{organizationId:resolvedOrganizationId,action:"schedule_page",page:schedulePagination.page+1,apiRateRemaining:currentRateBudget(apiRateLimit),apiRateResetAt:apiRateLimit?.resetAt,isPro:apiRateLimit?.isPro??false}});
+   const {data,error}=await invokeFunction(supabase,"pilot-live-data",{body:{organizationId:resolvedOrganizationId,cacheScope,action:"schedule_page",page:schedulePagination.page+1,apiRateRemaining:currentRateBudget(apiRateLimit),apiRateResetAt:apiRateLimit?.resetAt,isPro:apiRateLimit?.isPro??false}});
    if(error)throw error;
    if(data?.rateLimited)throw new Error("Infinite Flight request allowance is currently exhausted. Try again after the rate-limit reset.");
    setSchedules(previous=>[...previous,...(data?.schedules||[])]);
