@@ -18,9 +18,14 @@ Deno.serve(async (req) => {
     const email = String(body.email ?? "").trim().toLowerCase();
     const slug = String(body.slug ?? "").trim().toLowerCase();
     if (!email || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !slug) return fail("Enter a valid email and organization.", 400);
+    const authorization = req.headers.get("Authorization");
+    if (!authorization) return fail("Sign in with the invited email first.", 401);
+    const identity = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authorization } } });
+    const { data: { user: signedInUser } } = await identity.auth.getUser();
+    if (!signedInUser?.email || signedInUser.email.toLowerCase() !== email) return fail("The signed-in email does not match this invitation.", 403);
     const { data: org } = await admin.from("organizations").select("id,slug,display_name").eq("slug", slug).eq("is_active", true).single();
     if (!org) return fail("Organization not found.", 404);
-    const { data: invite } = await admin.from("organization_pilot_invites").select("pilot_name,status").eq("organization_id", org.id).eq("email", email).eq("status", "invited").maybeSingle();
+    const { data: invite } = await admin.from("organization_pilot_invites").select("pilot_name,status").eq("organization_id", org.id).eq("email", email).in("status", ["invited", "accepted"]).maybeSingle();
     if (!invite) return fail("This email has not been invited by the organization administrator.", 403);
     return json({ allowed: true, pilotName: invite.pilot_name, organization: { slug: org.slug, displayName: org.display_name } });
   }
