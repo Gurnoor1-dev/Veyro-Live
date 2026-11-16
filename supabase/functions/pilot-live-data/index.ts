@@ -1,7 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.56.0";
 import { json, fail } from "../_shared/http.ts";
 import { decryptSecret, encryptSecret } from "../_shared/crypto.ts";
-import { ifRequest, IfApiRateLimitError, getIfApiRateLimitState, refreshAuthorizationToken } from "../_shared/infinite-flight.ts";
+import { ifRequest, IfApiRateLimitError, type IfApiRateLimitState, refreshAuthorizationToken } from "../_shared/infinite-flight.ts";
 
 const pilotCache = new Map<string, { expiresAt: number; value: any }>();
 const pilotAircraftCache = new Map<string, { expiresAt: number; aircraft: Array<{ id: string; registration?: string }> }>();
@@ -83,34 +83,40 @@ Deno.serve(async (req) => {
       const requestedIds = Array.isArray(body.aircraftIds)
         ? [...new Set(body.aircraftIds.map((id: unknown) => String(id)).filter((id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)))].slice(0, 100)
         : [];
-      const cachedAircraft = pilotAircraftCache.get(cacheKey);
-      let knownAircraft = cachedAircraft && cachedAircraft.expiresAt > Date.now() ? cachedAircraft.aircraft : null;
-      if (!knownAircraft) {
-        knownAircraft = await ifRequest<Array<{ id: string; registration?: string }>>(token, "/live/organizations/" + body.organizationId + "/aircraft");
-        pilotAircraftCache.set(cacheKey, { expiresAt: Date.now() + 5 * 60_000, aircraft: knownAircraft });
-      }
-      const allowedIds = new Set(knownAircraft.map((item) => item.id));
-      const aircraftIds = (requestedIds.length ? requestedIds : knownAircraft.map((item) => item.id)).filter((id) => allowedIds.has(id));
       const positions: Record<string, unknown> = {};
       const latestFlights: Record<string, unknown> = {};
       const failures: Record<string, string> = {};
       let rateLimited = false;
       let retryAfterSeconds = 0;
       let completed = 0;
-      const initialRateLimit = getIfApiRateLimitState();
+      let rateLimitState: IfApiRateLimitState = { remaining: null, resetAt: null, isPro: Boolean(body.isPro) };
       let remainingBudget = body.apiRateRemaining !== undefined && body.apiRateRemaining !== null
         ? Math.max(0, Number(body.apiRateRemaining) || 0)
-        : initialRateLimit.remaining ?? (body.isPro ? 20 : 5);
+        : (body.isPro ? 20 : 5);
+      const observeRateLimit = (state: IfApiRateLimitState) => {
+        rateLimitState = state;
+        if (state.remaining !== null) remainingBudget = Math.min(remainingBudget, state.remaining);
+      };
+      const cachedAircraft = pilotAircraftCache.get(cacheKey);
+      let knownAircraft = cachedAircraft && cachedAircraft.expiresAt > Date.now() ? cachedAircraft.aircraft : null;
+      if (!knownAircraft) {
+        if (remainingBudget <= 0) return json({ positions, latestFlights, failures, completed, total: requestedIds.length, rateLimited: true, retryAfterSeconds, rateLimit: rateLimitState, updatedAt: new Date().toISOString() });
+        knownAircraft = await ifRequest<Array<{ id: string; registration?: string }>>(token, "/live/organizations/" + body.organizationId + "/aircraft", {}, observeRateLimit);
+        remainingBudget = Math.max(0, remainingBudget - 1);
+        pilotAircraftCache.set(cacheKey, { expiresAt: Date.now() + 5 * 60_000, aircraft: knownAircraft });
+      }
+      const allowedIds = new Set(knownAircraft.map((item) => item.id));
+      const aircraftIds = (requestedIds.length ? requestedIds : knownAircraft.map((item) => item.id)).filter((id) => allowedIds.has(id));
 
       for (const aircraftId of aircraftIds) {
         if (remainingBudget <= 0) { rateLimited = true; break; }
         try {
-          positions[aircraftId] = await ifRequest(token, "/live/aircraft/" + aircraftId + "/position");
-          remainingBudget -= 1;
+          positions[aircraftId] = await ifRequest(token, "/live/aircraft/" + aircraftId + "/position", {}, observeRateLimit);
+          remainingBudget = Math.max(0, remainingBudget - 1);
           if (body.action === "aircraft_operations") {
             if (remainingBudget <= 0) { rateLimited = true; latestFlights[aircraftId] = null; completed += 1; break; }
-            const flights = await ifRequest<Array<Record<string, unknown>>>(token, "/live/aircraft/" + aircraftId + "/flights?page=1&pageSize=1");
-            remainingBudget -= 1;
+            const flights = await ifRequest<Array<Record<string, unknown>>>(token, "/live/aircraft/" + aircraftId + "/flights?page=1&pageSize=1", {}, observeRateLimit);
+            remainingBudget = Math.max(0, remainingBudget - 1);
             latestFlights[aircraftId] = flights[0] ?? null;
           }
           completed += 1;
@@ -132,18 +138,20 @@ Deno.serve(async (req) => {
         total: aircraftIds.length,
         rateLimited,
         retryAfterSeconds,
-        rateLimit: getIfApiRateLimitState(),
+        rateLimit: rateLimitState,
         updatedAt: new Date().toISOString(),
       });
     }
 
-    const organizations = await ifRequest<Array<{ id: string; name: string; role: number }>>(token, "/live/organizations");
+    let rateLimitState: IfApiRateLimitState = { remaining: null, resetAt: null, isPro: false };
+    const observeRateLimit = (state: IfApiRateLimitState) => { rateLimitState = state; };
+    const organizations = await ifRequest<Array<{ id: string; name: string; role: number }>>(token, "/live/organizations", {}, observeRateLimit);
     const organization = organizations.find((item) => item.id === body.organizationId);
     if (!organization) return fail("Your Infinite Flight account is not a member of this organization.", 403);
     // The v3 Live organization list is already scoped to the authenticated
     // Infinite Flight user. Confirm membership there; do not call an undocumented
     // OIDC user-info URL (it returns 404 and blocks every dashboard).
-    const members = await ifRequest<Array<{ userId: string; username?: string | null; role?: number; activeLifts?: number; joinedAt?: string }>>(token, "/live/organizations/" + organization.id + "/members");
+    const members = await ifRequest<Array<{ userId: string; username?: string | null; role?: number; activeLifts?: number; joinedAt?: string }>>(token, "/live/organizations/" + organization.id + "/members", {}, observeRateLimit);
     const { data: portal } = await admin.from("organizations").select("id,slug").eq("live_organization_id", organization.id).eq("is_active", true).single();
     if (!portal || !user.email) return fail("This organization does not have a Veyro pilot portal.", 404);
     const { data: invite } = await admin.from("organization_pilot_invites").select("id,pilot_name,status,accepted_user_id").eq("organization_id", portal.id).ilike("email", user.email.toLowerCase()).in("status", ["invited", "accepted"]).maybeSingle();
@@ -189,11 +197,9 @@ Deno.serve(async (req) => {
       if (error) return fail("Could not securely save your pilot connection.", 500);
     }
 
-    const [aircraft, schedules] = await Promise.all([
-      ifRequest(token, "/live/organizations/" + organization.id + "/aircraft"),
-      ifRequest(token, "/live/organizations/" + organization.id + "/schedules"),
-    ]);
-    const payload = { organization, aircraft, schedules, members, role: organization.role, portal: { id: portal.id, slug: portal.slug }, portalId: portal.id, pilotId: user.id, mode: "pilot-portal", rateLimit: getIfApiRateLimitState() };
+    const aircraft = await ifRequest<Array<Record<string, unknown>>>(token, "/live/organizations/" + organization.id + "/aircraft", {}, observeRateLimit);
+    const schedules = await ifRequest<Array<Record<string, unknown>>>(token, "/live/organizations/" + organization.id + "/schedules", {}, observeRateLimit);
+    const payload = { organization, aircraft, schedules, members, role: organization.role, portal: { id: portal.id, slug: portal.slug }, portalId: portal.id, pilotId: user.id, mode: "pilot-portal", rateLimit: rateLimitState };
     pilotAircraftCache.set(cacheKey, { expiresAt: Date.now() + 5 * 60_000, aircraft });
     pilotCache.set(cacheKey, { expiresAt: Date.now() + 30_000, value: payload });
     return json(payload);
