@@ -81,7 +81,13 @@ Deno.serve(async (req) => {
       }
 
       let rateLimitState: IfApiRateLimitState = { remaining: body.apiRateRemaining == null ? null : Math.max(0, Number(body.apiRateRemaining) || 0), resetAt: body.apiRateResetAt ?? null, isPro: Boolean(body.isPro) };
-      const observeRateLimit = (state: IfApiRateLimitState) => { rateLimitState = state; };
+      const observeRateLimit = (state: IfApiRateLimitState) => {
+        rateLimitState = {
+          remaining: state.remaining ?? rateLimitState.remaining,
+          resetAt: state.resetAt ?? rateLimitState.resetAt,
+          isPro: state.isPro || rateLimitState.isPro,
+        };
+      };
 
       if (body.action === "organization_members") {
         const budget = body.apiRateRemaining == null ? (body.isPro ? 20 : 5) : Math.max(0, Number(body.apiRateRemaining) || 0);
@@ -117,8 +123,12 @@ Deno.serve(async (req) => {
         ? Math.max(0, Number(body.apiRateRemaining) || 0)
         : (body.isPro ? 20 : 5);
       const observePositionRateLimit = (state: IfApiRateLimitState) => {
-        rateLimitState = state;
         remainingBudget = state.remaining !== null ? state.remaining : Math.max(0, remainingBudget - 1);
+        rateLimitState = {
+          remaining: state.remaining ?? remainingBudget,
+          resetAt: state.resetAt ?? rateLimitState.resetAt,
+          isPro: state.isPro || rateLimitState.isPro,
+        };
       };
       const cachedAircraft = pilotAircraftCache.get(cacheKey);
       let knownAircraft = cachedAircraft && cachedAircraft.expiresAt > Date.now() ? cachedAircraft.aircraft : null;
