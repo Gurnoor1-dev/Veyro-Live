@@ -23,7 +23,7 @@ Deno.serve(async (req) => {
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   const { error } = await admin.from("oauth_transactions").insert({ state_hash: stateHash, user_id: user.id, code_verifier_ciphertext: await encryptSecret(verifier), redirect_path: returnTo, expires_at: new Date(Date.now() + 600000).toISOString() });
   if (error) return fail("Could not start authorization", 500);
-  const scopes = "openid profile offline_access live:organizations.read live:members.read live:aircraft.read live:schedules.read live:schedules.write";
+  const scopes = "openid profile offline_access live:organizations.read live:members.read live:aircraft.read live:schedules.read" + (returnTo.includes("/pilot-sign-in") ? "" : " live:schedules.write");
   const url = new URL("https://api.infiniteflight.com/auth/v2/connect/authorize");
   url.search = new URLSearchParams({ response_type: "code", client_id: clientId, redirect_uri: redirectUri, scope: scopes, state, code_challenge: challenge, code_challenge_method: "S256" }).toString();
   return json({ authorizationUrl: url.toString() });
