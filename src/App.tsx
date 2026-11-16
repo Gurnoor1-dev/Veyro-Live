@@ -190,6 +190,7 @@ function PilotDashboard(){
  const [schedules,setSchedules]=useState<any[]>([]);
  const [positions,setPositions]=useState<Record<string,AircraftPosition>>({});
  const [latestFlights,setLatestFlights]=useState<Record<string,any>>({});
+ const [apiRateLimit,setApiRateLimit]=useState<{remaining:number|null;resetAt:string|null;isPro:boolean}|null>(null);
  const [positionLoading,setPositionLoading]=useState(false);
  const [positionError,setPositionError]=useState("");
  const [positionsUpdated,setPositionsUpdated]=useState<Date|null>(null);
@@ -214,7 +215,7 @@ function PilotDashboard(){
   setLoading(true);setError("");
   const {data,error}=await invokeFunction(supabase,"pilot-live-data",{body:{organizationId:resolvedOrganizationId}});
   if(error||!data?.organization){setError(data?.error||error?.message||"Could not load this Live organization.");setLoading(false);return}
-  setOrganization(data.organization);setPortalId(data.portal?.id||"");setAircraft(data.aircraft||[]);setSchedules(data.schedules||[]);setMembers(data.members||[]);
+  setOrganization(data.organization);setPortalId(data.portal?.id||"");setAircraft(data.aircraft||[]);setSchedules(data.schedules||[]);setMembers(data.members||[]);if(data.rateLimit)setApiRateLimit(data.rateLimit);
   if(data.portal?.id){const {data:rows}=await supabase.from("booking_requests").select("id,live_schedule_id,status,request_note,created_at,reviewed_at,rejection_reason").eq("organization_id",data.portal.id).eq("pilot_user_id",session.user.id).order("created_at",{ascending:false}).limit(30);setBookings(rows||[])}
   setLastUpdated(new Date());setLoading(false);
  };
@@ -224,11 +225,12 @@ function PilotDashboard(){
   if(!supabase||!resolvedOrganizationId||aircraft.length===0)return;
   setPositionLoading(true);
   try{
-   const {data,error}=await invokeFunction(supabase,"pilot-live-data",{body:{organizationId:resolvedOrganizationId,action:includeFlights?"aircraft_operations":"aircraft_positions",aircraftIds:aircraft.map(item=>item.id)}});
+   const resetValue=apiRateLimit?.resetAt;const resetNumber=resetValue?Number(resetValue):NaN;const resetTime=resetValue?(Number.isFinite(resetNumber)?(resetNumber<1e12?resetNumber*1000:resetNumber):Date.parse(resetValue)):0;const budgetStillCurrent=!!resetTime&&resetTime>Date.now();
+   const {data,error}=await invokeFunction(supabase,"pilot-live-data",{body:{organizationId:resolvedOrganizationId,action:includeFlights?"aircraft_operations":"aircraft_positions",aircraftIds:aircraft.map(item=>item.id),apiRateRemaining:budgetStillCurrent?apiRateLimit?.remaining??undefined:undefined,isPro:apiRateLimit?.isPro??false}});
    if(error)throw error;
    const nextPositions=(data?.positions||{}) as Record<string,AircraftPosition>;
    setPositions(previous=>({...previous,...nextPositions}));
-   if(includeFlights)setLatestFlights((data?.latestFlights||{}) as Record<string,any>);
+   if(includeFlights)setLatestFlights((data?.latestFlights||{}) as Record<string,any>);if(data?.rateLimit)setApiRateLimit(data.rateLimit);
    setPositionsUpdated(data?.updatedAt?new Date(data.updatedAt):new Date());
    if(data?.rateLimited){
     setPositionError("Infinite Flight rate limit reached. Updated "+(data.completed||0)+" of "+(data.total||aircraft.length)+" aircraft; remaining positions will update on the next refresh.");
@@ -284,7 +286,7 @@ function PilotDashboard(){
     {page==="overview" ? <>
       <div className="dashboard-stats"><article className="stat-card"><span>Fleet aircraft</span><strong>{aircraft.length}</strong><small><Plane size={12}/> Live organisation fleet</small></article><article className="stat-card"><span>Published schedules</span><strong>{schedules.length}</strong><small><CalendarDays size={12}/> Current schedules</small></article><article className="stat-card"><span>Your Live role</span><strong>{organization?.role===2?"Owner":organization?.role===1?"Admin":organization?"Member":"—"}</strong><small><ShieldCheck size={12}/> Verified by Infinite Flight</small></article><article className="stat-card"><span>Last refreshed</span><strong className="stat-time">{lastUpdated?lastUpdated.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}):"—"}</strong><small>Live API v3</small></article></div>
       <section className="panel dashboard-panel aircraft-map-panel">
-       <div className="section-heading"><div><h2>Live fleet map</h2><p>Aircraft positions from Infinite Flight Live · automatic refresh every 30 seconds</p></div><button className="button button-quiet" onClick={()=>void fetchFleetData(false)} disabled={positionLoading||aircraft.length===0}><RefreshCw size={13}/>{positionLoading?"Updating…":"Refresh positions"}</button></div>
+       <div className="section-heading"><div><h2>Live fleet map</h2><p>Aircraft positions from Infinite Flight Live · 30-second refresh cycle, paced to your API allowance</p></div><button className="button button-quiet" onClick={()=>void fetchFleetData(false)} disabled={positionLoading||aircraft.length===0}><RefreshCw size={13}/>{positionLoading?"Updating…":"Refresh positions"}</button></div>
        {positionError&&<div className="notice">{positionError}</div>}
        {aircraft.length===0?<div className="empty-state">No aircraft are attached to this organization.</div>:<AircraftLiveMap aircraft={aircraft} positions={positions} dark={darkMap}/>}
        <div className="aircraft-map-footer"><span>{positionLoading?"Fetching aircraft positions…":positionsUpdated?"Last position refresh "+positionsUpdated.toLocaleTimeString():"Waiting for first position update"}</span><span>{positionedCount} / {aircraft.length} positions available</span></div>
