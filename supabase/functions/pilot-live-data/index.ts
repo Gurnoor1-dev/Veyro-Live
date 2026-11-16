@@ -1,7 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.56.0";
 import { json, fail } from "../_shared/http.ts";
 import { decryptSecret, encryptSecret } from "../_shared/crypto.ts";
-import { ifRequest, IfApiRateLimitError, refreshAuthorizationToken } from "../_shared/infinite-flight.ts";
+import { ifRequest, IfApiRateLimitError, getIfApiRateLimitState, refreshAuthorizationToken } from "../_shared/infinite-flight.ts";
 
 const pilotCache = new Map<string, { expiresAt: number; value: any }>();
 const pilotAircraftCache = new Map<string, { expiresAt: number; aircraft: Array<{ id: string; registration?: string }> }>();
@@ -97,12 +97,20 @@ Deno.serve(async (req) => {
       let rateLimited = false;
       let retryAfterSeconds = 0;
       let completed = 0;
+      const initialRateLimit = getIfApiRateLimitState();
+      let remainingBudget = body.apiRateRemaining !== undefined && body.apiRateRemaining !== null
+        ? Math.max(0, Number(body.apiRateRemaining) || 0)
+        : initialRateLimit.remaining ?? (body.isPro ? 20 : 5);
 
       for (const aircraftId of aircraftIds) {
+        if (remainingBudget <= 0) { rateLimited = true; break; }
         try {
           positions[aircraftId] = await ifRequest(token, "/live/aircraft/" + aircraftId + "/position");
+          remainingBudget -= 1;
           if (body.action === "aircraft_operations") {
+            if (remainingBudget <= 0) { rateLimited = true; latestFlights[aircraftId] = null; completed += 1; break; }
             const flights = await ifRequest<Array<Record<string, unknown>>>(token, "/live/aircraft/" + aircraftId + "/flights?page=1&pageSize=1");
+            remainingBudget -= 1;
             latestFlights[aircraftId] = flights[0] ?? null;
           }
           completed += 1;
@@ -110,6 +118,7 @@ Deno.serve(async (req) => {
           if (error instanceof IfApiRateLimitError) {
             rateLimited = true;
             retryAfterSeconds = error.retryAfterSeconds;
+            remainingBudget = 0;
             break;
           }
           failures[aircraftId] = error instanceof Error ? error.message : "Position unavailable";
@@ -123,6 +132,7 @@ Deno.serve(async (req) => {
         total: aircraftIds.length,
         rateLimited,
         retryAfterSeconds,
+        rateLimit: getIfApiRateLimitState(),
         updatedAt: new Date().toISOString(),
       });
     }
@@ -183,7 +193,7 @@ Deno.serve(async (req) => {
       ifRequest(token, "/live/organizations/" + organization.id + "/aircraft"),
       ifRequest(token, "/live/organizations/" + organization.id + "/schedules"),
     ]);
-    const payload = { organization, aircraft, schedules, members, role: organization.role, portal: { id: portal.id, slug: portal.slug }, portalId: portal.id, pilotId: user.id, mode: "pilot-portal" };
+    const payload = { organization, aircraft, schedules, members, role: organization.role, portal: { id: portal.id, slug: portal.slug }, portalId: portal.id, pilotId: user.id, mode: "pilot-portal", rateLimit: getIfApiRateLimitState() };
     pilotAircraftCache.set(cacheKey, { expiresAt: Date.now() + 5 * 60_000, aircraft });
     pilotCache.set(cacheKey, { expiresAt: Date.now() + 30_000, value: payload });
     return json(payload);
