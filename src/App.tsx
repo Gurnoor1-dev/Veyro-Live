@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import { Link, Navigate, Route, Routes, useNavigate, useParams, useLocation } from "react-router-dom";
-import { ArrowUpRight, CalendarDays, ChevronRight, LogOut, Moon, Plane, RefreshCw, ShieldCheck, Sun } from "lucide-react";
+import { ArrowRight, ArrowUpRight, CalendarDays, ChevronRight, LogOut, Moon, Plane, RefreshCw, ShieldCheck, Sun } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import { isSupabaseConfigured, supabase } from "./lib/supabase";
 import { ApplicationStatusPage, OrganizationApplicationPage, OrganizationDirectory, PublicOrganizationPage } from "./pages/PortalPages";
@@ -19,7 +19,7 @@ function prepareInfiniteFlightOAuth(){if(!supabase)return Promise.resolve({data:
 
 function Login(){const [session,setSession]=useState<Session|null>(null);const [email,setEmail]=useState("");const [message,setMessage]=useState("");const [busy,setBusy]=useState(false);const [pending,setPending]=useState(new URLSearchParams(location.search).get("pending")||"");const [orgs,setOrgs]=useState<any[]>([]);const [selected,setSelected]=useState("");const [error,setError]=useState("");const navigate=useNavigate();
  useEffect(()=>{if(!supabase)return;supabase.auth.getSession().then(({data})=>setSession(data.session));const {data}=supabase.auth.onAuthStateChange((_e,s)=>setSession(s));return()=>data.subscription.unsubscribe()},[]);
- useEffect(()=>{if(session&&!pending)void prepareInfiniteFlightOAuth()},[session,pending]);
+ useEffect(()=>{if(session&&!pending&&!new URLSearchParams(location.search).get("next"))void prepareInfiniteFlightOAuth()},[session,pending]);
  useEffect(()=>{const next=new URLSearchParams(location.search).get("next");if(next)localStorage.setItem("veyro-after-login",next);const target=localStorage.getItem("veyro-after-login");if(session&&target&&!pending){localStorage.removeItem("veyro-after-login");navigate(target,{replace:true})}},[session,pending,navigate]);
  useEffect(()=>{if(!session||!pending||!supabase)return;let active=true;setBusy(true);supabase.functions.invoke("if-oauth-organizations",{body:{pendingId:pending}}).then(({data,error})=>{if(!active)return;if(error)throw error;setOrgs(data.organizations||[]);if(data.organizations?.length===1)setSelected(data.organizations[0].id)}).catch(e=>setError(e.message||"Could not load Infinite Flight organizations.")).finally(()=>setBusy(false));return()=>{active=false}},[session,pending]);
  const signIn=async(e:FormEvent)=>{e.preventDefault();if(!supabase)return;setBusy(true);setError("");const nextPath=new URLSearchParams(location.search).get("next")||"/";const {error}=await supabase.auth.signInWithOtp({email:email.trim(),options:{emailRedirectTo:location.origin+"/login?next="+encodeURIComponent(nextPath)}});setMessage(error? "": "Check your email for the secure sign-in link.");if(error)setError(error.message);setBusy(false)};
