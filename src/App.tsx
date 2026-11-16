@@ -150,9 +150,9 @@ function AircraftMapMarker({aircraft,position,dark}:{aircraft:any;position:Aircr
   <Popup>
    <div className="aircraft-map-popup">
     <strong>{aircraft.registration||"Fleet aircraft"}</strong>
-    <span>{position.lastPilotUsername||"Pilot not reported"}</span>
-    <div><b>{Math.round(position.altitude||0).toLocaleString()} ft</b><b>{Math.round(position.speed||0)} kt</b><b>{Math.round(position.heading||0)}°</b></div>
-    <small>{ageLabel(position.updatedAt)}</small>
+    <span>{position.lastPilotUsername||"Pilot not reported"} · {aircraftState(position).label}</span>
+    <div><b>{Math.round(position.altitude||0).toLocaleString()} ft</b><b>{Math.round(position.speed||0)} kt</b><b>{Math.round(position.heading||0)}° HDG</b><b>{Math.round(position.verticalSpeed||0)} ft/min</b></div>
+    <small>{position.latitude.toFixed(4)}, {position.longitude.toFixed(4)} · {ageLabel(position.updatedAt)}</small>
    </div>
   </Popup>
  </Marker>;
