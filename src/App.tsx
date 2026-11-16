@@ -29,7 +29,7 @@ function Login(){const [session,setSession]=useState<Session|null>(null);const [
  if(!isSupabaseConfigured)return <main className="shell narrow"><Header/><section className="panel login-panel"><h1>Backend not configured</h1><p>Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in the Vercel project environment, then redeploy.</p></section><Footer/></main>;
  return (
   <main className="shell narrow">
-   <Header right={session?<button className="top-link" onClick={signOut}><LogOut size={14}/> Sign out</button>:<Link className="top-link" to="/">Back home</Link>}/>
+   <Header right={session?<div className="session-actions"><span className="session-pill"><span className="session-dot"/> Stay signed in</span><button className="account-signout" onClick={signOut}><LogOut size={14}/> Sign out</button></div>:<Link className="top-link" to="/">Back home</Link>}/>
    <section className="panel login-panel">
     <div className="feature-icon"><ShieldCheck size={20}/></div>
     <h1>{!session?"Sign in to VEYRO Live":pending?"Choose your Live organization":"Connect Infinite Flight"}</h1>
@@ -116,7 +116,7 @@ function PilotDashboard(){
  if(!session)return <Navigate to={slug?"/"+slug+"/pilot-sign-in":"/login"} replace/>;
  const items=tab==="fleet"?aircraft:schedules;
  const nav=[{id:"overview",label:"Overview"},{id:"schedules",label:"Schedules"},{id:"fleet",label:"Fleet"},{id:"members",label:"Crew"},{id:"bookings",label:"My bookings"},{id:"profile",label:"Pilot profile"}];
- return <main className="shell pilot-shell"><Header right={<><Link className="top-link" to={slug?"/"+slug+"/pilot-sign-in":"/login"}>Switch organisation</Link><button className="top-link" onClick={signOut}><LogOut size={14}/> Sign out</button></>}/>
+ return <main className="shell pilot-shell"><Header right={<div className="session-actions"><span className="session-pill"><span className="session-dot"/> Session active</span><Link className="top-link" to={slug?"/"+slug+"/pilot-sign-in":"/login"}>Switch organisation</Link><button className="account-signout" onClick={signOut}><LogOut size={14}/> Sign out</button></div>}/>
   <div className="pilot-layout">
    <aside className="pilot-sidebar"><div className="pilot-sidebar-org"><span className="pilot-org-mark">{(organization?.name||"V").slice(0,1)}</span><div><strong>{organization?.name||"Live organisation"}</strong><small>PILOT WORKSPACE</small></div></div><nav>{nav.map(item=><Link key={item.id} className={page===item.id?"active":""} to={slug?"/"+slug+"/pilot/"+pilotId+"/"+item.id:"/pilot/"+organizationId+"/"+item.id}>{item.label}</Link>)}</nav><div className="pilot-sidebar-foot">PILOT OPERATIONS<br/>Bookings synced to Live</div></aside>
    <section className="pilot-content">

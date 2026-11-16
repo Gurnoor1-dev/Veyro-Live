@@ -219,7 +219,7 @@ html.dark{color-scheme:dark;--page:#0b0f19;--text:#f1f5f9;--muted:#94a3b8;--soft
 /* Organization control center */
 .admin-shell{width:min(1240px,calc(100% - 48px))}
 .admin-tabs{display:flex;gap:6px;overflow:auto;padding:5px;margin:0 0 20px;border:1px solid var(--border);border-radius:11px;background:var(--surface-muted)}
-.admin-tabs button{flex:none;border:0;border-radius:7px;padding:10px 13px;background:transparent;color:var(--muted);font:700 10px inherit;cursor:pointer}
+.admin-tabs button{flex:none;border:0;border-radius:7px;padding:10px 13px;background:transparent;color:var(--muted);font-family:inherit;font-size:10px;font-weight:700;line-height:1.3;cursor:pointer}
 .admin-tabs button.active{background:var(--surface);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,.07)}
 .admin-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-bottom:30px;align-items:start}
 .admin-card{padding:22px;min-width:0}
@@ -248,3 +248,10 @@ html.dark{color-scheme:dark;--page:#0b0f19;--text:#f1f5f9;--muted:#94a3b8;--soft
 .aircraft-schedule-group summary small{font-size:9px;color:var(--muted)}
 .field-hint{display:block;color:var(--muted);font-size:9px;line-height:1.6;margin:5px 0 15px}
 @media(max-width:760px){.admin-grid{grid-template-columns:1fr}.admin-two-col{grid-template-columns:1fr;gap:0}.admin-shell{width:calc(100% - 28px)}.admin-card{padding:17px}}
+
+.session-actions{display:flex;align-items:center;gap:9px}
+.session-pill{display:inline-flex;align-items:center;gap:7px;padding:8px 11px;border:1px solid var(--border);border-radius:999px;background:var(--surface-muted);color:var(--muted);font-size:9px;font-weight:750;letter-spacing:.02em;white-space:nowrap}
+.session-dot{width:6px;height:6px;border-radius:50%;background:#21a36a;box-shadow:0 0 0 3px rgba(33,163,106,.12)}
+.account-signout{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text);font-size:10px;font-weight:750;cursor:pointer;transition:background .16s ease,border-color .16s ease,transform .16s ease}
+.account-signout:hover{background:var(--surface-muted);border-color:var(--muted);transform:translateY(-1px)}
+@media(max-width:600px){.session-actions{gap:6px}.session-pill{padding:7px 8px;font-size:8px}.account-signout{padding:8px 9px;font-size:9px}}

@@ -69,3 +69,6 @@ The schedule editor groups schedules under each persistent aircraft record. Crea
 - **Pre-approved:** the request is assigned directly to the Live schedule using the crew assignment endpoint. A booking is only shown as approved after Live confirms the assignment.
 
 After a successful manual approval, the original Discord message is replaced with a compact status card naming the reviewer. If Live synchronization fails, the booking remains in a retryable synchronization state.
+
+
+Live fleet, schedule, and member responses are cached in memory for up to 30 seconds to reduce duplicate PublicApi v3 calls. Mutating admin actions invalidate the admin portal cache. Live API data is not persisted as a local copy.
