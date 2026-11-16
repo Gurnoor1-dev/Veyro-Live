@@ -155,13 +155,17 @@ Deno.serve(async (req) => {
       return json({ ok: true });
     }
 
-    if (body.action === "create_schedule" || body.action === "update_schedule" || body.action === "delete_schedule" || body.action === "update_flightplan") {
+    if (body.action === "create_schedule" || body.action === "update_schedule" || body.action === "delete_schedule" || body.action === "update_flightplan" || body.action === "reorder_schedule") {
       const token = await getOrganizationAccessToken(organizationId);
       const connection = await admin.from("if_connections").select("granted_scopes,live_role").eq("organization_id", organizationId).single();
       if (!connection.data || ![1,2].includes(connection.data.live_role) || !connection.data.granted_scopes?.includes("live:schedules.write")) return fail("Reconnect Infinite Flight as an organization Owner/Admin and approve live:schedules.write.", 403);
       const scheduleId = String(body.scheduleId ?? "");
       let result: unknown;
-      if (body.action === "create_schedule") {
+      if (body.action === "reorder_schedule") {
+        const aircraftId = String(body.aircraftId ?? "");
+        if (!aircraftId || !scheduleId) return fail("Select an aircraft and schedule.", 400);
+        result = await ifRequest(token, "/live/aircraft/" + aircraftId + "/schedules/reorder", { method: "PUT", body: JSON.stringify({ scheduleId, afterId: body.afterId ?? null }) });
+      } else if (body.action === "create_schedule") {
         const aircraftId = String(body.aircraftId ?? "");
         if (!aircraftId) return fail("Select an aircraft.", 400);
         result = await ifRequest(token, "/live/aircraft/" + aircraftId + "/schedules", { method: "POST", body: JSON.stringify(body.schedule ?? {}) });

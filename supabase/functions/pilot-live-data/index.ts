@@ -77,7 +77,7 @@ Deno.serve(async (req) => {
     const userInfoResponse = await fetch(discovery.userinfo_endpoint, { headers: { Authorization: "Bearer " + token, Accept: "application/json" } });
     if (!userInfoResponse.ok) throw new Error("Could not verify your Infinite Flight profile");
     const userInfo = await userInfoResponse.json();
-    const members = await ifRequest<Array<{ userId: string; username?: string | null }>>(token, "/live/organizations/" + organization.id + "/members");
+    const members = await ifRequest<Array<{ userId: string; username?: string | null; role?: number; activeLifts?: number; joinedAt?: string }>>(token, "/live/organizations/" + organization.id + "/members");
     const subject = String(userInfo.sub ?? "");
     const username = String(userInfo.preferred_username ?? userInfo.username ?? userInfo.name ?? "").toLowerCase();
     const matchedMember = members.find((member) => (subject && member.userId === subject) || (username && String(member.username ?? "").toLowerCase() === username));
@@ -111,7 +111,7 @@ Deno.serve(async (req) => {
       ifRequest(token, "/live/organizations/" + organization.id + "/aircraft"),
       ifRequest(token, "/live/organizations/" + organization.id + "/schedules"),
     ]);
-    const payload = { organization, aircraft, schedules, role: organization.role, portal: { id: portal.id, slug: portal.slug }, portalId: portal.id, pilotId: user.id, mode: "pilot-portal" };
+    const payload = { organization, aircraft, schedules, members, role: organization.role, portal: { id: portal.id, slug: portal.slug }, portalId: portal.id, pilotId: user.id, mode: "pilot-portal" };
     pilotCache.set(cacheKey, { expiresAt: Date.now() + 30_000, value: payload });
     return json(payload);
   } catch (error) {
