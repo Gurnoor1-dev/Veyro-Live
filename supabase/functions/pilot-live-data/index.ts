@@ -115,7 +115,8 @@ Deno.serve(async (req) => {
     pilotCache.set(cacheKey, { expiresAt: Date.now() + 30_000, value: payload });
     return json(payload);
   } catch (error) {
+    console.error("[pilot-live-data] failed", error instanceof Error ? { name: error.name, message: error.message, stack: error.stack } : String(error));
     if (error instanceof IfApiRateLimitError) return fail(error.message, 429, { "Retry-After": String(error.retryAfterSeconds) });
-    return fail("Could not load this organization's Live data. Check your approved scopes and try again.", 502);
+    return fail(error instanceof Error ? error.message : "Could not load this organization's Live data.", 502);
   }
 });
