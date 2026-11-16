@@ -11,7 +11,7 @@ Deno.serve(async (req) => {
   admin.from("profiles").select("display_name,discord_user_id,infinite_flight_user_id").eq("id",user.id).maybeSingle(),
   admin.from("user_if_connections").select("token_expires_at,granted_scopes").eq("user_id",user.id).maybeSingle(),
   admin.from("organization_memberships").select("organization_id,role,is_active,created_at").eq("user_id",user.id).eq("is_active",true),
-  admin.from("organization_pilot_invites").select("id,organization_id,pilot_name,status,created_at").ilike("email",user.email??"").eq("status","invited"),
+  admin.from("organization_pilot_invites").select("id,organization_id,pilot_name,status,created_at").eq("email",(user.email??"").toLowerCase()).eq("status","invited"),
   admin.from("organizations").select("id,slug,display_name,logo_url,tagline,description,website_url,discord_invite_url,is_public,live_organization_id").eq("is_active",true).eq("is_public",true).order("display_name")
  ]);
  if(memberships.error||invites.error||directory.error){console.error("[my-portals] query failed",{memberships:memberships.error?.message,invites:invites.error?.message,directory:directory.error?.message});return fail("Could not load your Veyro workspace.",500)}
