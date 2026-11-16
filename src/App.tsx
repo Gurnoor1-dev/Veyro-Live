@@ -103,7 +103,8 @@ function currentRateBudget(rateLimit:{remaining:number|null;resetAt:string|null;
 }
 function ageLabel(value?:string){
  if(!value)return "Update time unavailable";
- const age=Math.max(0,Date.now()-new Date(value).getTime());
+ const timestamp=new Date(value).getTime();if(!Number.isFinite(timestamp))return "Update time unavailable";
+ const age=Math.max(0,Date.now()-timestamp);
  const minutes=Math.floor(age/60000);
  if(minutes<1)return "Updated just now";
  if(minutes<60)return "Updated "+minutes+"m ago";
@@ -130,7 +131,7 @@ function scheduleStatusLabel(status:number){
  return ({0:"Unknown",1:"Scheduled",2:"Boarding",3:"Boarded",4:"Taxiing to runway",6:"In flight",7:"Diverted",8:"Delayed",9:"Cancelled",10:"Taxiing to parking",11:"Arrived"} as Record<number,string>)[status]||"Scheduled";
 }
 function flightTypeLabel(type:number){
- return (["Other","Commercial","Charter","Cargo","Training","Test flight","Medical emergency","Military","VIP / Executive","Humanitarian","General aviation","Airshow","Other"] as string[])[type]||"Flight";
+ return (["Unspecified","Commercial","Charter","Cargo","Training","Test flight","Medical emergency","Military","VIP / Executive","Humanitarian","General aviation","Airshow","Other"] as string[])[type]||"Flight";
 }
 function AircraftMapViewport({points}:{points:[number,number][]}){
  const map=useMap();
@@ -342,11 +343,11 @@ function PilotDashboard(){
       <div className="section-heading"><div><h2>Fleet operations</h2><p>Aircraft status, last flown leg and every next scheduled leg. No aircraft images in this view.</p></div><button className="button button-quiet" onClick={()=>void fetchFleetData(true)} disabled={positionLoading}><RefreshCw size={13}/>{positionLoading?"Updating…":"Refresh status"}</button></div>
       {positionError&&<div className="notice">{positionError}</div>}
       {loading?<div className="empty-state">Loading aircraft and schedules…</div>:aircraft.length===0?<div className="empty-state">No aircraft are attached to this organization.</div>:<div className="aircraft-operations-list">{aircraft.map(item=>{
-       const position=positions[item.id];const state=aircraftState(position);const legs=schedulesByAircraft.get(item.id)||[];const lastFlight=latestFlights[item.id];
+       const position=positions[item.id];const state=aircraftState(position);const legs=schedulesByAircraft.get(item.id)||[];const lastFlight=latestFlights[item.id];const flightLogLoaded=Object.prototype.hasOwnProperty.call(latestFlights,item.id);
        return <details className="aircraft-operation-card" key={item.id}>
         <summary><div className="aircraft-operation-main"><span className={"aircraft-status-dot "+state.tone}/><div><span className="eyebrow">FLEET AIRCRAFT</span><strong>{item.registration||"UNREGISTERED"}</strong><small>{state.label}</small></div></div><div className="aircraft-operation-summary"><span className={"aircraft-status-chip tone-"+state.tone}>{state.label}</span><span>{legs.length} next {legs.length===1?"leg":"legs"}</span><span className="operation-chevron">⌄</span></div></summary>
         <div className="aircraft-operation-detail">
-         <div className="operation-facts"><div><span>Last flown leg</span><strong>{lastFlight?(lastFlight.originIcao||"—")+" → "+(lastFlight.destinationIcao||"—"):"No flight history returned"}</strong><small>{lastFlight?(lastFlight.actualDepartureUtc?new Date(lastFlight.actualDepartureUtc).toLocaleString():"Departure time unavailable"):"This aircraft has no recorded flight yet."}</small></div><div><span>Last pilot</span><strong>{position?.lastPilotUsername||lastFlight?.crew?.[0]?.username||"Not reported"}</strong><small>{ageLabel(position?.updatedAt)}</small></div></div>
+         <div className="operation-facts"><div><span>Last flown leg</span><strong>{lastFlight?(lastFlight.originIcao||"—")+" → "+(lastFlight.destinationIcao||"—"):flightLogLoaded?"No flight history":"Not loaded yet"}</strong><small>{lastFlight?(lastFlight.actualDepartureUtc?new Date(lastFlight.actualDepartureUtc).toLocaleString():"Departure time unavailable"):flightLogLoaded?"No flight-log entries were returned.":"Waiting for available API allowance to load the flight log."}</small></div><div><span>Last pilot</span><strong>{position?.lastPilotUsername||lastFlight?.crew?.[0]?.username||"Not reported"}</strong><small>{ageLabel(position?.updatedAt)}</small></div></div>
          <div className="next-legs-heading"><div><strong>Next scheduled legs</strong><span>{legs.length?"Published by your organization":"No active schedules"}</span></div></div>
          {legs.length===0?<div className="no-aircraft-legs"><CalendarDays size={20}/><div><strong>No legs have been made for this aircraft.</strong><span>Ask your organization administrator to publish more schedules for this registration.</span></div></div>:<div className="next-leg-list">{legs.map((leg:any)=><article className="next-leg-card" key={leg.id}><div className="next-leg-route"><strong>{leg.originIcao||"—"} <span>→</span> {leg.destinationIcao||"—"}</strong><small>{leg.callsign||item.registration} · {flightTypeLabel(leg.flightType??0)}</small></div><div className="next-leg-meta"><span className={"aircraft-status-chip tone-"+(leg.status===9?"danger":leg.status===8?"warning":"air")}>{scheduleStatusLabel(leg.status??1)}</span><small>{leg.isTimeless?"Timeless schedule":leg.scheduledDepartureUtc?new Date(leg.scheduledDepartureUtc).toLocaleString():"Departure not set"}</small></div><button className="button button-primary" disabled={requestBusy===leg.id} onClick={()=>void requestLeg(leg)}>{requestBusy===leg.id?"Requesting…":"Request leg"}</button></article>)}</div>}
         </div>
