@@ -29,11 +29,12 @@ async function reserveIfApiRequest(): Promise<void> {
 }
 
 const PAGED_LIVE_ENDPOINTS = [
-  /^\/live\/organizations\/[^/]+\/members$/,
+  // These two v3 collection routes return result.items + Page metadata.
+  // Organization aircraft, organization members, and aircraft schedules
+  // return plain arrays and must not receive paging query parameters.
   /^\/live\/organizations\/[^/]+\/schedules$/,
   /^\/live\/aircraft\/[^/]+\/flights$/,
-  /^\/live\/aircraft\/[^/]+\/schedules$/,
-];
+]
 
 function isPagedLiveEndpoint(pathname: string): boolean {
   return PAGED_LIVE_ENDPOINTS.some((pattern) => pattern.test(pathname));
