@@ -11,5 +11,7 @@ Deno.serve(async (req) => {
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   const { data, error } = await admin.from("user_if_connections").select("token_expires_at,granted_scopes,refresh_token_ciphertext").eq("user_id", user.id).maybeSingle();
   if (error) return fail("Could not check Infinite Flight connection.", 500);
-  const refreshable = Boolean(data?.refresh_token_ciphertext);\n  const unexpired = Boolean(data?.token_expires_at && new Date(data.token_expires_at).getTime() > Date.now());\n  return json({ connected: Boolean(data && (unexpired || refreshable)), expiresAt: data?.token_expires_at ?? null, scopes: data?.granted_scopes ?? [] });
+  const refreshable = Boolean(data?.refresh_token_ciphertext);
+  const unexpired = Boolean(data?.token_expires_at && new Date(data.token_expires_at).getTime() > Date.now());
+  return json({ connected: Boolean(data && (unexpired || refreshable)), expiresAt: data?.token_expires_at ?? null, scopes: data?.granted_scopes ?? [] });
 });
