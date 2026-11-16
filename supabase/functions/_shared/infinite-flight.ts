@@ -4,6 +4,11 @@ export const IF_AUTH = "https://api.infiniteflight.com/auth/v2/connect";
 export const IF_API = "https://api.infiniteflight.com/public/v3";
 
 type ApiEnvelope<T> = { errorCode: number; result: T };
+export type IfApiRateLimitState = { remaining: number | null; resetAt: string | null; isPro: boolean };
+let lastIfApiRateLimitState: IfApiRateLimitState = { remaining: null, resetAt: null, isPro: false };
+export function getIfApiRateLimitState(): IfApiRateLimitState {
+  return { ...lastIfApiRateLimitState };
+}
 
 export class IfApiRateLimitError extends Error {
   retryAfterSeconds: number;
@@ -66,6 +71,14 @@ export async function ifRequest<T>(token: string, path: string, init: RequestIni
         ...init.headers,
       },
     });
+    const remainingHeader = response.headers.get("X-Rate-Limit-Remaining");
+    const resetHeader = response.headers.get("X-Rate-Limit-Reset");
+    const proHeader = response.headers.get("X-User-Pro");
+    lastIfApiRateLimitState = {
+      remaining: remainingHeader === null ? lastIfApiRateLimitState.remaining : Math.max(0, Number(remainingHeader) || 0),
+      resetAt: resetHeader ?? lastIfApiRateLimitState.resetAt,
+      isPro: proHeader === null ? lastIfApiRateLimitState.isPro : proHeader.toLowerCase() === "true",
+    };
     const payload = await response.json().catch(() => null);
     if (response.status === 429) {
       const retry = Number(response.headers.get("Retry-After")) || 5;
