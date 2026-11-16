@@ -22,7 +22,7 @@ export async function invokeFunction<T = any>(
     if (status === 429) message = payload?.error || "Too many requests. Please wait a moment and try again.";
     if (status === 401) message = payload?.error || "Your session has expired. Sign in again to continue.";
     if (status === 403) message = payload?.error || "Your account does not have permission to do that.";
-    if (status >= 500 && !payload?.error && !payload?.message) {
+    if (status !== undefined && status >= 500 && !payload?.error && !payload?.message) {
       message = "The service is temporarily unavailable. Please try again shortly.";
     }
   } else if (error.name === "FunctionsFetchError") {
