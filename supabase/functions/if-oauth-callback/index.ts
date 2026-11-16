@@ -37,7 +37,8 @@ Deno.serve(async (req) => {
       granted_scopes: String(token.scope ?? "").split(" ").filter(Boolean),
     }, { onConflict: "user_id" });
     if (connectionError) throw connectionError;
-    const base = (Deno.env.get("APP_BASE_URL") ?? "").replace(/\\/$/, "");
+    const rawBase = Deno.env.get("APP_BASE_URL") ?? "";
+    const base = rawBase.endsWith("/") ? rawBase.slice(0, -1) : rawBase;
     const requestedPath = String(transaction.redirect_path ?? "/login");
     const safePath = requestedPath.startsWith("/") && !requestedPath.startsWith("//") && !requestedPath.includes("://") ? requestedPath : "/login";
     const destination = new URL(safePath, base || new URL(req.url).origin);
