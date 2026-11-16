@@ -54,7 +54,7 @@ Deno.serve(async (req) => {
         admin.from("organization_memberships").select("user_id,role,is_active,created_at").eq("organization_id", organizationId).order("created_at"),
         admin.from("organization_pilot_invites").select("id,email,pilot_name,status,created_at").eq("organization_id", organizationId).order("created_at", { ascending: false }),
         admin.from("discord_settings").select("guild_id,approval_channel_id,allowed_approver_role_ids,enabled").eq("organization_id", organizationId).maybeSingle(),
-        admin.from("profiles").select("display_name").eq("id", user.id).maybeSingle()
+        admin.from("profiles").select("display_name,discord_user_id").eq("id", user.id).maybeSingle()
       ]);
       const memberIds = (membersResult.data ?? []).map((m) => m.user_id);
       const profilesResult = memberIds.length ? await admin.from("profiles").select("id,display_name").in("id", memberIds) : { data: [] };

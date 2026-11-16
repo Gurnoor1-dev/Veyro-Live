@@ -69,6 +69,48 @@ async function approveApplication(application: any, reviewerId: string) {
   return org;
 }
 
+async function handleBookingReview(interaction: any, action: "approve" | "reject", bookingId: string) {
+  const admin = db();
+  const { data: booking } = await admin.from("booking_requests").select("*").eq("id", bookingId).maybeSingle();
+  if (!booking || booking.status !== "pending_approval") return;
+  const { data: settings } = await admin.from("discord_settings").select("guild_id,approval_channel_id,allowed_approver_role_ids,enabled").eq("organization_id", booking.organization_id).maybeSingle();
+  const roles: string[] = interaction.member?.roles ?? [];
+  const authorizedChannel = settings?.enabled && interaction.guild_id === settings.guild_id && interaction.channel_id === settings.approval_channel_id;
+  const authorizedRole = settings && roles.some((role) => settings.allowed_approver_role_ids.includes(role));
+  if (!authorizedChannel || !authorizedRole) return;
+  const discordUser = interaction.member?.user ?? interaction.user ?? {};
+  const discordUserId = String(discordUser.id ?? "");
+  const reviewerName = String(discordUser.global_name || discordUser.username || "Organization administrator").slice(0, 80);
+  const { data: profile } = await admin.from("profiles").select("id").eq("discord_user_id", discordUserId).maybeSingle();
+  const { data: membership } = profile ? await admin.from("organization_memberships").select("role").eq("organization_id", booking.organization_id).eq("user_id", profile.id).eq("is_active", true).maybeSingle() : { data: null };
+  if (!profile || !membership || !["owner", "admin"].includes(membership.role)) return;
+  const { error } = await admin.from("booking_requests").update({
+    status: action === "approve" ? "sync_failed" : "rejected",
+    reviewed_by: profile.id, reviewed_at: new Date().toISOString(), discord_interaction_id: interaction.id
+  }).eq("id", booking.id).eq("status", "pending_approval");
+  if (error) throw error;
+  let finalStatus = action === "reject" ? "rejected" : "sync_failed";
+  if (action === "approve") {
+    const { error: syncError } = await admin.functions.invoke("sync-approval", { body: { bookingRequestId: booking.id } });
+    if (!syncError) {
+      const { data: refreshed } = await admin.from("booking_requests").select("status").eq("id", booking.id).maybeSingle();
+      finalStatus = refreshed?.status ?? "sync_failed";
+    }
+  }
+  const botToken = Deno.env.get("DISCORD_BOT_TOKEN");
+  const { data: pilot } = await admin.from("profiles").select("display_name").eq("id", booking.pilot_user_id).maybeSingle();
+  if (botToken && booking.discord_message_id && settings?.approval_channel_id) {
+    const title = finalStatus === "approved" ? "Flight leg approved" : finalStatus === "rejected" ? "Flight leg rejected" : "Approval saved · Live sync pending";
+    const color = finalStatus === "approved" ? 0x16a36a : finalStatus === "rejected" ? 0xd94b4b : 0xd99b32;
+    const description = finalStatus === "approved"
+      ? "Approved for " + (pilot?.display_name || booking.pilot_if_user_id) + " by " + reviewerName + "."
+      : finalStatus === "rejected" ? "Rejected for " + (pilot?.display_name || booking.pilot_if_user_id) + " by " + reviewerName + "." : "Reviewed by " + reviewerName + ". Live crew assignment still needs synchronization.";
+    await fetch("https://discord.com/api/v10/channels/" + settings.approval_channel_id + "/messages/" + booking.discord_message_id, {
+      method: "PATCH", headers: { Authorization: "Bot " + botToken, "Content-Type": "application/json" },
+      body: JSON.stringify({ content: "", embeds: [{ title, description, color, footer: { text: "VEYRO Live · " + booking.id } }], components: [] })
+    });
+  }
+}
 Deno.serve(async (req) => {
   if (req.method !== "POST") return fail("Method not allowed", 405);
   const raw = await req.text();
@@ -82,6 +124,15 @@ Deno.serve(async (req) => {
 
   const interaction = JSON.parse(raw);
   if (interaction.type === 1) return json({ type: 1 });
+  const bookingMatch = String(interaction.data?.custom_id ?? "").match(/^(approve|reject):([0-9a-f-]{36})$/i);
+  if (interaction.type === 3 && bookingMatch) {
+    const action = bookingMatch[1].toLowerCase() as "approve" | "reject";
+    const task = handleBookingReview(interaction, action, bookingMatch[2]);
+    const runtime = (globalThis as any).EdgeRuntime;
+    if (runtime?.waitUntil) runtime.waitUntil(task);
+    else await task;
+    return json({ type: 6 });
+  }
   if (!reviewerAllowed(interaction)) return json({ type: 4, data: { content: "You are not authorised to review VEYRO organisation applications in this channel.", flags: 64 } });
 
   const customId = String(interaction.data?.custom_id ?? "");

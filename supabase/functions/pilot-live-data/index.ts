@@ -52,13 +52,34 @@ Deno.serve(async (req) => {
       }
     }
 
-    const required = ["live:organizations.read", "live:aircraft.read", "live:schedules.read"];
+    const required = ["live:organizations.read", "live:members.read", "live:aircraft.read", "live:schedules.read"];
     const missing = required.filter((scope) => !scopes.includes(scope));
     if (missing.length) return fail("Reconnect Infinite Flight and approve these scopes: " + missing.join(", "), 403);
 
     const organizations = await ifRequest<Array<{ id: string; name: string; role: number }>>(token, "/live/organizations");
     const organization = organizations.find((item) => item.id === body.organizationId);
     if (!organization) return fail("Your Infinite Flight account is not a member of this organization.", 403);
+    const discoveryResponse = await fetch("https://auth.infiniteflight.com/.well-known/openid-configuration");
+    if (!discoveryResponse.ok) throw new Error("Could not discover Infinite Flight profile endpoint");
+    const discovery = await discoveryResponse.json();
+    if (typeof discovery.userinfo_endpoint !== "string") throw new Error("Infinite Flight did not provide a profile endpoint");
+    const userInfoResponse = await fetch(discovery.userinfo_endpoint, { headers: { Authorization: "Bearer " + token, Accept: "application/json" } });
+    if (!userInfoResponse.ok) throw new Error("Could not verify your Infinite Flight profile");
+    const userInfo = await userInfoResponse.json();
+    const members = await ifRequest<Array<{ userId: string; username?: string | null }>>(token, "/live/organizations/" + organization.id + "/members");
+    const subject = String(userInfo.sub ?? "");
+    const username = String(userInfo.preferred_username ?? userInfo.username ?? userInfo.name ?? "").toLowerCase();
+    const matchedMember = members.find((member) => (subject && member.userId === subject) || (username && String(member.username ?? "").toLowerCase() === username));
+    if (!matchedMember) return fail("Could not match your Infinite Flight identity to a member of this organization.", 403);
+    const ifUserId = matchedMember.userId;
+    const { data: portal } = await admin.from("organizations").select("id,slug").eq("live_organization_id", organization.id).eq("is_active", true).single();
+    if (!portal || !user.email) return fail("This organization does not have a Veyro pilot portal.", 404);
+    const { data: invite } = await admin.from("organization_pilot_invites").select("id,pilot_name").eq("organization_id", portal.id).eq("email", user.email.toLowerCase()).in("status", ["invited", "accepted"]).maybeSingle();
+    if (!invite) return fail("Your email has not been invited by this organization. Ask an administrator to add you.", 403);
+    const { error: memberError } = await admin.from("organization_memberships").upsert({ organization_id: portal.id, user_id: user.id, role: "pilot", is_active: true }, { onConflict: "organization_id,user_id", ignoreDuplicates: true });
+    if (memberError) return fail("Could not activate your pilot membership.", 500);
+    await admin.from("organization_pilot_invites").update({ status: "accepted", accepted_user_id: user.id, accepted_at: new Date().toISOString() }).eq("id", invite.id);
+    await admin.from("profiles").upsert({ id: user.id, display_name: invite.pilot_name, infinite_flight_user_id: ifUserId }, { onConflict: "id" });
 
     if (body.pendingId) {
       const { error } = await admin.from("user_if_connections").upsert({
@@ -75,7 +96,7 @@ Deno.serve(async (req) => {
       ifRequest(token, "/live/organizations/" + organization.id + "/aircraft"),
       ifRequest(token, "/live/organizations/" + organization.id + "/schedules"),
     ]);
-    return json({ organization, aircraft, schedules, role: organization.role, mode: "pilot-read-only" });
+    return json({ organization, aircraft, schedules, role: organization.role, portal: { id: portal.id, slug: portal.slug }, pilotId: user.id, mode: "pilot-portal" });
   } catch (error) {
     if (error instanceof IfApiRateLimitError) return fail(error.message, 429, { "Retry-After": String(error.retryAfterSeconds) });
     return fail("Could not load this organization's Live data. Check your approved scopes and try again.", 502);
