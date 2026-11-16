@@ -112,6 +112,17 @@ Deno.serve(async (req) => {
       return json({ ok: true });
     }
 
+    if (body.action === "set_pilot_active") {
+      const targetUserId = String(body.userId ?? "");
+      if (!targetUserId || typeof body.isActive !== "boolean") return fail("Invalid pilot membership update.", 400);
+      const { data: target } = await admin.from("organization_memberships").select("role").eq("organization_id", organizationId).eq("user_id", targetUserId).maybeSingle();
+      if (!target || target.role !== "pilot") return fail("Only pilot memberships can be changed here.", 403);
+      const { error } = await admin.from("organization_memberships").update({ is_active: body.isActive }).eq("organization_id", organizationId).eq("user_id", targetUserId);
+      if (error) return fail("Could not update pilot access.", 500);
+      await admin.from("audit_events").insert({ organization_id: organizationId, actor_user_id: user.id, event_type: body.isActive ? "pilot.reactivated" : "pilot.deactivated", subject_id: targetUserId });
+      return json({ ok: true, isActive: body.isActive });
+    }
+
     if (body.action === "set_booking_mode") {
       const mode = body.mode === "preapproved" ? "preapproved" : body.mode === "manual" ? "manual" : null;
       if (!mode) return fail("Invalid booking mode.", 400);
