@@ -21,8 +21,9 @@ Deno.serve(async (req) => {
   if (!body.pendingId) {
     const cached = pilotCache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) {
-      const { data: activeMembership } = await admin.from("organization_memberships").select("is_active").eq("organization_id", cached.value.portalId).eq("user_id", user.id).maybeSingle();
-      if (activeMembership?.is_active) return json(cached.value);
+      // The cache contains data fetched only after this user's Live membership was
+      // verified. Keep it short-lived and in memory; do not persist API membership data.
+      return json(cached.value);
     }
   }
   try {
@@ -99,12 +100,14 @@ Deno.serve(async (req) => {
     if (invite?.status === "accepted" && invite.accepted_user_id !== user.id) {
       return fail("This pilot invitation has already been used by another account.", 403);
     }
-    const membershipRole = existingMembership?.role ?? (organization.role === 2 ? "owner" : organization.role === 1 ? "admin" : "pilot");
-    if (!existingMembership) {
+    // Only create Veyro membership records when the airline has invited this
+    // account. Infinite Flight roles/membership data stay in the short-lived API
+    // response and are not copied into Veyro tables.
+    if (!existingMembership && invite) {
       const { error: memberError } = await admin.from("organization_memberships").insert({
-        organization_id: portal.id, user_id: user.id, role: membershipRole, is_active: true,
+        organization_id: portal.id, user_id: user.id, role: "pilot", is_active: true,
       });
-      if (memberError) return fail("Could not activate your organization membership.", 500);
+      if (memberError) return fail("Could not activate your pilot membership.", 500);
     }
     if (invite && invite.status === "invited") {
       const { error: inviteError } = await admin.from("organization_pilot_invites").update({
