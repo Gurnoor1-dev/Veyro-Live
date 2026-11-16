@@ -246,7 +246,7 @@ function PilotDashboard(){
   try{
    const budget=currentRateBudget(apiRateLimit);
    const orderedAircraft=aircraft.length?[...aircraft.slice(aircraftCursor),...aircraft.slice(0,aircraftCursor)]:[];
-   const {data,error}=await invokeFunction(supabase,"pilot-live-data",{body:{organizationId:resolvedOrganizationId,action:includeFlights?"aircraft_operations":"aircraft_positions",aircraftIds:orderedAircraft.map(item=>item.id),apiRateRemaining:budget,isPro:apiRateLimit?.isPro??false}});
+   const {data,error}=await invokeFunction(supabase,"pilot-live-data",{body:{organizationId:resolvedOrganizationId,action:includeFlights?"aircraft_operations":"aircraft_positions",aircraftIds:orderedAircraft.map(item=>item.id),apiRateRemaining:budget,apiRateResetAt:apiRateLimit?.resetAt,isPro:apiRateLimit?.isPro??false}});
    if(error)throw error;
    const nextPositions=(data?.positions||{}) as Record<string,AircraftPosition>;
    setPositions(previous=>({...previous,...nextPositions}));
@@ -275,8 +275,8 @@ function PilotDashboard(){
  useEffect(()=>{
   if(page!=="members"||!session||!resolvedOrganizationId||!supabase)return;
   let active=true;setMembersLoading(true);setMembersError("");
-  invokeFunction(supabase,"pilot-live-data",{body:{organizationId:resolvedOrganizationId,action:"organization_members",apiRateRemaining:currentRateBudget(apiRateLimit),isPro:apiRateLimit?.isPro??false}})
-   .then(({data,error})=>{if(error)throw error;if(active){setMembers(data?.members||[]);if(data?.rateLimit)setApiRateLimit(data.rateLimit)}})
+  invokeFunction(supabase,"pilot-live-data",{body:{organizationId:resolvedOrganizationId,action:"organization_members",apiRateRemaining:currentRateBudget(apiRateLimit),apiRateResetAt:apiRateLimit?.resetAt,isPro:apiRateLimit?.isPro??false}})
+   .then(({data,error})=>{if(error)throw error;if(active){setMembers(data?.members||[]);if(data?.rateLimit)setApiRateLimit(data.rateLimit);if(data?.rateLimited)setMembersError("Infinite Flight request allowance is currently exhausted. Try again after the rate-limit reset.")}})
    .catch(e=>{if(active)setMembersError(e instanceof Error?e.message:"Could not load organization crew.")})
    .finally(()=>{if(active)setMembersLoading(false)});
   return()=>{active=false};
@@ -295,6 +295,7 @@ function PilotDashboard(){
   try{
    const {data,error}=await invokeFunction(supabase,"pilot-live-data",{body:{organizationId:resolvedOrganizationId,action:"schedule_page",page:schedulePagination.page+1,apiRateRemaining:currentRateBudget(apiRateLimit),isPro:apiRateLimit?.isPro??false}});
    if(error)throw error;
+   if(data?.rateLimited)throw new Error("Infinite Flight request allowance is currently exhausted. Try again after the rate-limit reset.");
    setSchedules(previous=>[...previous,...(data?.schedules||[])]);
    if(data?.pagination)setSchedulePagination(data.pagination);
    if(data?.rateLimit)setApiRateLimit(data.rateLimit);
