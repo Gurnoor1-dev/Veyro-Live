@@ -47,3 +47,6 @@ verify_jwt = false
 
 [functions.organization-application-discord]
 verify_jwt = false
+
+[functions.organization-admin]
+verify_jwt = true
