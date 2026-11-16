@@ -4,6 +4,7 @@ import { Link, useParams, useSearchParams } from "react-router-dom";
 import { ArrowUpRight, CheckCircle2, Clock3, ExternalLink, FileText, ImagePlus, ShieldCheck } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
+import { invokeFunction } from "../lib/functions";
 
 type LiveOrg = { id: string; name: string; role: number; alreadyConnected: boolean };
 type PublicOrg = { id: string; slug: string; display_name: string; logo_url: string | null; tagline: string | null; description: string | null; website_url: string | null; discord_invite_url: string | null };
@@ -11,7 +12,7 @@ type PublicOrg = { id: string; slug: string; display_name: string; logo_url: str
 let oauthStartRequest: Promise<any> | null = null;
 function prepareInfiniteFlightOAuth() {
   if (!supabase) return Promise.resolve({ data: null, error: new Error("Supabase is not configured.") });
-  if (!oauthStartRequest) oauthStartRequest = supabase.functions.invoke("if-oauth-start", { body: { returnTo: "/apply" } }).then((result) => { if (result.error) oauthStartRequest = null; return result; });
+  if (!oauthStartRequest) oauthStartRequest = invokeFunction(supabase,"if-oauth-start", { body: { returnTo: "/apply" } }).then((result) => { if (result.error) oauthStartRequest = null; return result; });
   return oauthStartRequest;
 }
 
@@ -22,7 +23,7 @@ async function getPublicDirectory(force = false): Promise<PublicOrg[]> {
   if (!supabase) return [];
   if (!force && publicDirectoryCache && publicDirectoryCache.expiresAt > Date.now()) return publicDirectoryCache.organizations;
   if (!force && publicDirectoryRequest) return publicDirectoryRequest;
-  publicDirectoryRequest = supabase.functions.invoke("organization-application", { body: { action: "directory" } })
+  publicDirectoryRequest = invokeFunction(supabase,"organization-application", { body: { action: "directory" } })
     .then(({ data, error }) => { if (error) throw error; const organizations = (data?.organizations ?? []) as PublicOrg[]; publicDirectoryCache = { organizations, expiresAt: Date.now() + 60_000 }; return organizations; })
     .finally(() => { publicDirectoryRequest = null; });
   return publicDirectoryRequest;
@@ -90,7 +91,7 @@ export function OrganizationApplicationPage() {
     if (!session || !supabase) return;
     let active = true;
     setLoadingOrgs(true);
-    supabase.functions.invoke("organization-application", { body: { action: "eligible-organizations", pendingId } })
+    invokeFunction(supabase,"organization-application", { body: { action: "eligible-organizations", pendingId } })
       .then(({ data, error: invokeError }) => {
         if (!active) return;
         if (invokeError) throw invokeError;
@@ -141,7 +142,7 @@ export function OrganizationApplicationPage() {
     if (!supabase || !chosen) return;
     setBusy(true); setError("");
     try {
-      const { data, error: invokeError } = await supabase.functions.invoke("organization-application", { body: {
+      const { data, error: invokeError } = await invokeFunction(supabase,"organization-application", { body: {
         action: "submit", pendingId, liveOrganizationId: chosen.id, displayName, requestedSlug,
         tagline, description, websiteUrl, discordInviteUrl, logoDataUrl: logoPreview || undefined,
       } });
