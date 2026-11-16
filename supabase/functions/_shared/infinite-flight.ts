@@ -42,7 +42,7 @@ function isPagedLiveEndpoint(pathname: string): boolean {
   return PAGED_LIVE_ENDPOINTS.some((pattern) => pattern.test(pathname));
 }
 
-export async function ifRequest<T>(token: string, path: string, init: RequestInit = {}, onRateLimit?: IfApiRateLimitObserver): Promise<T> {
+export async function ifRequest<T>(token: string, path: string, init: RequestInit = {}, onRateLimit?: IfApiRateLimitObserver, returnPage = false): Promise<T> {
   if (!path.startsWith("/live/") || path.includes("..")) throw new Error("Unsupported API path");
 
   const method = (init.method ?? "GET").toUpperCase();
@@ -112,7 +112,7 @@ export async function ifRequest<T>(token: string, path: string, init: RequestIni
         pageSize: Number(page.pageSize ?? 100),
       });
     }
-    return page.items as T;
+    return (returnPage ? result : page.items) as T;
   }
 
   return response.result;
