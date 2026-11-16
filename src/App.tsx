@@ -253,9 +253,9 @@ function PilotDashboard(){
    setPositions(previous=>({...previous,...nextPositions}));
    if(includeFlights)setLatestFlights(previous=>({...previous,...(data?.latestFlights||{})}) as Record<string,any>);if(data?.rateLimit)setApiRateLimit(data.rateLimit);
    if(data?.completed&&aircraft.length)setAircraftCursor(previous=>(previous+Number(data.completed))%aircraft.length);
-   setPositionsUpdated(data?.updatedAt?new Date(data.updatedAt):new Date());
+   if(Number(data?.completed)>0)setPositionsUpdated(data?.updatedAt?new Date(data.updatedAt):new Date());
    if(data?.rateLimited){
-    setPositionError("Infinite Flight rate limit reached. Updated "+(data.completed||0)+" of "+(data.total||aircraft.length)+" aircraft; remaining positions will update on the next refresh.");
+    setPositionError(Number(data?.completed)>0?"Infinite Flight rate limit reached. Updated "+data.completed+" of "+(data.total||aircraft.length)+" aircraft; remaining positions will update after the API reset.":"Infinite Flight request allowance is exhausted. Automatic position updates will resume after the rate-limit reset.");
    }else if(Object.keys(data?.failures||{}).length){
     setPositionError("Some aircraft positions are unavailable. Their last known positions are retained where available.");
    }else setPositionError("");
