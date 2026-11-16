@@ -3,6 +3,8 @@ import { json, fail } from "../_shared/http.ts";
 import { decryptSecret, encryptSecret } from "../_shared/crypto.ts";
 import { ifRequest, IfApiRateLimitError, refreshAuthorizationToken } from "../_shared/infinite-flight.ts";
 
+const pilotCache = new Map<string, { expiresAt: number; value: any }>();
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return json({ ok: true });
   if (req.method !== "POST") return fail("Method not allowed", 405);
@@ -15,6 +17,15 @@ Deno.serve(async (req) => {
   if (!body?.organizationId || typeof body.organizationId !== "string") return fail("Missing Live organization ID", 400);
 
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+  const cacheKey = user.id + ":" + body.organizationId;
+  if (!body.pendingId) {
+    const cached = pilotCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) {
+      const { data: accepted } = await admin.from("organization_pilot_invites").select("id").eq("organization_id", cached.value.portalId).eq("email", user.email?.toLowerCase() ?? "").eq("accepted_user_id", user.id).eq("status", "accepted").maybeSingle();
+      const { data: activeMembership } = await admin.from("organization_memberships").select("is_active").eq("organization_id", cached.value.portalId).eq("user_id", user.id).maybeSingle();
+      if (accepted && activeMembership?.is_active) return json(cached.value);
+    }
+  }
   try {
     let token: string;
     let refreshCiphertext: string | null = null;
@@ -74,10 +85,14 @@ Deno.serve(async (req) => {
     const ifUserId = matchedMember.userId;
     const { data: portal } = await admin.from("organizations").select("id,slug").eq("live_organization_id", organization.id).eq("is_active", true).single();
     if (!portal || !user.email) return fail("This organization does not have a Veyro pilot portal.", 404);
-    const { data: invite } = await admin.from("organization_pilot_invites").select("id,pilot_name").eq("organization_id", portal.id).eq("email", user.email.toLowerCase()).in("status", ["invited", "accepted"]).maybeSingle();
-    if (!invite) return fail("Your email has not been invited by this organization. Ask an administrator to add you.", 403);
-    const { error: memberError } = await admin.from("organization_memberships").upsert({ organization_id: portal.id, user_id: user.id, role: "pilot", is_active: true }, { onConflict: "organization_id,user_id", ignoreDuplicates: true });
-    if (memberError) return fail("Could not activate your pilot membership.", 500);
+    const { data: invite } = await admin.from("organization_pilot_invites").select("id,pilot_name,status,accepted_user_id").eq("organization_id", portal.id).eq("email", user.email.toLowerCase()).in("status", ["invited", "accepted"]).maybeSingle();
+    if (!invite || (invite.status === "accepted" && invite.accepted_user_id !== user.id)) return fail("Your email has not been invited by this organization. Ask an administrator to add you.", 403);
+    const { data: existingMembership } = await admin.from("organization_memberships").select("role,is_active").eq("organization_id", portal.id).eq("user_id", user.id).maybeSingle();
+    if (existingMembership && !existingMembership.is_active) return fail("Your pilot access has been disabled by the organization administrator.", 403);
+    if (!existingMembership) {
+      const { error: memberError } = await admin.from("organization_memberships").insert({ organization_id: portal.id, user_id: user.id, role: "pilot", is_active: true });
+      if (memberError) return fail("Could not activate your pilot membership.", 500);
+    }
     await admin.from("organization_pilot_invites").update({ status: "accepted", accepted_user_id: user.id, accepted_at: new Date().toISOString() }).eq("id", invite.id);
     await admin.from("profiles").upsert({ id: user.id, display_name: invite.pilot_name, infinite_flight_user_id: ifUserId }, { onConflict: "id" });
 
@@ -96,7 +111,9 @@ Deno.serve(async (req) => {
       ifRequest(token, "/live/organizations/" + organization.id + "/aircraft"),
       ifRequest(token, "/live/organizations/" + organization.id + "/schedules"),
     ]);
-    return json({ organization, aircraft, schedules, role: organization.role, portal: { id: portal.id, slug: portal.slug }, pilotId: user.id, mode: "pilot-portal" });
+    const payload = { organization, aircraft, schedules, role: organization.role, portal: { id: portal.id, slug: portal.slug }, portalId: portal.id, pilotId: user.id, mode: "pilot-portal" };
+    pilotCache.set(cacheKey, { expiresAt: Date.now() + 30_000, value: payload });
+    return json(payload);
   } catch (error) {
     if (error instanceof IfApiRateLimitError) return fail(error.message, 429, { "Retry-After": String(error.retryAfterSeconds) });
     return fail("Could not load this organization's Live data. Check your approved scopes and try again.", 502);

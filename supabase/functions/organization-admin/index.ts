@@ -7,6 +7,7 @@ const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
+const adminPortalCache = new Map<string, { expiresAt: number; value: any }>();
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return json({ ok: true });
@@ -37,10 +38,13 @@ Deno.serve(async (req) => {
   if (!user) return fail("Unauthorized", 401);
   if (body.action === "update_admin_profile") {
     const name = String(body.displayName ?? "").trim();
+    const discordId = String(body.discordUserId ?? "").trim();
     if (name.length < 1 || name.length > 80) return fail("Enter a name between 1 and 80 characters.", 400);
-    const { error } = await admin.from("profiles").upsert({ id: user.id, display_name: name }, { onConflict: "id" });
-    if (error) return fail("Could not update your profile.", 500);
-    return json({ displayName: name });
+    if (discordId && !/^\d{17,20}$/.test(discordId)) return fail("Enter a valid Discord user ID.", 400);
+    const { error } = await admin.from("profiles").upsert({ id: user.id, display_name: name, discord_user_id: discordId || null }, { onConflict: "id" });
+    if (error) return fail("Could not update your profile. The Discord ID may already be linked to another account.", 500);
+    adminPortalCache.clear();
+    return json({ displayName: name, discordUserId: discordId || null });
   }
 
   const organizationId = String(body.organizationId ?? "");
@@ -53,8 +57,12 @@ Deno.serve(async (req) => {
     .eq("id", organizationId).eq("is_active", true).single();
   if (orgError || !org) return fail("Organization not found.", 404);
 
+  if (body.action !== "get_admin_portal") adminPortalCache.clear();
   try {
     if (body.action === "get_admin_portal") {
+      const cacheKey = organizationId + ":" + user.id;
+      const cached = adminPortalCache.get(cacheKey);
+      if (cached && cached.expiresAt > Date.now()) return json(cached.value);
       const [membersResult, invitesResult, discordResult, profileResult] = await Promise.all([
         admin.from("organization_memberships").select("user_id,role,is_active,created_at").eq("organization_id", organizationId).order("created_at"),
         admin.from("organization_pilot_invites").select("id,email,pilot_name,status,created_at").eq("organization_id", organizationId).order("created_at", { ascending: false }),
@@ -69,14 +77,16 @@ Deno.serve(async (req) => {
         ifRequest<Array<Record<string, unknown>>>(token, "/live/organizations/" + org.live_organization_id + "/aircraft"),
         ifRequest<Array<Record<string, unknown>>>(token, "/live/organizations/" + org.live_organization_id + "/schedules")
       ]);
-      return json({
+      const portalPayload = {
         organization: org,
         adminProfile: profileResult.data ?? null,
         members: (membersResult.data ?? []).map((m) => ({ ...m, display_name: profileMap.get(m.user_id) ?? null })),
         invites: invitesResult.data ?? [],
         discord: discordResult.data ?? null,
         aircraft, schedules
-      });
+      };
+      adminPortalCache.set(cacheKey, { expiresAt: Date.now() + 30_000, value: portalPayload });
+      return json(portalPayload);
     }
 
     if (body.action === "update_profile") {
