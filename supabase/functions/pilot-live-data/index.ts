@@ -70,12 +70,17 @@ Deno.serve(async (req) => {
     const organizations = await ifRequest<Array<{ id: string; name: string; role: number }>>(token, "/live/organizations");
     const organization = organizations.find((item) => item.id === body.organizationId);
     if (!organization) return fail("Your Infinite Flight account is not a member of this organization.", 403);
-    const discoveryResponse = await fetch("https://auth.infiniteflight.com/.well-known/openid-configuration");
-    if (!discoveryResponse.ok) throw new Error("Could not discover Infinite Flight profile endpoint");
-    const discovery = await discoveryResponse.json();
-    if (typeof discovery.userinfo_endpoint !== "string") throw new Error("Infinite Flight did not provide a profile endpoint");
-    const userInfoResponse = await fetch(discovery.userinfo_endpoint, { headers: { Authorization: "Bearer " + token, Accept: "application/json" } });
-    if (!userInfoResponse.ok) throw new Error("Could not verify your Infinite Flight profile");
+    // Infinite Flight's OAuth user-info endpoint is served by the auth v2 connect API.
+    // Do not depend on an issuer discovery document at the root auth hostname.
+    const userInfoResponse = await fetch("https://api.infiniteflight.com/auth/v2/connect/userinfo", {
+      headers: { Authorization: "Bearer " + token, Accept: "application/json" },
+    });
+    if (!userInfoResponse.ok) {
+      console.error("[pilot-live-data] Infinite Flight userinfo failed", { status: userInfoResponse.status });
+      throw new Error(userInfoResponse.status === 401
+        ? "Your Infinite Flight session expired. Reconnect and try again."
+        : "Infinite Flight could not verify your account profile (HTTP " + userInfoResponse.status + ").");
+    }
     const userInfo = await userInfoResponse.json();
     const members = await ifRequest<Array<{ userId: string; username?: string | null; role?: number; activeLifts?: number; joinedAt?: string }>>(token, "/live/organizations/" + organization.id + "/members");
     const subject = String(userInfo.sub ?? "");
@@ -85,16 +90,35 @@ Deno.serve(async (req) => {
     const ifUserId = matchedMember.userId;
     const { data: portal } = await admin.from("organizations").select("id,slug").eq("live_organization_id", organization.id).eq("is_active", true).single();
     if (!portal || !user.email) return fail("This organization does not have a Veyro pilot portal.", 404);
-    const { data: invite } = await admin.from("organization_pilot_invites").select("id,pilot_name,status,accepted_user_id").eq("organization_id", portal.id).eq("email", user.email.toLowerCase()).in("status", ["invited", "accepted"]).maybeSingle();
-    if (!invite || (invite.status === "accepted" && invite.accepted_user_id !== user.id)) return fail("Your email has not been invited by this organization. Ask an administrator to add you.", 403);
+    const { data: invite } = await admin.from("organization_pilot_invites").select("id,pilot_name,status,accepted_user_id").eq("organization_id", portal.id).ilike("email", user.email.toLowerCase()).in("status", ["invited", "accepted"]).maybeSingle();
     const { data: existingMembership } = await admin.from("organization_memberships").select("role,is_active").eq("organization_id", portal.id).eq("user_id", user.id).maybeSingle();
     if (existingMembership && !existingMembership.is_active) return fail("Your pilot access has been disabled by the organization administrator.", 403);
-    if (!existingMembership) {
-      const { error: memberError } = await admin.from("organization_memberships").insert({ organization_id: portal.id, user_id: user.id, role: "pilot", is_active: true });
-      if (memberError) return fail("Could not activate your pilot membership.", 500);
+    const hasLiveAdminAccess = organization.role === 1 || organization.role === 2;
+    if (!invite && !existingMembership && !hasLiveAdminAccess) {
+      return fail("Your email has not been invited by this organization. Ask an administrator to add you.", 403);
     }
-    await admin.from("organization_pilot_invites").update({ status: "accepted", accepted_user_id: user.id, accepted_at: new Date().toISOString() }).eq("id", invite.id);
-    await admin.from("profiles").upsert({ id: user.id, display_name: invite.pilot_name, infinite_flight_user_id: ifUserId }, { onConflict: "id" });
+    if (invite?.status === "accepted" && invite.accepted_user_id !== user.id) {
+      return fail("This pilot invitation has already been used by another account.", 403);
+    }
+    const membershipRole = existingMembership?.role ?? (organization.role === 2 ? "owner" : organization.role === 1 ? "admin" : "pilot");
+    if (!existingMembership) {
+      const { error: memberError } = await admin.from("organization_memberships").insert({
+        organization_id: portal.id, user_id: user.id, role: membershipRole, is_active: true,
+      });
+      if (memberError) return fail("Could not activate your organization membership.", 500);
+    }
+    if (invite && invite.status === "invited") {
+      const { error: inviteError } = await admin.from("organization_pilot_invites").update({
+        status: "accepted", accepted_user_id: user.id, accepted_at: new Date().toISOString(),
+      }).eq("id", invite.id);
+      if (inviteError) return fail("Your pilot invitation could not be accepted. Please retry.", 500);
+    }
+    // Infinite Flight API data must not be persisted; keep only Veyro-owned profile details.
+    const { error: profileError } = await admin.from("profiles").upsert({
+      id: user.id,
+      display_name: invite?.pilot_name ?? user.user_metadata?.name ?? user.email.split("@")[0],
+    }, { onConflict: "id" });
+    if (profileError) return fail("Could not save your Veyro pilot profile.", 500);
 
     if (body.pendingId) {
       const { error } = await admin.from("user_if_connections").upsert({
