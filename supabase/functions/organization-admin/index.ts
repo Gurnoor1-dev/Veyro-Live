@@ -47,14 +47,14 @@ Deno.serve(async (req) => {
     return json({ displayName: name, discordUserId: discordId || null });
   }
 
-  const organizationId = String(body.organizationId ?? "");
+  const requestedOrganizationId = String(body.organizationId ?? "");
   const slug = String(body.slug ?? "").trim().toLowerCase();
-  if (!organizationId && !slug) return fail("Missing organization identifier", 400);
+  if (!requestedOrganizationId && !slug) return fail("Missing organization identifier", 400);
   const orgQuery = admin.from("organizations")
     .select("id,slug,display_name,logo_url,tagline,description,website_url,discord_invite_url,live_organization_id,booking_mode,created_by")
     .eq("is_active", true);
-  const { data: org, error: orgError } = organizationId
-    ? await orgQuery.eq("id", organizationId).maybeSingle()
+  const { data: org, error: orgError } = requestedOrganizationId
+    ? await orgQuery.eq("id", requestedOrganizationId).maybeSingle()
     : await orgQuery.eq("slug", slug).maybeSingle();
   if (orgError || !org) return fail("This organization portal could not be found or is inactive.", 404);
   const resolvedOrganizationId = org.id;
