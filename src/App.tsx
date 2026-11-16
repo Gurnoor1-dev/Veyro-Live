@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import { Link, Navigate, Route, Routes, useNavigate, useParams, useLocation } from "react-router-dom";
-import { ArrowRight, ArrowUpRight, CalendarDays, CheckCircle2, ChevronRight, LogOut, Moon, Plane, RefreshCw, ShieldCheck, Sun, Users, Building2 } from "lucide-react";
+import { ArrowRight, ArrowUpRight, CalendarDays, ChevronRight, LogOut, Moon, Plane, RefreshCw, ShieldCheck, Sun, Users, Building2 } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import { isSupabaseConfigured, supabase } from "./lib/supabase";
 import { invokeFunction } from "./lib/functions";
