@@ -4,6 +4,7 @@ import { decryptSecret, encryptSecret } from "../_shared/crypto.ts";
 import { ifRequest, IfApiRateLimitError, refreshAuthorizationToken } from "../_shared/infinite-flight.ts";
 
 const pilotCache = new Map<string, { expiresAt: number; value: any }>();
+const pilotAircraftCache = new Map<string, { expiresAt: number; aircraft: Array<{ id: string; registration?: string }> }>();
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return json({ ok: true });
@@ -18,7 +19,7 @@ Deno.serve(async (req) => {
 
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   const cacheKey = user.id + ":" + body.organizationId;
-  if (!body.pendingId) {
+  if (!body.pendingId && !["aircraft_positions", "aircraft_operations"].includes(String(body.action ?? ""))) {
     const cached = pilotCache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) {
       // The cache contains data fetched only after this user's Live membership was
@@ -66,6 +67,65 @@ Deno.serve(async (req) => {
     const required = ["live:organizations.read", "live:members.read", "live:aircraft.read", "live:schedules.read"];
     const missing = required.filter((scope) => !scopes.includes(scope));
     if (missing.length) return fail("Reconnect Infinite Flight and approve these scopes: " + missing.join(", "), 403);
+
+    // Position polling is a separate, short-lived read path. It uses the persistent
+    // aircraft IDs returned by List Organization Aircraft and never stores Live data.
+    if (body.action === "aircraft_positions" || body.action === "aircraft_operations") {
+      const { data: portal } = await admin.from("organizations")
+        .select("id,created_by").eq("live_organization_id", body.organizationId).eq("is_active", true).maybeSingle();
+      if (!portal) return fail("This organization does not have an active Veyro portal.", 404);
+      const { data: membership } = await admin.from("organization_memberships")
+        .select("role,is_active").eq("organization_id", portal.id).eq("user_id", user.id).maybeSingle();
+      if (!(membership?.is_active && ["pilot", "owner", "admin"].includes(membership.role)) && portal.created_by !== user.id) {
+        return fail("Active pilot or administrator access is required to view this fleet.", 403);
+      }
+
+      const requestedIds = Array.isArray(body.aircraftIds)
+        ? [...new Set(body.aircraftIds.map((id: unknown) => String(id)).filter((id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)))].slice(0, 100)
+        : [];
+      const cachedAircraft = pilotAircraftCache.get(cacheKey);
+      let knownAircraft = cachedAircraft && cachedAircraft.expiresAt > Date.now() ? cachedAircraft.aircraft : null;
+      if (!knownAircraft) {
+        knownAircraft = await ifRequest<Array<{ id: string; registration?: string }>>(token, "/live/organizations/" + body.organizationId + "/aircraft");
+        pilotAircraftCache.set(cacheKey, { expiresAt: Date.now() + 5 * 60_000, aircraft: knownAircraft });
+      }
+      const allowedIds = new Set(knownAircraft.map((item) => item.id));
+      const aircraftIds = (requestedIds.length ? requestedIds : knownAircraft.map((item) => item.id)).filter((id) => allowedIds.has(id));
+      const positions: Record<string, unknown> = {};
+      const latestFlights: Record<string, unknown> = {};
+      const failures: Record<string, string> = {};
+      let rateLimited = false;
+      let retryAfterSeconds = 0;
+      let completed = 0;
+
+      for (const aircraftId of aircraftIds) {
+        try {
+          positions[aircraftId] = await ifRequest(token, "/live/aircraft/" + aircraftId + "/position");
+          if (body.action === "aircraft_operations") {
+            const flights = await ifRequest<Array<Record<string, unknown>>>(token, "/live/aircraft/" + aircraftId + "/flights?page=1&pageSize=1");
+            latestFlights[aircraftId] = flights[0] ?? null;
+          }
+          completed += 1;
+        } catch (error) {
+          if (error instanceof IfApiRateLimitError) {
+            rateLimited = true;
+            retryAfterSeconds = error.retryAfterSeconds;
+            break;
+          }
+          failures[aircraftId] = error instanceof Error ? error.message : "Position unavailable";
+        }
+      }
+      return json({
+        positions,
+        latestFlights,
+        failures,
+        completed,
+        total: aircraftIds.length,
+        rateLimited,
+        retryAfterSeconds,
+        updatedAt: new Date().toISOString(),
+      });
+    }
 
     const organizations = await ifRequest<Array<{ id: string; name: string; role: number }>>(token, "/live/organizations");
     const organization = organizations.find((item) => item.id === body.organizationId);
@@ -124,6 +184,7 @@ Deno.serve(async (req) => {
       ifRequest(token, "/live/organizations/" + organization.id + "/schedules"),
     ]);
     const payload = { organization, aircraft, schedules, members, role: organization.role, portal: { id: portal.id, slug: portal.slug }, portalId: portal.id, pilotId: user.id, mode: "pilot-portal" };
+    pilotAircraftCache.set(cacheKey, { expiresAt: Date.now() + 5 * 60_000, aircraft });
     pilotCache.set(cacheKey, { expiresAt: Date.now() + 30_000, value: payload });
     return json(payload);
   } catch (error) {
