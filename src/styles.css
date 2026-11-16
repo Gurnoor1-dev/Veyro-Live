@@ -255,3 +255,44 @@ html.dark{color-scheme:dark;--page:#0b0f19;--text:#f1f5f9;--muted:#94a3b8;--soft
 .account-signout{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text);font-size:10px;font-weight:750;cursor:pointer;transition:background .16s ease,border-color .16s ease,transform .16s ease}
 .account-signout:hover{background:var(--surface-muted);border-color:var(--muted);transform:translateY(-1px)}
 @media(max-width:600px){.session-actions{gap:6px}.session-pill{padding:7px 8px;font-size:8px}.account-signout{padding:8px 9px;font-size:9px}}
+
+/* Veyro Live — electric dusk landing */
+.landing-cosmic{width:min(1320px,calc(100% - 56px));padding:26px 0 0;color:#f5f3ff}
+.cosmic-frame{position:relative;isolation:isolate;min-height:710px;overflow:hidden;border:1px solid rgba(153,139,255,.42);border-radius:24px;background:radial-gradient(ellipse at 50% 78%,rgba(87,42,214,.62),transparent 38%),radial-gradient(ellipse at 50% 105%,rgba(36,72,185,.4),transparent 55%),#03040d;box-shadow:0 0 0 1px rgba(129,108,255,.08),0 25px 90px rgba(16,12,54,.3)}
+.cosmic-nav{height:76px;position:relative;z-index:5;display:grid;grid-template-columns:1fr 2fr 1fr;align-items:center;padding:0 30px;border-bottom:1px solid rgba(173,164,255,.14)}
+.cosmic-nav .brand{color:#fff}.cosmic-nav .brand-mark{background:#fff;color:#080817;border-color:#fff;border-radius:50%;width:25px;height:25px;font-size:14px}
+.cosmic-nav nav{display:flex;justify-content:center;gap:clamp(18px,4vw,58px)}
+.cosmic-nav nav a{font-size:10px;color:#aaa8c7;transition:color .2s}.cosmic-nav nav a:hover{color:#fff}
+.cosmic-register{justify-self:end;display:inline-flex;align-items:center;gap:8px;border:1px solid rgba(220,216,255,.65);border-radius:999px;padding:9px 17px;color:#fff;font-size:10px}
+.cosmic-register:hover{background:rgba(255,255,255,.1)}
+.cosmic-scene{position:absolute;inset:76px 0 0;z-index:-1;overflow:hidden;background:radial-gradient(ellipse at 50% 80%,rgba(122,58,255,.38),transparent 36%),linear-gradient(180deg,transparent 45%,rgba(10,13,43,.25) 67%,rgba(6,8,27,.95))}
+.cosmic-scene:before{content:"";position:absolute;inset:0;background-image:radial-gradient(1px 1px at 12% 20%,#aaa2ff 99%,transparent),radial-gradient(1px 1px at 28% 38%,#7872d7 99%,transparent),radial-gradient(1px 1px at 77% 19%,#aaa2ff 99%,transparent),radial-gradient(1px 1px at 88% 43%,#aaa2ff 99%,transparent),radial-gradient(1px 1px at 64% 54%,#7872d7 99%,transparent);opacity:.8}
+.cosmic-arch{position:absolute;left:50%;bottom:15%;border:1px solid rgba(105,124,255,.27);border-bottom:0;border-radius:50% 50% 0 0;transform:translateX(-50%);box-shadow:0 0 35px rgba(89,77,255,.08),inset 0 12px 35px rgba(54,58,177,.05)}
+.arch-one{width:min(82%,920px);height:66%;}.arch-two{width:min(62%,700px);height:51%;border-color:rgba(150,110,255,.3)}
+.cosmic-planet{position:absolute;border:1px solid rgba(165,141,255,.8);border-radius:50%;background:radial-gradient(circle at 30% 25%,rgba(190,168,255,.7),rgba(69,39,180,.2) 55%,rgba(8,12,35,.8));box-shadow:0 0 35px rgba(104,69,255,.4)}
+.planet-one{width:52px;height:52px;left:13%;top:27%}.planet-one:after{content:"";position:absolute;inset:15px -12px;border:1px solid #8c78ff;border-radius:50%;transform:rotate(-22deg)}
+.planet-two{width:19px;height:19px;right:17%;top:38%;opacity:.8}
+.cosmic-orb{position:absolute;width:7px;height:7px;border:1px solid #a89aff;border-radius:50%;box-shadow:0 0 12px #8266ff}.orb-one{left:24%;top:52%}.orb-two{right:25%;top:26%;width:11px;height:11px}
+.cosmic-pillar{position:absolute;bottom:15%;width:54px;border:1px solid rgba(157,132,255,.65);background:linear-gradient(90deg,rgba(56,39,151,.1),rgba(120,79,255,.2),rgba(12,18,59,.6));box-shadow:inset 0 0 18px rgba(134,91,255,.2),0 0 22px rgba(109,70,255,.15);transform:skewY(-3deg)}
+.pillar-one{height:140px;left:7%;width:68px}.pillar-two{height:190px;right:8%;width:48px}.pillar-three{height:105px;right:15%;width:32px}
+.cosmic-floor{position:absolute;left:-12%;right:-12%;height:37%;bottom:-5%;transform:perspective(360px) rotateX(62deg);transform-origin:top;background-image:linear-gradient(rgba(116,104,255,.35) 1px,transparent 1px),linear-gradient(90deg,rgba(116,104,255,.32) 1px,transparent 1px);background-size:48px 34px;mask-image:linear-gradient(180deg,rgba(0,0,0,.9),transparent 95%);filter:drop-shadow(0 0 8px rgba(112,75,255,.25))}
+.cosmic-horizon{position:absolute;left:0;right:0;bottom:25%;height:2px;background:linear-gradient(90deg,transparent,rgba(119,93,255,.8),rgba(159,121,255,.95),rgba(119,93,255,.8),transparent);box-shadow:0 0 26px 8px rgba(110,64,255,.35)}
+.cosmic-copy{position:relative;z-index:2;width:min(760px,90%);margin:120px auto 0;text-align:center}
+.cosmic-copy .eyebrow{justify-content:center;color:#b7b0e9;font-size:9px;letter-spacing:.2em}
+.cosmic-copy h1{margin:24px 0 15px;color:#fff;font:600 clamp(48px,7vw,82px)/.99 Georgia,"Times New Roman",serif;letter-spacing:-.045em;text-shadow:0 5px 40px rgba(0,0,0,.4)}
+.cosmic-copy h1 em{font-style:normal;color:#d8d0ff}
+.cosmic-copy>p{max-width:570px;margin:0 auto;color:#b6b4d1;font-size:13px;line-height:1.9}
+.cosmic-actions{display:flex;align-items:center;justify-content:center;gap:20px;flex-wrap:wrap;margin-top:28px}
+.cosmic-cta{display:inline-flex;align-items:center;gap:12px;border:1px solid rgba(220,213,255,.8);border-radius:999px;padding:12px 20px;background:rgba(107,76,255,.18);color:#fff;font-size:11px;font-weight:700;box-shadow:0 0 24px rgba(117,76,255,.18);transition:background .2s,transform .2s}
+.cosmic-cta:hover{background:rgba(130,96,255,.35);transform:translateY(-2px)}
+.cosmic-secondary{display:inline-flex;align-items:center;gap:6px;color:#c4c0e4;font-size:10px}
+.cosmic-bottom{position:absolute;z-index:3;left:30px;right:30px;bottom:22px;display:flex;justify-content:space-between;gap:12px;color:#8886b4;font-size:8px;letter-spacing:.15em}
+.cosmic-intro{display:grid;grid-template-columns:1fr .8fr;gap:40px;align-items:end;padding:88px 5% 42px}
+.cosmic-intro .eyebrow{color:#8877e7;font-size:9px;letter-spacing:.16em}
+.cosmic-intro h2{margin:17px 0 0;font:600 clamp(34px,5vw,54px)/1.05 Georgia,"Times New Roman",serif;letter-spacing:-.04em}
+.cosmic-intro h2 span{color:var(--muted)}
+.cosmic-intro>p{max-width:490px;margin:0 0 5px;color:var(--muted);font-size:12px;line-height:1.9}
+.landing-cosmic .feature{border-radius:14px}
+.landing-cosmic .feature-icon{border-color:rgba(127,104,255,.2);color:#a797ff;background:rgba(105,77,255,.07)}
+.landing-cosmic .footer{margin-top:44px}
+@media(max-width:760px){.landing-cosmic{width:calc(100% - 24px);padding-top:12px}.cosmic-frame{min-height:650px;border-radius:17px}.cosmic-nav{height:64px;padding:0 15px;grid-template-columns:1fr auto}.cosmic-nav nav{display:none}.cosmic-register{padding:8px 12px}.cosmic-scene{top:64px}.cosmic-copy{margin-top:135px}.cosmic-copy h1{font-size:clamp(43px,11vw,65px)}.cosmic-copy>p{font-size:11px}.cosmic-bottom{left:15px;right:15px;bottom:15px;font-size:7px}.cosmic-bottom span:nth-child(2){display:none}.cosmic-intro{grid-template-columns:1fr;gap:15px;padding:65px 5% 30px}}
