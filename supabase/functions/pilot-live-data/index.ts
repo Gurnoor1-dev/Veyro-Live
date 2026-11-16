@@ -70,24 +70,10 @@ Deno.serve(async (req) => {
     const organizations = await ifRequest<Array<{ id: string; name: string; role: number }>>(token, "/live/organizations");
     const organization = organizations.find((item) => item.id === body.organizationId);
     if (!organization) return fail("Your Infinite Flight account is not a member of this organization.", 403);
-    // Infinite Flight's OAuth user-info endpoint is served by the auth v2 connect API.
-    // Do not depend on an issuer discovery document at the root auth hostname.
-    const userInfoResponse = await fetch("https://api.infiniteflight.com/auth/v2/connect/userinfo", {
-      headers: { Authorization: "Bearer " + token, Accept: "application/json" },
-    });
-    if (!userInfoResponse.ok) {
-      console.error("[pilot-live-data] Infinite Flight userinfo failed", { status: userInfoResponse.status });
-      throw new Error(userInfoResponse.status === 401
-        ? "Your Infinite Flight session expired. Reconnect and try again."
-        : "Infinite Flight could not verify your account profile (HTTP " + userInfoResponse.status + ").");
-    }
-    const userInfo = await userInfoResponse.json();
+    // The v3 Live organization list is already scoped to the authenticated
+    // Infinite Flight user. Confirm membership there; do not call an undocumented
+    // OIDC user-info URL (it returns 404 and blocks every dashboard).
     const members = await ifRequest<Array<{ userId: string; username?: string | null; role?: number; activeLifts?: number; joinedAt?: string }>>(token, "/live/organizations/" + organization.id + "/members");
-    const subject = String(userInfo.sub ?? "");
-    const username = String(userInfo.preferred_username ?? userInfo.username ?? userInfo.name ?? "").toLowerCase();
-    const matchedMember = members.find((member) => (subject && member.userId === subject) || (username && String(member.username ?? "").toLowerCase() === username));
-    if (!matchedMember) return fail("Could not match your Infinite Flight identity to a member of this organization.", 403);
-    const ifUserId = matchedMember.userId;
     const { data: portal } = await admin.from("organizations").select("id,slug").eq("live_organization_id", organization.id).eq("is_active", true).single();
     if (!portal || !user.email) return fail("This organization does not have a Veyro pilot portal.", 404);
     const { data: invite } = await admin.from("organization_pilot_invites").select("id,pilot_name,status,accepted_user_id").eq("organization_id", portal.id).ilike("email", user.email.toLowerCase()).in("status", ["invited", "accepted"]).maybeSingle();
