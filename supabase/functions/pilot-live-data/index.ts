@@ -80,15 +80,19 @@ Deno.serve(async (req) => {
         return fail("Active pilot or administrator access is required to view this fleet.", 403);
       }
 
-      let rateLimitState: IfApiRateLimitState = { remaining: null, resetAt: null, isPro: Boolean(body.isPro) };
+      let rateLimitState: IfApiRateLimitState = { remaining: body.apiRateRemaining == null ? null : Math.max(0, Number(body.apiRateRemaining) || 0), resetAt: body.apiRateResetAt ?? null, isPro: Boolean(body.isPro) };
       const observeRateLimit = (state: IfApiRateLimitState) => { rateLimitState = state; };
 
       if (body.action === "organization_members") {
+        const budget = body.apiRateRemaining == null ? (body.isPro ? 20 : 5) : Math.max(0, Number(body.apiRateRemaining) || 0);
+        if (budget <= 0) return json({ members: [], rateLimited: true, rateLimit: rateLimitState });
         const members = await ifRequest<Array<Record<string, unknown>>>(token, "/live/organizations/" + body.organizationId + "/members", {}, observeRateLimit);
         return json({ members, rateLimit: rateLimitState });
       }
 
       if (body.action === "schedule_page") {
+        const budget = body.apiRateRemaining == null ? (body.isPro ? 20 : 5) : Math.max(0, Number(body.apiRateRemaining) || 0);
+        if (budget <= 0) return json({ schedules: [], pagination: { page: Number(body.page) || 1, pageSize: 100, totalCount: 0, totalPages: 0 }, rateLimited: true, rateLimit: rateLimitState });
         const pageNumber = Math.max(1, Math.min(10000, Math.floor(Number(body.page) || 1)));
         const pageResult = await ifRequest<{ items: Array<Record<string, unknown>>; page: number; pageSize: number; totalCount: number; totalPages: number }>(
           token, "/live/organizations/" + body.organizationId + "/schedules?page=" + pageNumber + "&pageSize=100", {}, observeRateLimit, true,
