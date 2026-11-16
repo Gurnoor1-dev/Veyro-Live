@@ -1,6 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2.56.0";
 import { json, fail } from "../_shared/http.ts";
-import { getOrganizationAccessToken } from "../_shared/org-token.ts";
+import { getUserInfiniteFlightToken } from "../_shared/user-if-token.ts";
 import { ifRequest, IfApiRateLimitError } from "../_shared/infinite-flight.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -24,7 +24,7 @@ Deno.serve(async (req) => {
     const identity = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authorization } } });
     const { data: { user: signedInUser } } = await identity.auth.getUser();
     if (!signedInUser?.email || signedInUser.email.toLowerCase() !== email) return fail("The signed-in email does not match this invitation.", 403);
-    const { data: org } = await admin.from("organizations").select("id,slug,display_name").eq("slug", slug).eq("is_active", true).single();
+    const { data: org } = await admin.from("organizations").select("id,slug,display_name").eq("slug", slug).eq("is_active", true).maybeSingle();
     if (!org) return fail("Organization not found.", 404);
     const { data: invite } = await admin.from("organization_pilot_invites").select("pilot_name,status").eq("organization_id", org.id).eq("email", email).in("status", ["invited", "accepted"]).maybeSingle();
     if (!invite) return fail("This email has not been invited by the organization administrator.", 403);
@@ -48,14 +48,36 @@ Deno.serve(async (req) => {
   }
 
   const organizationId = String(body.organizationId ?? "");
-  if (!organizationId) return fail("Missing organization ID", 400);
+  const slug = String(body.slug ?? "").trim().toLowerCase();
+  if (!organizationId && !slug) return fail("Missing organization identifier", 400);
+  const orgQuery = admin.from("organizations")
+    .select("id,slug,display_name,logo_url,tagline,description,website_url,discord_invite_url,live_organization_id,booking_mode,created_by")
+    .eq("is_active", true);
+  const { data: org, error: orgError } = organizationId
+    ? await orgQuery.eq("id", organizationId).maybeSingle()
+    : await orgQuery.eq("slug", slug).maybeSingle();
+  if (orgError || !org) return fail("This organization portal could not be found or is inactive.", 404);
+  const resolvedOrganizationId = org.id;
   const { data: membership } = await admin.from("organization_memberships")
-    .select("role,is_active").eq("organization_id", organizationId).eq("user_id", user.id).maybeSingle();
-  if (!membership?.is_active || !["owner", "admin"].includes(membership.role)) return fail("Organization administrator access required.", 403);
-  const { data: org, error: orgError } = await admin.from("organizations")
-    .select("id,slug,display_name,logo_url,tagline,description,website_url,discord_invite_url,live_organization_id,booking_mode")
-    .eq("id", organizationId).eq("is_active", true).single();
-  if (orgError || !org) return fail("Organization not found.", 404);
+    .select("role,is_active").eq("organization_id", resolvedOrganizationId).eq("user_id", user.id).maybeSingle();
+  const databaseAdmin = Boolean((membership?.is_active && ["owner", "admin"].includes(membership.role)) || org.created_by === user.id);
+  if (!databaseAdmin) return fail("Organization administrator access required.", 403);
+  let userToken: string;
+  let userScopes: string[];
+  let liveOrganization: { id: string; name?: string; role: number } | undefined;
+  try {
+    const connection = await getUserInfiniteFlightToken(user.id);
+    userToken = connection.token;
+    userScopes = connection.scopes;
+    const liveOrganizations = await ifRequest<Array<{id:string;name?:string;role:number}>>(userToken, "/live/organizations");
+    liveOrganization = liveOrganizations.find((item) => item.id === org.live_organization_id);
+    if (!liveOrganization || ![1,2].includes(liveOrganization.role)) {
+      return fail("Your connected Infinite Flight account is not an Admin or Owner of this Live organization.", 403);
+    }
+  } catch (error) {
+    return fail(error instanceof Error ? error.message : "Could not verify your Infinite Flight administrator access.", 401);
+  }
+  const organizationId = resolvedOrganizationId;
 
   if (body.action !== "get_admin_portal") adminPortalCache.clear();
   try {
@@ -72,7 +94,7 @@ Deno.serve(async (req) => {
       const memberIds = (membersResult.data ?? []).map((m) => m.user_id);
       const profilesResult = memberIds.length ? await admin.from("profiles").select("id,display_name").in("id", memberIds) : { data: [] };
       const profileMap = new Map((profilesResult.data ?? []).map((p) => [p.id, p.display_name]));
-      const token = await getOrganizationAccessToken(organizationId);
+      const token = userToken;
       const [aircraft, schedules] = await Promise.all([
         ifRequest<Array<Record<string, unknown>>>(token, "/live/organizations/" + org.live_organization_id + "/aircraft"),
         ifRequest<Array<Record<string, unknown>>>(token, "/live/organizations/" + org.live_organization_id + "/schedules")
@@ -156,9 +178,8 @@ Deno.serve(async (req) => {
     }
 
     if (body.action === "create_schedule" || body.action === "update_schedule" || body.action === "delete_schedule" || body.action === "update_flightplan" || body.action === "reorder_schedule") {
-      const token = await getOrganizationAccessToken(organizationId);
-      const connection = await admin.from("if_connections").select("granted_scopes,live_role").eq("organization_id", organizationId).single();
-      if (!connection.data || ![1,2].includes(connection.data.live_role) || !connection.data.granted_scopes?.includes("live:schedules.write")) return fail("Reconnect Infinite Flight as an organization Owner/Admin and approve live:schedules.write.", 403);
+      const token = userToken;
+      if (!userScopes.includes("live:schedules.write")) return fail("Reconnect Infinite Flight from My Veyro and approve the live:schedules.write permission.", 403);
       const scheduleId = String(body.scheduleId ?? "");
       let result: unknown;
       if (body.action === "reorder_schedule") {
