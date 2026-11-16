@@ -9,6 +9,18 @@ type LiveOrg = { id: string; name: string; role: number; alreadyConnected: boole
 type PublicOrg = { id: string; slug: string; display_name: string; logo_url: string | null; tagline: string | null; description: string | null; website_url: string | null; discord_invite_url: string | null };
 
 const slugify = (v: string) => v.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 48);
+let publicDirectoryCache: { organizations: PublicOrg[]; expiresAt: number } | null = null;
+let publicDirectoryRequest: Promise<PublicOrg[]> | null = null;
+async function getPublicDirectory(force = false): Promise<PublicOrg[]> {
+  if (!supabase) return [];
+  if (!force && publicDirectoryCache && publicDirectoryCache.expiresAt > Date.now()) return publicDirectoryCache.organizations;
+  if (!force && publicDirectoryRequest) return publicDirectoryRequest;
+  publicDirectoryRequest = supabase.functions.invoke("organization-application", { body: { action: "directory" } })
+    .then(({ data, error }) => { if (error) throw error; const organizations = (data?.organizations ?? []) as PublicOrg[]; publicDirectoryCache = { organizations, expiresAt: Date.now() + 60_000 }; return organizations; })
+    .finally(() => { publicDirectoryRequest = null; });
+  return publicDirectoryRequest;
+}
+
 const readFile = (file: File) => new Promise<string>((resolve, reject) => {
   const reader = new FileReader();
   reader.onload = () => resolve(String(reader.result));
@@ -22,9 +34,7 @@ export function OrganizationDirectory() {
   useEffect(() => {
     let active = true;
     if (!supabase) { setLoading(false); return () => { active = false; }; }
-    supabase.functions.invoke("organization-application", { body: { action: "directory" } })
-      .then(({ data, error }) => { if (active && !error) setOrganizations(data?.organizations ?? []); })
-      .finally(() => { if (active) setLoading(false); });
+    getPublicDirectory().then((organizations) => { if (active) setOrganizations(organizations); }).catch(() => { if (active) setOrganizations([]); }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, []);
   return <section className="directory-section">
@@ -196,9 +206,7 @@ export function PublicOrganizationPage() {
   useEffect(() => {
     let active = true;
     if (!supabase) { setLoading(false); return () => { active = false; }; }
-    supabase.functions.invoke("organization-application", { body: { action: "directory" } })
-      .then(({ data }) => { if (active) setOrg((data?.organizations ?? []).find((o: PublicOrg) => o.slug === slug) ?? null); })
-      .finally(() => { if (active) setLoading(false); });
+    getPublicDirectory().then((organizations) => { if (active) setOrg(organizations.find((o) => o.slug === slug) ?? null); }).catch(() => { if (active) setOrg(null); }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [slug]);
   return <main className="shell"><header className="topbar"><Link className="brand" to="/"><span className="brand-mark">V</span><span>VEYRO<span className="brand-light"> LIVE</span></span></Link><Link className="top-link" to="/">Explore network</Link></header>
