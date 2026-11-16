@@ -53,3 +53,22 @@ Pilots create pending requests. The approval message includes pilot, route, call
 - Monitor Edge Function logs and rate-limit responses.
 - Do not share or expose OAuth tokens, encryption keys or service-role credentials.
 - Keep a separate test organization for destructive testing.
+
+
+## Organization control center
+
+Open `/:slug/admin` as an active Owner/Admin to edit the public organization profile, update the administrator display name, manage pilot invitations, choose booking policy, configure Discord reviewer roles, and manage schedules.
+
+### Fleet and schedule operations
+
+The schedule editor groups schedules under each persistent aircraft record. Create, edit, update flight plans, and delete operations are sent to Infinite Flight PublicApi v3 using the encrypted organization OAuth connection. The connected account must retain `live:schedules.write` and an Infinite Flight Owner/Admin role. VEYRO does not create a duplicate schedule database.
+
+### Booking approval policy
+
+- **Manual review:** pilot requests are posted to the configured Discord channel with Approve and Reject buttons. The configured Discord server, channel, role allowlist, and linked Veyro Owner/Admin membership are checked before a decision is accepted.
+- **Pre-approved:** the request is assigned directly to the Live schedule using the crew assignment endpoint. A booking is only shown as approved after Live confirms the assignment.
+
+After a successful manual approval, the original Discord message is replaced with a compact status card naming the reviewer. If Live synchronization fails, the booking remains in a retryable synchronization state.
+
+
+Live fleet, schedule, and member responses are cached in memory for up to 30 seconds to reduce duplicate PublicApi v3 calls. Mutating admin actions invalidate the admin portal cache. Live API data is not persisted as a local copy.

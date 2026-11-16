@@ -2,6 +2,8 @@ import { createClient } from "npm:@supabase/supabase-js@2.56.0";
 import { json, fail } from "../_shared/http.ts";
 import { getOrganizationAccessToken } from "../_shared/org-token.ts";
 import { ifRequest, IfApiRateLimitError } from "../_shared/infinite-flight.ts";
+
+const liveCache = new Map<string, { expiresAt: number; value: unknown }>();
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return json({ ok: true });
   if (req.method !== "POST") return fail("Method not allowed", 405);
@@ -17,9 +19,13 @@ Deno.serve(async (req) => {
   const { data: member } = await userClient.from("organization_memberships").select("user_id").eq("organization_id", org.id).eq("user_id", user.id).eq("is_active", true).single();
   if (!member) return fail("Forbidden", 403);
   try {
+    const cacheKey = org.id + ":" + body.action;
+    const cached = liveCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) return json({ result: cached.value, cached: true });
     const token = await getOrganizationAccessToken(org.id);
     const path = body.action === "organization" ? "/live/organizations/" + org.live_organization_id : body.action === "aircraft" ? "/live/organizations/" + org.live_organization_id + "/aircraft" : "/live/organizations/" + org.live_organization_id + "/schedules";
     const result = await ifRequest(token, path);
-    return json({ result });
+    liveCache.set(cacheKey, { expiresAt: Date.now() + 30_000, value: result });
+    return json({ result, cached: false });
   } catch (error) { if (error instanceof IfApiRateLimitError) return fail(error.message, 429, { "Retry-After": String(error.retryAfterSeconds) }); return fail("Live data could not be retrieved. Retry or reconnect the organization.", 502); }
 });

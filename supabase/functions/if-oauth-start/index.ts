@@ -12,6 +12,8 @@ Deno.serve(async (req) => {
   const clientId = Deno.env.get("INFINITE_FLIGHT_CLIENT_ID");
   const redirectUri = Deno.env.get("INFINITE_FLIGHT_REDIRECT_URI");
   if (!clientId || !redirectUri) return fail("OAuth is not configured", 503);
+  const requestedReturnTo = String((await req.clone().json().catch(() => ({})))?.returnTo ?? "/login");
+  const returnTo = requestedReturnTo.startsWith("/") && !requestedReturnTo.startsWith("//") && !requestedReturnTo.includes("://") ? requestedReturnTo : "/login";
   const state = crypto.randomUUID();
   const verifier = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32)))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier));
@@ -19,9 +21,9 @@ Deno.serve(async (req) => {
   const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(state));
   const stateHash = Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, "0")).join("");
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-  const { error } = await admin.from("oauth_transactions").insert({ state_hash: stateHash, user_id: user.id, code_verifier_ciphertext: await encryptSecret(verifier), expires_at: new Date(Date.now() + 600000).toISOString() });
+  const { error } = await admin.from("oauth_transactions").insert({ state_hash: stateHash, user_id: user.id, code_verifier_ciphertext: await encryptSecret(verifier), redirect_path: returnTo, expires_at: new Date(Date.now() + 600000).toISOString() });
   if (error) return fail("Could not start authorization", 500);
-  const scopes = "openid profile offline_access live:organizations.read live:members.read live:aircraft.read live:schedules.read live:schedules.write";
+  const scopes = "openid profile offline_access live:organizations.read live:members.read live:aircraft.read live:schedules.read" + (returnTo.includes("/pilot-sign-in") ? "" : " live:schedules.write");
   const url = new URL("https://api.infiniteflight.com/auth/v2/connect/authorize");
   url.search = new URLSearchParams({ response_type: "code", client_id: clientId, redirect_uri: redirectUri, scope: scopes, state, code_challenge: challenge, code_challenge_method: "S256" }).toString();
   return json({ authorizationUrl: url.toString() });

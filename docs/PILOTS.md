@@ -67,3 +67,17 @@ Possible statuses: Pending approval, Approved, Rejected, Sync failed, Cancelled.
 | Booking is unavailable | This is expected in pilot preview mode. Booking requires a connected Veyro VA and verified pilot identity binding. |
 
 Never share your email sign-in link, password, OAuth access token or refresh token with anyone.
+
+
+## Organization-invited pilot access
+
+Connected VA pilot access is restricted to the email addresses entered by an organization Owner/Admin in `/:slug/admin`. The admin records the pilot's display name and email. The pilot opens `/:slug/pilot-sign-in` and requests an email magic link. After authentication, VEYRO verifies that the signed-in email matches an active invitation before allowing Infinite Flight OAuth. The server matches the OAuth identity to the invited email, verifies current Live organization membership, activates the Veyro pilot membership, and saves the invited display name. The individual workspace URL is `/:slug/pilot/:pilotId`.
+
+A personal Infinite Flight connection is stored encrypted server-side and refreshed when the provider issues a refresh token. Supabase Auth manages its own persistent application session. Infinite Flight token lifetime is controlled by Infinite Flight; VEYRO cannot guarantee a fixed 7- or 14-day authorization window.
+
+## Pilot operations
+
+For an onboarded VA, pilots can view the Live fleet and schedule board, request eligible schedule legs, review their booking status, and use the organization-specific workspace. Booking requests are created only after checking the invited pilot's Veyro membership and current Infinite Flight organization membership. The Live schedule remains the authoritative schedule record.
+
+
+Live API data is held only in short-lived in-memory caches (30 seconds) to reduce repeat requests and comply with Infinite Flight API data-retention rules. It is not written to persistent application tables.

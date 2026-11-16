@@ -8,7 +8,26 @@ import { supabase } from "../lib/supabase";
 type LiveOrg = { id: string; name: string; role: number; alreadyConnected: boolean };
 type PublicOrg = { id: string; slug: string; display_name: string; logo_url: string | null; tagline: string | null; description: string | null; website_url: string | null; discord_invite_url: string | null };
 
+let oauthStartRequest: Promise<any> | null = null;
+function prepareInfiniteFlightOAuth() {
+  if (!supabase) return Promise.resolve({ data: null, error: new Error("Supabase is not configured.") });
+  if (!oauthStartRequest) oauthStartRequest = supabase.functions.invoke("if-oauth-start", { body: { returnTo: "/apply" } }).then((result) => { if (result.error) oauthStartRequest = null; return result; });
+  return oauthStartRequest;
+}
+
 const slugify = (v: string) => v.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 48);
+let publicDirectoryCache: { organizations: PublicOrg[]; expiresAt: number } | null = null;
+let publicDirectoryRequest: Promise<PublicOrg[]> | null = null;
+async function getPublicDirectory(force = false): Promise<PublicOrg[]> {
+  if (!supabase) return [];
+  if (!force && publicDirectoryCache && publicDirectoryCache.expiresAt > Date.now()) return publicDirectoryCache.organizations;
+  if (!force && publicDirectoryRequest) return publicDirectoryRequest;
+  publicDirectoryRequest = supabase.functions.invoke("organization-application", { body: { action: "directory" } })
+    .then(({ data, error }) => { if (error) throw error; const organizations = (data?.organizations ?? []) as PublicOrg[]; publicDirectoryCache = { organizations, expiresAt: Date.now() + 60_000 }; return organizations; })
+    .finally(() => { publicDirectoryRequest = null; });
+  return publicDirectoryRequest;
+}
+
 const readFile = (file: File) => new Promise<string>((resolve, reject) => {
   const reader = new FileReader();
   reader.onload = () => resolve(String(reader.result));
@@ -22,9 +41,7 @@ export function OrganizationDirectory() {
   useEffect(() => {
     let active = true;
     if (!supabase) { setLoading(false); return () => { active = false; }; }
-    supabase.functions.invoke("organization-application", { body: { action: "directory" } })
-      .then(({ data, error }) => { if (active && !error) setOrganizations(data?.organizations ?? []); })
-      .finally(() => { if (active) setLoading(false); });
+    getPublicDirectory().then((organizations) => { if (active) setOrganizations(organizations); }).catch(() => { if (active) setOrganizations([]); }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, []);
   return <section className="directory-section">
@@ -67,6 +84,8 @@ export function OrganizationApplicationPage() {
     return () => { active = false; data.subscription.unsubscribe(); };
   }, []);
 
+  useEffect(() => { if (session && !pendingId) void prepareInfiniteFlightOAuth(); }, [session, pendingId]);
+
   useEffect(() => {
     if (!session || !supabase) return;
     let active = true;
@@ -91,7 +110,7 @@ export function OrganizationApplicationPage() {
     if (!supabase) return;
     setConnectingIF(true); setError("");
     try {
-      const { data, error: invokeError } = await supabase.functions.invoke("if-oauth-start", { body: { returnTo: "/apply" } });
+      const { data, error: invokeError } = await prepareInfiniteFlightOAuth();
       if (invokeError) throw invokeError;
       if (!data?.authorizationUrl) throw new Error(data?.error || "Could not start Infinite Flight authorization.");
       window.location.assign(data.authorizationUrl);
@@ -196,14 +215,12 @@ export function PublicOrganizationPage() {
   useEffect(() => {
     let active = true;
     if (!supabase) { setLoading(false); return () => { active = false; }; }
-    supabase.functions.invoke("organization-application", { body: { action: "directory" } })
-      .then(({ data }) => { if (active) setOrg((data?.organizations ?? []).find((o: PublicOrg) => o.slug === slug) ?? null); })
-      .finally(() => { if (active) setLoading(false); });
+    getPublicDirectory().then((organizations) => { if (active) setOrg(organizations.find((o) => o.slug === slug) ?? null); }).catch(() => { if (active) setOrg(null); }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [slug]);
   return <main className="shell"><header className="topbar"><Link className="brand" to="/"><span className="brand-mark">V</span><span>VEYRO<span className="brand-light"> LIVE</span></span></Link><Link className="top-link" to="/">Explore network</Link></header>
     {loading ? <div className="directory-empty">Loading organisation portal…</div> : !org ? <section className="panel portal-empty"><h1>Portal not found</h1><p>This organisation is not listed in the public VEYRO directory.</p><Link className="button button-primary" to="/">Explore organisations</Link></section> :
-      <section className="public-org-hero"><div className="public-org-brand">{org.logo_url ? <img src={org.logo_url} alt={org.display_name + " logo"}/> : <span>{org.display_name.slice(0,1)}</span>}</div><div className="eyebrow">INFINITE FLIGHT LIVE ORGANISATION</div><h1>{org.display_name}</h1><p className="public-org-tagline">{org.tagline}</p><p className="public-org-description">{org.description}</p><div className="hero-actions">{org.website_url && <a className="button button-quiet" href={org.website_url} target="_blank" rel="noreferrer">Official website <ExternalLink size={14}/></a>}{org.discord_invite_url && <a className="button button-quiet" href={org.discord_invite_url} target="_blank" rel="noreferrer">Join Discord <ExternalLink size={14}/></a>}<Link className="button button-primary" to="/login">Pilot sign in <ArrowUpRight size={15}/></Link></div><div className="hero-footnote">Schedules and fleet are provided by Infinite Flight Live. VEYRO is an independent third-party platform.</div></section>}
+      <section className="public-org-hero"><div className="public-org-brand">{org.logo_url ? <img src={org.logo_url} alt={org.display_name + " logo"}/> : <span>{org.display_name.slice(0,1)}</span>}</div><div className="eyebrow">INFINITE FLIGHT LIVE ORGANISATION</div><h1>{org.display_name}</h1><p className="public-org-tagline">{org.tagline}</p><p className="public-org-description">{org.description}</p><div className="hero-actions">{org.website_url && <a className="button button-quiet" href={org.website_url} target="_blank" rel="noreferrer">Official website <ExternalLink size={14}/></a>}{org.discord_invite_url && <a className="button button-quiet" href={org.discord_invite_url} target="_blank" rel="noreferrer">Join Discord <ExternalLink size={14}/></a>}<Link className="button button-primary" to={"/"+slug+"/pilot-sign-in"}>Pilot sign in <ArrowUpRight size={15}/></Link></div><div className="hero-footnote">Schedules and fleet are provided by Infinite Flight Live. VEYRO is an independent third-party platform.</div></section>}
     <footer className="footer"><span>© {new Date().getFullYear()} VEYRO LIVE</span><span>Organisation portal</span></footer>
   </main>;
 }
