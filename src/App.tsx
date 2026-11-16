@@ -159,15 +159,16 @@ function AircraftMapMarker({aircraft,position,dark}:{aircraft:any;position:Aircr
  </Marker>;
 }
 function AircraftLiveMap({aircraft,positions,dark}:{aircraft:any[];positions:Record<string,AircraftPosition>;dark:boolean}){
- const plotted=aircraft.map(item=>({aircraft:item,position:positions[item.id]})).filter(item=>item.position&&Number.isFinite(item.position.latitude)&&Number.isFinite(item.position.longitude));
+ const plotted=aircraft.map(item=>({aircraft:item,position:positions[item.id]})).filter(item=>item.position&&item.position.state===2&&item.position.isOnGround===false&&Number.isFinite(item.position.latitude)&&Number.isFinite(item.position.longitude)&&Number.isFinite(new Date(item.position.updatedAt||"").getTime())&&Date.now()-new Date(item.position.updatedAt||"").getTime()<30*60_000);
  const points=plotted.map(item=>[item.position.latitude,item.position.longitude] as [number,number]);
  return <div className="aircraft-map-frame">
   <MapContainer key={dark?"dark":"light"} center={points[0]??L.latLng(25,10)} zoom={points.length?4:2} scrollWheelZoom zoomControl={false} className="aircraft-live-map">
    <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>' url={dark?"https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png":"https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"}/>
    <AircraftMapViewport points={points}/>
+   {plotted.length===0&&<div className="aircraft-map-empty">No aircraft are currently reporting an active in-air position.</div>}
    {plotted.map(({aircraft:item,position})=><AircraftMapMarker key={item.id} aircraft={item} position={position} dark={dark}/>)}
   </MapContainer>
-  <div className="aircraft-map-count"><span className="map-live-dot"/>{plotted.length} positioned · {aircraft.length} aircraft in fleet</div>
+  <div className="aircraft-map-count"><span className="map-live-dot"/>{plotted.length} airborne · {aircraft.length} aircraft in fleet</div>
  </div>;
 }
 function FleetAircraftCard({aircraft}:{aircraft:any}){
