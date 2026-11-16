@@ -56,3 +56,17 @@ VEYRO's initial reservation policy intentionally permits only one active booking
 - [Developer reference and API rules](https://infiniteflight.com/guide/developer-reference/)
 
 Never use Live data for real-world aviation operations or for AI training, fine-tuning or evaluation.
+
+
+## Pilot fleet map and aircraft operations
+
+The pilot dashboard uses these documented v3 resources:
+
+- `GET /live/organizations/{organizationId}` to verify the signed-in user's organization role.
+- `GET /live/organizations/{organizationId}/aircraft` to list the organization's active fleet and obtain each persistent aircraft `id` and registration.
+- `GET /live/aircraft/{aircraftId}/position` for each aircraft's last persisted position, heading, altitude, speed, vertical speed, ground state, last pilot and update time.
+- `GET /live/aircraft/{aircraftId}/flights?page=1&pageSize=1` to show the newest flight-log entry.
+- `GET /live/organizations/{organizationId}/schedules?page=N&pageSize=100` to page through the whole-fleet schedule collection.
+- `GET /live/organizations/{organizationId}/members` is fetched only when the pilot opens the Crew page.
+
+Position and flight-log data is held only in short-lived in-memory/server and page state; it is never written to the database. The map polls on a 30-second cycle only while visible and recently active, but requests are paced by the per-user `X-Rate-Limit-Remaining`, `X-Rate-Limit-Reset`, and `X-User-Pro` response headers. Free users have 5 requests per minute; users with Pro have 20. When the allowance is exhausted, the UI retains the last position and marks it as stale rather than sending requests that will predictably fail. Schedule and crew pages are loaded on demand; schedule pages can be fetched in batches of 100.
