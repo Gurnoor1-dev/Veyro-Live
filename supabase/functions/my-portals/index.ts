@@ -9,7 +9,7 @@ Deno.serve(async (req) => {
  const admin=createClient(Deno.env.get("SUPABASE_URL")!,Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
  const [profile,connection,memberships,invites,directory]=await Promise.all([
   admin.from("profiles").select("display_name,discord_user_id,infinite_flight_user_id").eq("id",user.id).maybeSingle(),
-  admin.from("user_if_connections").select("token_expires_at,granted_scopes").eq("user_id",user.id).maybeSingle(),
+  admin.from("user_if_connections").select("token_expires_at,granted_scopes,refresh_token_ciphertext").eq("user_id",user.id).maybeSingle(),
   admin.from("organization_memberships").select("organization_id,role,is_active,created_at").eq("user_id",user.id).eq("is_active",true),
   admin.from("organization_pilot_invites").select("id,organization_id,pilot_name,status,created_at").eq("email",(user.email??"").toLowerCase()).eq("status","invited"),
   admin.from("organizations").select("id,slug,display_name,logo_url,tagline,description,website_url,discord_invite_url,is_public,live_organization_id").eq("is_active",true).eq("is_public",true).order("display_name")
@@ -20,5 +20,5 @@ Deno.serve(async (req) => {
  if(ids.length){const {data,error}=await admin.from("organizations").select("id,slug,display_name,logo_url,tagline,description,website_url,discord_invite_url,is_public,live_organization_id").in("id",ids).eq("is_active",true);if(error)return fail("Could not load your airline portals.",500);for(const org of data??[])byId.set(org.id,org)}
  const memberRows=(memberships.data??[]).flatMap((m:any)=>{const org=byId.get(m.organization_id);return org?[{...org,role:m.role,joinedAt:m.created_at}]:[]});
  const inviteRows=(invites.data??[]).flatMap((i:any)=>{const org=byId.get(i.organization_id);return org?[{id:i.id,pilotName:i.pilot_name,createdAt:i.created_at,organization:org}]:[]});
- return json({profile:profile.data??null,email:user.email??null,infiniteFlight:{connected:Boolean(connection.data),expiresAt:connection.data?.token_expires_at??null,scopes:connection.data?.granted_scopes??[]},memberships:memberRows,invitations:inviteRows,directory:directory.data??[]});
+ return json({profile:profile.data??null,email:user.email??null,infiniteFlight:{connected:Boolean(connection.data&&((connection.data.token_expires_at&&new Date(connection.data.token_expires_at).getTime()>Date.now())||connection.data.refresh_token_ciphertext)),expiresAt:connection.data?.token_expires_at??null,scopes:connection.data?.granted_scopes??[]},memberships:memberRows,invitations:inviteRows,directory:directory.data??[]});
 });
