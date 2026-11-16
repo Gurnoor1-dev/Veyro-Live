@@ -28,19 +28,33 @@ async function reserveIfApiRequest(): Promise<void> {
   }
 }
 
+const PAGED_LIVE_ENDPOINTS = [
+  /^\/live\/organizations\/[^/]+\/members$/,
+  /^\/live\/organizations\/[^/]+\/schedules$/,
+  /^\/live\/aircraft\/[^/]+\/flights$/,
+  /^\/live\/aircraft\/[^/]+\/schedules$/,
+];
+
+function isPagedLiveEndpoint(pathname: string): boolean {
+  return PAGED_LIVE_ENDPOINTS.some((pattern) => pattern.test(pathname));
+}
+
 export async function ifRequest<T>(token: string, path: string, init: RequestInit = {}): Promise<T> {
   if (!path.startsWith("/live/") || path.includes("..")) throw new Error("Unsupported API path");
 
   const method = (init.method ?? "GET").toUpperCase();
   const requestUrl = new URL(IF_API + path);
-  if (method === "GET" && !requestUrl.searchParams.has("page")) {
-    requestUrl.searchParams.set("page", "1");
-    requestUrl.searchParams.set("pageSize", "100");
+  const pagedEndpoint = method === "GET" && isPagedLiveEndpoint(requestUrl.pathname);
+
+  // PublicApi v3 uses one-based page numbers and a maximum pageSize of 100
+  // for its Page-based Live collection endpoints. Do not attach paging
+  // parameters to array or single-resource endpoints.
+  if (pagedEndpoint) {
+    if (!requestUrl.searchParams.has("page")) requestUrl.searchParams.set("page", "1");
+    if (!requestUrl.searchParams.has("pageSize")) requestUrl.searchParams.set("pageSize", "100");
   }
 
   const send = async (url: URL): Promise<ApiEnvelope<T>> => {
-    // Reserve centrally in Postgres before every outbound PublicApi v3 request.
-    // This rolling-window guard is shared by every Edge Function instance.
     await reserveIfApiRequest();
     const response = await fetch(url, {
       ...init,
@@ -64,33 +78,33 @@ export async function ifRequest<T>(token: string, path: string, init: RequestIni
     return payload as ApiEnvelope<T>;
   };
 
-  const first = await send(requestUrl);
-  const result = first.result as unknown;
-  if (!result || typeof result !== "object" || !Array.isArray((result as { items?: unknown }).items)) {
-    return first.result;
-  }
+  const response = await send(requestUrl);
+  const result = response.result as unknown;
 
-  const page = result as { items: unknown[]; page?: number; pageSize?: number; totalPages?: number };
-  const items = [...page.items];
-  const totalPages = Number(page.totalPages ?? 1);
-  const pageSize = Number(page.pageSize ?? 100);
-  if (!Number.isInteger(totalPages) || totalPages < 1 || totalPages > 20) {
-    throw new Error("Infinite Flight returned an unsupported page count");
-  }
-
-  for (let pageNumber = 2; pageNumber <= totalPages; pageNumber += 1) {
-    const nextUrl = new URL(requestUrl);
-    nextUrl.searchParams.set("page", String(pageNumber));
-    nextUrl.searchParams.set("pageSize", String(pageSize));
-    const next = await send(nextUrl);
-    const nextResult = next.result as { items?: unknown[] } | null;
-    if (!nextResult || !Array.isArray(nextResult.items)) {
-      throw new Error("Infinite Flight returned an invalid paged response");
+  // Some v3 endpoints return a plain array (for example List Organizations
+  // and List Organization Aircraft); others return a Page with result.items.
+  // Return the requested page's items to existing dashboard callers. Additional
+  // pages are fetched on demand by passing ?page=N, rather than eagerly firing
+  // dozens of requests and exceeding the documented per-user rate limit.
+  if (result && typeof result === "object" && Array.isArray((result as { items?: unknown }).items)) {
+    const page = result as { items: unknown[]; page?: number; pageSize?: number; totalPages?: number };
+    const currentPage = Number(page.page ?? requestUrl.searchParams.get("page") ?? 1);
+    const totalPages = Number(page.totalPages ?? currentPage);
+    if (!Number.isInteger(currentPage) || currentPage < 1 || !Number.isInteger(totalPages) || totalPages < 0) {
+      throw new Error("Infinite Flight returned invalid pagination metadata");
     }
-    items.push(...nextResult.items);
+    if (totalPages > currentPage) {
+      console.info("[Infinite Flight] paged collection", {
+        endpoint: requestUrl.pathname,
+        page: currentPage,
+        totalPages,
+        pageSize: Number(page.pageSize ?? 100),
+      });
+    }
+    return page.items as T;
   }
 
-  return items as T;
+  return response.result;
 }
 
 export async function exchangeAuthorizationCode(code: string, verifier: string) {
