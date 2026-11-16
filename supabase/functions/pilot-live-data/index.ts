@@ -21,9 +21,8 @@ Deno.serve(async (req) => {
   if (!body.pendingId) {
     const cached = pilotCache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) {
-      const { data: accepted } = await admin.from("organization_pilot_invites").select("id").eq("organization_id", cached.value.portalId).eq("email", user.email?.toLowerCase() ?? "").eq("accepted_user_id", user.id).eq("status", "accepted").maybeSingle();
       const { data: activeMembership } = await admin.from("organization_memberships").select("is_active").eq("organization_id", cached.value.portalId).eq("user_id", user.id).maybeSingle();
-      if (accepted && activeMembership?.is_active) return json(cached.value);
+      if (activeMembership?.is_active) return json(cached.value);
     }
   }
   try {
