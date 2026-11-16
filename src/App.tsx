@@ -252,7 +252,7 @@ function PilotDashboard(){
    const nextPositions=(data?.positions||{}) as Record<string,AircraftPosition>;
    setPositions(previous=>({...previous,...nextPositions}));
    if(includeFlights)setLatestFlights(previous=>({...previous,...(data?.latestFlights||{})}) as Record<string,any>);if(data?.rateLimit)setApiRateLimit(data.rateLimit);
-   if(data?.completed&&aircraft.length)setAircraftCursor(previous=>(previous+Number(data.completed))%aircraft.length);
+   const processed=Number(data?.completed||0)+Object.keys(data?.failures||{}).length;if(processed&&aircraft.length)setAircraftCursor(previous=>(previous+processed)%aircraft.length);
    if(Number(data?.completed)>0)setPositionsUpdated(data?.updatedAt?new Date(data.updatedAt):new Date());
    if(data?.rateLimited){
     setPositionError(Number(data?.completed)>0?"Infinite Flight rate limit reached. Updated "+data.completed+" of "+(data.total||aircraft.length)+" aircraft; remaining positions will update after the API reset.":"Infinite Flight request allowance is exhausted. Automatic position updates will resume after the rate-limit reset.");
