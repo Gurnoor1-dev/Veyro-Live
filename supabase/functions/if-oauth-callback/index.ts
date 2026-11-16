@@ -29,8 +29,21 @@ Deno.serve(async (req) => {
       expires_at: expiresAt,
     });
     if (saveError) throw saveError;
-    const base = Deno.env.get("APP_BASE_URL") ?? "/";
-    return new Response(null, { status: 302, headers: { Location: base + "/login?oauth=pending&pending=" + encodeURIComponent(pendingId) } });
+    const { error: connectionError } = await admin.from("user_if_connections").upsert({
+      user_id: transaction.user_id,
+      access_token_ciphertext: await encryptSecret(token.access_token as string),
+      refresh_token_ciphertext: token.refresh_token ? await encryptSecret(token.refresh_token as string) : null,
+      token_expires_at: new Date(Date.now() + Number(token.expires_in ?? 1800) * 1000).toISOString(),
+      granted_scopes: String(token.scope ?? "").split(" ").filter(Boolean),
+    }, { onConflict: "user_id" });
+    if (connectionError) throw connectionError;
+    const base = (Deno.env.get("APP_BASE_URL") ?? "").replace(/\\/$/, "");
+    const requestedPath = String(transaction.redirect_path ?? "/login");
+    const safePath = requestedPath.startsWith("/") && !requestedPath.startsWith("//") && !requestedPath.includes("://") ? requestedPath : "/login";
+    const destination = new URL(safePath, base || new URL(req.url).origin);
+    destination.searchParams.set("if_connected", "1");
+    destination.searchParams.set("pending", pendingId);
+    return new Response(null, { status: 302, headers: { Location: destination.toString() } });
   } catch {
     return fail("Infinite Flight authorization failed", 502);
   }
