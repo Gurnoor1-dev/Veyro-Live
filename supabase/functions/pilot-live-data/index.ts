@@ -18,8 +18,9 @@ Deno.serve(async (req) => {
   if (!body?.organizationId || typeof body.organizationId !== "string") return fail("Missing Live organization ID", 400);
 
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-  const cacheKey = user.id + ":" + body.organizationId;
-  if (!body.pendingId && !["aircraft_positions", "aircraft_operations"].includes(String(body.action ?? ""))) {
+  const cacheScope = typeof body.cacheScope === "string" && /^[0-9a-f-]{36}$/i.test(body.cacheScope) ? body.cacheScope : null;
+  const cacheKey = user.id + ":" + body.organizationId + ":" + (cacheScope ?? crypto.randomUUID());
+  if (cacheScope && !body.pendingId && !["aircraft_positions", "aircraft_operations", "schedule_page", "organization_members"].includes(String(body.action ?? ""))) {
     const cached = pilotCache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) {
       // The cache contains data fetched only after this user's Live membership was
@@ -130,12 +131,12 @@ Deno.serve(async (req) => {
           isPro: state.isPro || rateLimitState.isPro,
         };
       };
-      const cachedAircraft = pilotAircraftCache.get(cacheKey);
+      const cachedAircraft = cacheScope ? pilotAircraftCache.get(cacheKey) : null;
       let knownAircraft = cachedAircraft && cachedAircraft.expiresAt > Date.now() ? cachedAircraft.aircraft : null;
       if (!knownAircraft) {
         if (remainingBudget <= 0) return json({ positions, latestFlights, failures, completed, total: requestedIds.length, rateLimited: true, retryAfterSeconds, rateLimit: rateLimitState, updatedAt: new Date().toISOString() });
         knownAircraft = await ifRequest<Array<{ id: string; registration?: string }>>(token, "/live/organizations/" + body.organizationId + "/aircraft", {}, observePositionRateLimit);
-        pilotAircraftCache.set(cacheKey, { expiresAt: Date.now() + 5 * 60_000, aircraft: knownAircraft });
+        if (cacheScope) pilotAircraftCache.set(cacheKey, { expiresAt: Date.now() + 5 * 60_000, aircraft: knownAircraft });
       }
       const allowedIds = new Set(knownAircraft.map((item) => item.id));
       const aircraftIds = (requestedIds.length ? requestedIds : knownAircraft.map((item) => item.id)).filter((id) => allowedIds.has(id));
@@ -220,8 +221,10 @@ Deno.serve(async (req) => {
     const schedules = schedulesPage.items ?? [];
     const schedulesPagination = { page: schedulesPage.page, pageSize: schedulesPage.pageSize, totalCount: schedulesPage.totalCount, totalPages: schedulesPage.totalPages };
     const payload = { organization, aircraft, schedules, schedulesPagination, members: [], role: organization.role, portal: { id: portal.id, slug: portal.slug }, portalId: portal.id, pilotId: user.id, mode: "pilot-portal", rateLimit: rateLimitState };
-    pilotAircraftCache.set(cacheKey, { expiresAt: Date.now() + 5 * 60_000, aircraft });
-    pilotCache.set(cacheKey, { expiresAt: Date.now() + 30_000, value: payload });
+    if (cacheScope) {
+      pilotAircraftCache.set(cacheKey, { expiresAt: Date.now() + 5 * 60_000, aircraft });
+      pilotCache.set(cacheKey, { expiresAt: Date.now() + 30_000, value: payload });
+    }
     return json(payload);
   } catch (error) {
     console.error("[pilot-live-data] failed", error instanceof Error ? { name: error.name, message: error.message, stack: error.stack } : String(error));
