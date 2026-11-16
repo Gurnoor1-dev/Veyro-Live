@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import L from "leaflet";
+import { useEffect, useMemo, useRef, useState } from "react";
+import * as L from "leaflet";
 import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import type { FormEvent, ReactNode } from "react";
@@ -155,7 +155,7 @@ function AircraftLiveMap({aircraft,positions,dark}:{aircraft:any[];positions:Rec
  const plotted=aircraft.map(item=>({aircraft:item,position:positions[item.id]})).filter(item=>item.position&&Number.isFinite(item.position.latitude)&&Number.isFinite(item.position.longitude));
  const points=plotted.map(item=>[item.position.latitude,item.position.longitude] as [number,number]);
  return <div className="aircraft-map-frame">
-  <MapContainer key={dark?"dark":"light"} center={points[0]||[25,10]} zoom={points.length?4:2} scrollWheelZoom zoomControl={false} className="aircraft-live-map">
+  <MapContainer key={dark?"dark":"light"} center={points[0]??L.latLng(25,10)} zoom={points.length?4:2} scrollWheelZoom zoomControl={false} className="aircraft-live-map">
    <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>' url={dark?"https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png":"https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"}/>
    <AircraftMapViewport points={points}/>
    {plotted.map(({aircraft:item,position})=><AircraftMapMarker key={item.id} aircraft={item} position={position} dark={dark}/>)}
@@ -198,6 +198,7 @@ function PilotDashboard(){
  const [error,setError]=useState("");
  const [lastUpdated,setLastUpdated]=useState<Date|null>(null);
  const [darkMap,setDarkMap]=useState(()=>document.documentElement.classList.contains("dark"));
+ const lastUserActivity=useRef(Date.now());
  const navigate=useNavigate();
  const tail=location.pathname.split("/").filter(Boolean).at(-1)||"overview";
  const page=["overview","schedules","fleet","members","bookings","profile"].includes(tail)?tail:"overview";
@@ -207,6 +208,12 @@ function PilotDashboard(){
   const observer=new MutationObserver(()=>setDarkMap(document.documentElement.classList.contains("dark")));
   observer.observe(document.documentElement,{attributes:true,attributeFilter:["class"]});
   return()=>observer.disconnect();
+ },[]);
+ useEffect(()=>{
+  const markActivity=()=>{lastUserActivity.current=Date.now()};
+  const events=["pointerdown","keydown","touchstart","wheel"];
+  events.forEach(event=>window.addEventListener(event,markActivity,{passive:true}));
+  return()=>events.forEach(event=>window.removeEventListener(event,markActivity));
  },[]);
  useEffect(()=>{if(!slug||!supabase)return;supabase.from("organizations").select("live_organization_id").eq("slug",slug).single().then(({data})=>{if(data?.live_organization_id)setResolvedOrganizationId(data.live_organization_id)})},[slug]);
 
@@ -245,7 +252,7 @@ function PilotDashboard(){
  useEffect(()=>{
   if(page!=="overview"||!session||aircraft.length===0)return;
   let active=true;
-  const poll=async()=>{if(active)await fetchFleetData(false)};
+  const poll=async()=>{if(active&&document.visibilityState==="visible"&&Date.now()-lastUserActivity.current<15*60_000)await fetchFleetData(false)};
   void poll();
   const timer=window.setInterval(()=>{void poll()},30000);
   return()=>{active=false;window.clearInterval(timer)};
