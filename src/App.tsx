@@ -95,6 +95,12 @@ type AircraftPosition = {
  altitude?: number; heading?: number; speed?: number; verticalSpeed?: number;
  lastPilotId?: string|null; lastPilotUsername?: string|null; updatedAt?: string;
 };
+function currentRateBudget(rateLimit:{remaining:number|null;resetAt:string|null;isPro:boolean}|null){
+ if(!rateLimit)return undefined;
+ const value=rateLimit.resetAt;const numeric=value?Number(value):NaN;
+ const resetTime=value?(Number.isFinite(numeric)?(numeric<1e12?numeric*1000:numeric):Date.parse(value)):0;
+ return resetTime&&resetTime>Date.now()?rateLimit.remaining??undefined:undefined;
+}
 function ageLabel(value?:string){
  if(!value)return "Update time unavailable";
  const age=Math.max(0,Date.now()-new Date(value).getTime());
@@ -181,6 +187,8 @@ function PilotDashboard(){
  const [portalId,setPortalId]=useState("");
  const [bookings,setBookings]=useState<any[]>([]);
  const [members,setMembers]=useState<any[]>([]);
+ const [membersLoading,setMembersLoading]=useState(false);
+ const [membersError,setMembersError]=useState("");
  const [requestBusy,setRequestBusy]=useState("");
  const location=useLocation();
  const [session,setSession]=useState<Session|null>(null);
@@ -188,6 +196,10 @@ function PilotDashboard(){
  const [organization,setOrganization]=useState<any>(null);
  const [aircraft,setAircraft]=useState<any[]>([]);
  const [schedules,setSchedules]=useState<any[]>([]);
+ const [schedulePagination,setSchedulePagination]=useState<{page:number;pageSize:number;totalCount:number;totalPages:number}>({page:1,pageSize:100,totalCount:0,totalPages:1});
+ const [scheduleLoadingMore,setScheduleLoadingMore]=useState(false);
+ const [scheduleLoadError,setScheduleLoadError]=useState("");
+ const [aircraftCursor,setAircraftCursor]=useState(0);
  const [positions,setPositions]=useState<Record<string,AircraftPosition>>({});
  const [latestFlights,setLatestFlights]=useState<Record<string,any>>({});
  const [apiRateLimit,setApiRateLimit]=useState<{remaining:number|null;resetAt:string|null;isPro:boolean}|null>(null);
@@ -222,7 +234,7 @@ function PilotDashboard(){
   setLoading(true);setError("");
   const {data,error}=await invokeFunction(supabase,"pilot-live-data",{body:{organizationId:resolvedOrganizationId}});
   if(error||!data?.organization){setError(data?.error||error?.message||"Could not load this Live organization.");setLoading(false);return}
-  setOrganization(data.organization);setPortalId(data.portal?.id||"");setAircraft(data.aircraft||[]);setSchedules(data.schedules||[]);setMembers(data.members||[]);if(data.rateLimit)setApiRateLimit(data.rateLimit);
+  setOrganization(data.organization);setPortalId(data.portal?.id||"");setAircraft(data.aircraft||[]);setSchedules(data.schedules||[]);setSchedulePagination(data.schedulesPagination||{page:1,pageSize:100,totalCount:(data.schedules||[]).length,totalPages:1});setMembers([]);if(data.rateLimit)setApiRateLimit(data.rateLimit);
   if(data.portal?.id){const {data:rows}=await supabase.from("booking_requests").select("id,live_schedule_id,status,request_note,created_at,reviewed_at,rejection_reason").eq("organization_id",data.portal.id).eq("pilot_user_id",session.user.id).order("created_at",{ascending:false}).limit(30);setBookings(rows||[])}
   setLastUpdated(new Date());setLoading(false);
  };
@@ -232,12 +244,14 @@ function PilotDashboard(){
   if(!supabase||!resolvedOrganizationId||aircraft.length===0)return;
   setPositionLoading(true);
   try{
-   const resetValue=apiRateLimit?.resetAt;const resetNumber=resetValue?Number(resetValue):NaN;const resetTime=resetValue?(Number.isFinite(resetNumber)?(resetNumber<1e12?resetNumber*1000:resetNumber):Date.parse(resetValue)):0;const budgetStillCurrent=!!resetTime&&resetTime>Date.now();
-   const {data,error}=await invokeFunction(supabase,"pilot-live-data",{body:{organizationId:resolvedOrganizationId,action:includeFlights?"aircraft_operations":"aircraft_positions",aircraftIds:aircraft.map(item=>item.id),apiRateRemaining:budgetStillCurrent?apiRateLimit?.remaining??undefined:undefined,isPro:apiRateLimit?.isPro??false}});
+   const budget=currentRateBudget(apiRateLimit);
+   const orderedAircraft=aircraft.length?[...aircraft.slice(aircraftCursor),...aircraft.slice(0,aircraftCursor)]:[];
+   const {data,error}=await invokeFunction(supabase,"pilot-live-data",{body:{organizationId:resolvedOrganizationId,action:includeFlights?"aircraft_operations":"aircraft_positions",aircraftIds:orderedAircraft.map(item=>item.id),apiRateRemaining:budget,isPro:apiRateLimit?.isPro??false}});
    if(error)throw error;
    const nextPositions=(data?.positions||{}) as Record<string,AircraftPosition>;
    setPositions(previous=>({...previous,...nextPositions}));
-   if(includeFlights)setLatestFlights((data?.latestFlights||{}) as Record<string,any>);if(data?.rateLimit)setApiRateLimit(data.rateLimit);
+   if(includeFlights)setLatestFlights(previous=>({...previous,...(data?.latestFlights||{})}) as Record<string,any>);if(data?.rateLimit)setApiRateLimit(data.rateLimit);
+   if(data?.completed&&aircraft.length)setAircraftCursor(previous=>(previous+Number(data.completed))%aircraft.length);
    setPositionsUpdated(data?.updatedAt?new Date(data.updatedAt):new Date());
    if(data?.rateLimited){
     setPositionError("Infinite Flight rate limit reached. Updated "+(data.completed||0)+" of "+(data.total||aircraft.length)+" aircraft; remaining positions will update on the next refresh.");
@@ -259,6 +273,15 @@ function PilotDashboard(){
  },[page,session,resolvedOrganizationId,aircraft.length]);
 
  useEffect(()=>{
+  if(page!=="members"||!session||!resolvedOrganizationId||!supabase)return;
+  let active=true;setMembersLoading(true);setMembersError("");
+  invokeFunction(supabase,"pilot-live-data",{body:{organizationId:resolvedOrganizationId,action:"organization_members",apiRateRemaining:currentRateBudget(apiRateLimit),isPro:apiRateLimit?.isPro??false}})
+   .then(({data,error})=>{if(error)throw error;if(active){setMembers(data?.members||[]);if(data?.rateLimit)setApiRateLimit(data.rateLimit)}})
+   .catch(e=>{if(active)setMembersError(e instanceof Error?e.message:"Could not load organization crew.")})
+   .finally(()=>{if(active)setMembersLoading(false)});
+  return()=>{active=false};
+ },[page,session,resolvedOrganizationId]);
+ useEffect(()=>{
   if(page!=="schedules"||!session||aircraft.length===0)return;
   let active=true;
   const refresh=async()=>{if(active)await fetchFleetData(true)};
@@ -266,6 +289,18 @@ function PilotDashboard(){
   return()=>{active=false};
  },[page,session,resolvedOrganizationId,aircraft.length]);
 
+ const loadMoreSchedules=async()=>{
+  if(!supabase||scheduleLoadingMore||schedulePagination.page>=schedulePagination.totalPages)return;
+  setScheduleLoadingMore(true);setScheduleLoadError("");
+  try{
+   const {data,error}=await invokeFunction(supabase,"pilot-live-data",{body:{organizationId:resolvedOrganizationId,action:"schedule_page",page:schedulePagination.page+1,apiRateRemaining:currentRateBudget(apiRateLimit),isPro:apiRateLimit?.isPro??false}});
+   if(error)throw error;
+   setSchedules(previous=>[...previous,...(data?.schedules||[])]);
+   if(data?.pagination)setSchedulePagination(data.pagination);
+   if(data?.rateLimit)setApiRateLimit(data.rateLimit);
+  }catch(e){setScheduleLoadError(e instanceof Error?e.message:"Could not load the next schedule page.")}
+  finally{setScheduleLoadingMore(false)}
+ };
  const refreshPage=async()=>{await load();if(page==="overview")await fetchFleetData(false);if(page==="schedules")await fetchFleetData(true)};
  const requestLeg=async(item:any)=>{
   if(!supabase||!portalId)return;
@@ -300,7 +335,7 @@ function PilotDashboard(){
        <div className="map-position-list">{aircraft.map(item=>{const position=positions[item.id];const state=aircraftState(position);return <div className="map-position-item" key={item.id}><span className={"aircraft-status-dot "+state.tone}/><strong>{item.registration||"Aircraft"}</strong><span>{state.label}</span>{position?.lastPilotUsername&&<small>{position.lastPilotUsername}</small>}</div>})}</div>
       </section>
       <section className="panel dashboard-panel pilot-data-panel"><div className="section-heading"><div><h2>Upcoming schedules</h2><p>Published by your organisation in Infinite Flight Live</p></div><Link className="top-link" to={"/pilot/"+organizationId+"/schedules"}>View all <ChevronRight size={13}/></Link></div>{loading?<div className="empty-state">Loading Live data…</div>:schedules.length===0?<div className="empty-state">No published schedules were returned.</div>:<div className="data-list">{schedules.slice(0,6).map((item:any,i:number)=><article className="data-row" key={item.id||i}><div><strong>{(item.originIcao||"—")+" → "+(item.destinationIcao||"—")}</strong><small>{[item.callsign||"Schedule",item.flightPlan||"No flight plan"].join(" · ")}</small></div><div className="admin-action-row"><span className="row-status">{scheduleStatusLabel(item.status??1)}</span><button className="button button-primary" disabled={requestBusy===item.id} onClick={()=>requestLeg(item)}>{requestBusy===item.id?"Requesting…":"Request this leg"}</button></div></article>)}</div>}</section>
-    </> : page==="members" ? <section className="panel dashboard-panel"><div className="section-heading"><div><h2>Organization crew</h2><p>Current Live members and their active lift counts.</p></div></div>{members.length===0?<div className="empty-state">No member data is available.</div>:<div className="data-list">{members.map((m:any)=><article className="data-row" key={m.userId}><div><strong>{m.username||"Infinite Flight pilot"}</strong><small>{m.role===2?"Owner":m.role===1?"Admin":"Member"} · Joined {m.joinedAt?new Date(m.joinedAt).toLocaleDateString():"—"}</small></div><span className="row-status">{m.activeLifts??0} active lifts</span></article>)}</div>}</section> : page==="bookings" ? <section className="panel dashboard-panel"><div className="section-heading"><div><h2>Your leg requests</h2><p>Requests and Live crew assignment status for this organization.</p></div></div>{bookings.length===0?<div className="empty-state">You have not requested any legs yet.</div>:<div className="data-list">{bookings.map((b:any)=><article className="data-row" key={b.id}><div><strong>{schedules.find((s:any)=>s.id===b.live_schedule_id)?.callsign||"Flight leg"}</strong><small>{b.request_note||"No request note"} · {new Date(b.created_at).toLocaleString()}</small></div><span className="row-status">{b.status.replaceAll("_"," ")}</span></article>)}</div>}</section> : page==="profile" ? <section className="panel dashboard-panel"><div className="section-heading"><div><h2>Live membership</h2><p>Your access is verified directly by Infinite Flight</p></div><ShieldCheck size={17}/></div><div className="profile-detail"><span>Organisation</span><strong>{organization?.name||"—"}</strong></div><div className="profile-detail"><span>Infinite Flight role</span><strong>{organization?.role===2?"Owner":organization?.role===1?"Admin":"Member"}</strong></div><div className="profile-detail"><span>Access type</span><strong>Personal OAuth · Encrypted server-side</strong></div><div className="profile-detail"><span>Data source</span><strong>Infinite Flight Public API v3</strong></div></section>
+    </> : page==="members" ? <section className="panel dashboard-panel"><div className="section-heading"><div><h2>Organization crew</h2><p>Current Live members and their active lift counts.</p></div></div>{membersError&&<div className="notice error">{membersError}</div>}{membersLoading?<div className="empty-state">Loading current Infinite Flight crew…</div>:members.length===0?<div className="empty-state">No member data is available.</div>:<div className="data-list">{members.map((m:any)=><article className="data-row" key={m.userId}><div><strong>{m.username||"Infinite Flight pilot"}</strong><small>{m.role===2?"Owner":m.role===1?"Admin":"Member"} · Joined {m.joinedAt?new Date(m.joinedAt).toLocaleDateString():"—"}</small></div><span className="row-status">{m.activeLifts??0} active lifts</span></article>)}</div>}</section> : page==="bookings" ? <section className="panel dashboard-panel"><div className="section-heading"><div><h2>Your leg requests</h2><p>Requests and Live crew assignment status for this organization.</p></div></div>{bookings.length===0?<div className="empty-state">You have not requested any legs yet.</div>:<div className="data-list">{bookings.map((b:any)=><article className="data-row" key={b.id}><div><strong>{schedules.find((s:any)=>s.id===b.live_schedule_id)?.callsign||"Flight leg"}</strong><small>{b.request_note||"No request note"} · {new Date(b.created_at).toLocaleString()}</small></div><span className="row-status">{b.status.replaceAll("_"," ")}</span></article>)}</div>}</section> : page==="profile" ? <section className="panel dashboard-panel"><div className="section-heading"><div><h2>Live membership</h2><p>Your access is verified directly by Infinite Flight</p></div><ShieldCheck size={17}/></div><div className="profile-detail"><span>Organisation</span><strong>{organization?.name||"—"}</strong></div><div className="profile-detail"><span>Infinite Flight role</span><strong>{organization?.role===2?"Owner":organization?.role===1?"Admin":"Member"}</strong></div><div className="profile-detail"><span>Access type</span><strong>Personal OAuth · Encrypted server-side</strong></div><div className="profile-detail"><span>Data source</span><strong>Infinite Flight Public API v3</strong></div></section>
     : page==="fleet" ? <section className="panel dashboard-panel"><div className="section-heading"><div><h2>Aircraft fleet</h2><p>Every active organization aircraft · images shown only in the fleet view</p></div><span className="fleet-total">{aircraft.length} AIRCRAFT</span></div>{loading?<div className="empty-state">Loading fleet…</div>:aircraft.length===0?<div className="empty-state">No active aircraft were returned by Infinite Flight.</div>:<div className="fleet-aircraft-grid">{aircraft.map(item=><FleetAircraftCard key={item.id} aircraft={item}/>)}</div>}</section>
     : page==="schedules" ? <section className="panel dashboard-panel aircraft-schedule-panel">
       <div className="section-heading"><div><h2>Fleet operations</h2><p>Aircraft status, last flown leg and every next scheduled leg. No aircraft images in this view.</p></div><button className="button button-quiet" onClick={()=>void fetchFleetData(true)} disabled={positionLoading}><RefreshCw size={13}/>{positionLoading?"Updating…":"Refresh status"}</button></div>
@@ -316,6 +351,8 @@ function PilotDashboard(){
         </div>
        </details>;
       })}</div>}
+      {scheduleLoadError&&<div className="notice error">{scheduleLoadError}</div>}
+      {schedulePagination.page<schedulePagination.totalPages&&<div className="schedule-pagination"><span>Showing {schedules.length.toLocaleString()} of {schedulePagination.totalCount.toLocaleString()} scheduled legs</span><button className="button button-quiet" onClick={()=>void loadMoreSchedules()} disabled={scheduleLoadingMore}>{scheduleLoadingMore?"Loading next page…":"Load next 100 legs"}</button></div>}
       <div className="aircraft-map-footer"><span>Position and flight-log data is temporary and fetched from Infinite Flight.</span><span>{positionsUpdated?"Updated "+positionsUpdated.toLocaleTimeString():"Not yet refreshed"}</span></div>
      </section> : null}
     <div className="hero-footnote">Your booking requests follow the organization approval policy. Infinite Flight Live remains the source of truth.</div>
