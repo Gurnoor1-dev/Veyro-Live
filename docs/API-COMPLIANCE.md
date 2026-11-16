@@ -14,6 +14,25 @@ Accordingly, VEYRO Live is designed to:
 
 **Important:** Even external identifiers associated with a booking may be considered Live-derived data. Before public launch, confirm this minimal transaction-reference approach with Infinite Flight and follow any additional written requirements. If the policy does not permit it, the booking design must be changed before launch.
 
+
+## PublicApi v3 request and pagination contract
+
+All Live requests use `https://api.infiniteflight.com/public/v3`, a user OAuth access token in the Bearer header, and the documented `{ errorCode, result }` response envelope. OAuth authorization and token exchange use `https://api.infiniteflight.com/auth/v2/connect/authorize` and `/token`.
+
+The Edge Functions now distinguish array responses from Page responses instead of adding pagination parameters to every GET:
+
+- `GET /live/organizations`: organization array; `live:organizations.read`.
+- `GET /live/organizations/{organizationId}`: one organization; `live:organizations.read`.
+- `GET /live/organizations/{organizationId}/members`: organization member collection; `live:members.read`.
+- `GET /live/organizations/{organizationId}/aircraft`: aircraft array; `live:aircraft.read`.
+- `GET /live/organizations/{organizationId}/schedules`: paged schedule collection; `live:schedules.read`.
+- `GET /live/aircraft/{aircraftId}/schedules`: schedule array; `live:schedules.read`.
+- `GET /live/aircraft/{aircraftId}/flights`: paged flight collection; `live:aircraft.read`.
+
+For Page-based endpoints, VEYRO requests the documented one-based `page` with `pageSize=100` and returns that page to the caller. It does not eagerly request an unbounded number of pages: every extra page is another rate-limited API request. Array endpoints receive no pagination query parameters. There is no arbitrary 20-page rejection.
+
+Schedule mutations use the documented v3 resources and request bodies: create via `POST /live/aircraft/{aircraftId}/schedules`; update/delete via `/live/schedules/{scheduleId}`; flight-plan update via `/live/schedules/{scheduleId}/flightplan`; crew assignment via `/live/schedules/{scheduleId}/crew/{userId}`; and reorder via `PUT /live/aircraft/{aircraftId}/schedules/reorder` with `{ scheduleId, afterId }`.
+
 ## OAuth scopes
 Request the minimum scopes needed:
 - `openid`, `profile`, `offline_access`
