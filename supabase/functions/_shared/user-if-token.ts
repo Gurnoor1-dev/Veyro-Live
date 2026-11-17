@@ -23,3 +23,39 @@ export async function getUserInfiniteFlightToken(userId: string) {
   if (updateError) throw new Error("Could not refresh your Infinite Flight connection.");
   return { token: rotated.access_token as string, scopes: String(rotated.scope ?? connection.granted_scopes?.join(" ") ?? "").split(" ").filter(Boolean) };
 }
+
+
+let oidcMetadataCache: { expiresAt: number; userinfoEndpoint: string } | null = null;
+
+export async function getInfiniteFlightUserInfo(accessToken: string): Promise<{ userId: string; displayName: string } | null> {
+  try {
+    let userinfoEndpoint = oidcMetadataCache?.expiresAt && oidcMetadataCache.expiresAt > Date.now()
+      ? oidcMetadataCache.userinfoEndpoint
+      : "";
+    if (!userinfoEndpoint) {
+      const discoveryResponse = await fetch("https://auth.infiniteflight.com/.well-known/openid-configuration", {
+        headers: { Accept: "application/json" },
+        signal: AbortSignal.timeout(2500),
+      });
+      if (!discoveryResponse.ok) return null;
+      const metadata = await discoveryResponse.json();
+      const endpoint = new URL(String(metadata.userinfo_endpoint ?? ""));
+      if (endpoint.protocol !== "https:" || endpoint.hostname !== "auth.infiniteflight.com") return null;
+      userinfoEndpoint = endpoint.toString();
+      oidcMetadataCache = { expiresAt: Date.now() + 60 * 60_000, userinfoEndpoint };
+    }
+    const response = await fetch(userinfoEndpoint, {
+      headers: { Authorization: "Bearer " + accessToken, Accept: "application/json" },
+      signal: AbortSignal.timeout(2500),
+    });
+    if (!response.ok) return null;
+    const profile = await response.json();
+    const userId = typeof profile.sub === "string" ? profile.sub.trim() : "";
+    if (!userId || userId.length > 128) return null;
+    const displayName = typeof profile.preferred_username === "string" ? profile.preferred_username
+      : typeof profile.name === "string" ? profile.name : "Infinite Flight pilot";
+    return { userId, displayName: displayName.slice(0, 80) };
+  } catch {
+    return null;
+  }
+}
