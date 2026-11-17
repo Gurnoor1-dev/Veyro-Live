@@ -16,18 +16,31 @@ export class IfApiRateLimitError extends Error {
   }
 }
 
-async function reserveIfApiRequest(): Promise<void> {
+let rateLimitAdminClient: ReturnType<typeof createClient> | null = null;
+
+function getRateLimitAdminClient() {
+  if (rateLimitAdminClient) return rateLimitAdminClient;
   const url = Deno.env.get("SUPABASE_URL");
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   if (!url || !serviceKey) throw new Error("API rate-limit guard is not configured");
-  const admin = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
-  const { data, error } = await admin.rpc("consume_if_api_request");
+  rateLimitAdminClient = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
+  return rateLimitAdminClient;
+}
+
+export async function reserveIfApiRequests(count: number): Promise<void> {
+  if (!Number.isInteger(count) || count < 1 || count > 20) throw new Error("Invalid Infinite Flight API reservation size");
+  const { data, error } = await getRateLimitAdminClient().rpc("reserve_if_api_requests", { p_count: count });
   if (error || !Array.isArray(data) || !data[0]) {
+    console.error("[Infinite Flight] batch rate reservation failed", error?.message ?? "empty response");
     throw new Error("Could not verify the Infinite Flight API request allowance");
   }
   if (!data[0].allowed) {
     throw new IfApiRateLimitError(Math.max(1, Number(data[0].retry_after_seconds) || 3));
   }
+}
+
+async function reserveIfApiRequest(): Promise<void> {
+  return reserveIfApiRequests(1);
 }
 
 const PAGED_LIVE_ENDPOINTS = [
@@ -42,7 +55,7 @@ function isPagedLiveEndpoint(pathname: string): boolean {
   return PAGED_LIVE_ENDPOINTS.some((pattern) => pattern.test(pathname));
 }
 
-export async function ifRequest<T>(token: string, path: string, init: RequestInit = {}, onRateLimit?: IfApiRateLimitObserver, returnPage = false): Promise<T> {
+export async function ifRequest<T>(token: string, path: string, init: RequestInit = {}, onRateLimit?: IfApiRateLimitObserver, returnPage = false, alreadyReserved = false): Promise<T> {
   if (!path.startsWith("/live/") || path.includes("..")) throw new Error("Unsupported API path");
 
   const method = (init.method ?? "GET").toUpperCase();
@@ -58,7 +71,7 @@ export async function ifRequest<T>(token: string, path: string, init: RequestIni
   }
 
   const send = async (url: URL): Promise<ApiEnvelope<T>> => {
-    await reserveIfApiRequest();
+    if (!alreadyReserved) await reserveIfApiRequest();
     const response = await fetch(url, {
       ...init,
       headers: {
