@@ -77,7 +77,7 @@ Deno.serve(async (req) => {
         admin.from("discord_settings").select("guild_id,approval_channel_id,allowed_approver_role_ids,enabled").eq("organization_id", organizationId).maybeSingle(),
         admin.from("profiles").select("display_name,discord_user_id").eq("id", user.id).maybeSingle(),
         admin.from("schedule_simbrief_xml").select("schedule_id,file_name,updated_at").eq("organization_id", organizationId),
-        admin.from("booking_requests").select("id,pilot_user_id,pilot_if_user_id,live_schedule_id,live_aircraft_id,status,seat_role,reference_code,flight_number,origin_icao,destination_icao,discord_message_id,created_at,reviewed_at,reviewed_by").eq("organization_id", organizationId).order("created_at", { ascending: false }).limit(30),
+        admin.from("booking_requests").select("id,pilot_user_id,pilot_if_user_id,live_schedule_id,live_aircraft_id,status,seat_role,reference_code,discord_message_id,created_at,reviewed_at,reviewed_by").eq("organization_id", organizationId).order("created_at", { ascending: false }).limit(30),
       ])
     : null;
 
@@ -119,7 +119,7 @@ Deno.serve(async (req) => {
         organization: org,
         adminProfile: profileResult.data ?? null,
         members: (membersResult.data ?? []).map((m) => ({ ...m, display_name: profileMap.get(m.user_id)?.display_name ?? null })),
-        bookingRequests: (bookingsResult.data ?? []).map((b: any) => ({ ...b, pilot_display_name: profileMap.get(b.pilot_user_id)?.display_name ?? null, reviewer_display_name: b.reviewed_by ? profileMap.get(b.reviewed_by)?.display_name ?? null : null })),
+        bookingRequests: (bookingsResult.data ?? []).map((b: any) => { const liveSchedule = schedules.find((schedule: any) => schedule.id === b.live_schedule_id); return { ...b, flight_number: liveSchedule?.callsign ?? "Flight leg", origin_icao: liveSchedule?.originIcao ?? "", destination_icao: liveSchedule?.destinationIcao ?? "", pilot_display_name: profileMap.get(b.pilot_user_id)?.display_name ?? null, reviewer_display_name: b.reviewed_by ? profileMap.get(b.reviewed_by)?.display_name ?? null : null }; }),
         invites: invitesResult.data ?? [],
         discord: discordResult.data ?? null,
         simbriefPlans: simbriefResult.data ?? [],
