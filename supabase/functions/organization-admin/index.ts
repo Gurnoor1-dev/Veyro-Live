@@ -1,7 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.56.0";
 import { json, fail } from "../_shared/http.ts";
 import { getUserInfiniteFlightToken } from "../_shared/user-if-token.ts";
-import { ifRequest, IfApiRateLimitError } from "../_shared/infinite-flight.ts";
+import { ifRequest, IfApiRateLimitError, reserveIfApiRequests } from "../_shared/infinite-flight.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -62,6 +62,13 @@ Deno.serve(async (req) => {
     .select("role,is_active").eq("organization_id", resolvedOrganizationId).eq("user_id", user.id).maybeSingle();
   const databaseAdmin = Boolean((membership?.is_active && ["owner", "admin"].includes(membership.role)) || org.created_by === user.id);
   if (!databaseAdmin) return fail("Organization administrator access required.", 403);
+  const organizationId = resolvedOrganizationId;
+  const portalCacheKey = organizationId + ":" + user.id;
+  if (body.action === "get_admin_portal") {
+    const cachedPortal = adminPortalCache.get(portalCacheKey);
+    if (cachedPortal && cachedPortal.expiresAt > Date.now()) return json(cachedPortal.value);
+  }
+
   let userToken: string;
   let userScopes: string[];
   let liveOrganization: { id: string; name?: string; role: number } | undefined;
@@ -69,7 +76,8 @@ Deno.serve(async (req) => {
     const connection = await getUserInfiniteFlightToken(user.id);
     userToken = connection.token;
     userScopes = connection.scopes;
-    const liveOrganizations = await ifRequest<Array<{id:string;name?:string;role:number}>>(userToken, "/live/organizations");
+    await reserveIfApiRequests(1);
+    const liveOrganizations = await ifRequest<Array<{id:string;name?:string;role:number}>>(userToken, "/live/organizations", {}, undefined, false, true);
     liveOrganization = liveOrganizations.find((item) => item.id === org.live_organization_id);
     if (!liveOrganization || ![1,2].includes(liveOrganization.role)) {
       return fail("Your connected Infinite Flight account is not an Admin or Owner of this Live organization.", 403);
@@ -77,14 +85,10 @@ Deno.serve(async (req) => {
   } catch (error) {
     return fail(error instanceof Error ? error.message : "Could not verify your Infinite Flight administrator access.", 401);
   }
-  const organizationId = resolvedOrganizationId;
 
   if (body.action !== "get_admin_portal") adminPortalCache.clear();
   try {
     if (body.action === "get_admin_portal") {
-      const cacheKey = organizationId + ":" + user.id;
-      const cached = adminPortalCache.get(cacheKey);
-      if (cached && cached.expiresAt > Date.now()) return json(cached.value);
       const [membersResult, invitesResult, discordResult, profileResult] = await Promise.all([
         admin.from("organization_memberships").select("user_id,role,is_active,created_at").eq("organization_id", organizationId).order("created_at"),
         admin.from("organization_pilot_invites").select("id,email,pilot_name,status,created_at").eq("organization_id", organizationId).order("created_at", { ascending: false }),
@@ -92,13 +96,17 @@ Deno.serve(async (req) => {
         admin.from("profiles").select("display_name,discord_user_id").eq("id", user.id).maybeSingle()
       ]);
       const memberIds = (membersResult.data ?? []).map((m) => m.user_id);
-      const profilesResult = memberIds.length ? await admin.from("profiles").select("id,display_name").in("id", memberIds) : { data: [] };
-      const profileMap = new Map((profilesResult.data ?? []).map((p) => [p.id, p.display_name]));
       const token = userToken;
-      const [aircraft, schedules] = await Promise.all([
-        ifRequest<Array<Record<string, unknown>>>(token, "/live/organizations/" + org.live_organization_id + "/aircraft"),
-        ifRequest<Array<Record<string, unknown>>>(token, "/live/organizations/" + org.live_organization_id + "/schedules")
+      await reserveIfApiRequests(2);
+      const [profilesResult, liveData] = await Promise.all([
+        memberIds.length ? admin.from("profiles").select("id,display_name").in("id", memberIds) : Promise.resolve({ data: [] }),
+        Promise.all([
+          ifRequest<Array<Record<string, unknown>>>(token, "/live/organizations/" + org.live_organization_id + "/aircraft", {}, undefined, false, true),
+          ifRequest<Array<Record<string, unknown>>>(token, "/live/organizations/" + org.live_organization_id + "/schedules", {}, undefined, false, true),
+        ]),
       ]);
+      const profileMap = new Map((profilesResult.data ?? []).map((p: any) => [p.id, p.display_name]));
+      const [aircraft, schedules] = liveData;
       const portalPayload = {
         organization: org,
         adminProfile: profileResult.data ?? null,
@@ -107,7 +115,7 @@ Deno.serve(async (req) => {
         discord: discordResult.data ?? null,
         aircraft, schedules
       };
-      adminPortalCache.set(cacheKey, { expiresAt: Date.now() + 30_000, value: portalPayload });
+      adminPortalCache.set(portalCacheKey, { expiresAt: Date.now() + 15_000, value: portalPayload });
       return json(portalPayload);
     }
 
