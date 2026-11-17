@@ -1,5 +1,20 @@
 import { useEffect, useRef, useState, useCallback, type PointerEvent } from "react";
+import { Building2, CalendarDays, ClipboardList, LayoutDashboard, Plane, ShieldCheck, UserRound, Users } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
+
+function iconForNavLabel(label: string) {
+  const value = label.toLowerCase();
+  const props = { size: 15, strokeWidth: 1.8 };
+  if (value.includes("overview")) return <LayoutDashboard {...props}/>;
+  if (value.includes("profile") && value.includes("public")) return <Building2 {...props}/>;
+  if (value.includes("pilot profile")) return <UserRound {...props}/>;
+  if (value.includes("approval")) return <ShieldCheck {...props}/>;
+  if (value.includes("schedule")) return <CalendarDays {...props}/>;
+  if (value.includes("fleet")) return <Plane {...props}/>;
+  if (value.includes("booking")) return <ClipboardList {...props}/>;
+  if (value.includes("crew") || value.includes("pilot")) return <Users {...props}/>;
+  return <Building2 {...props}/>;
+}
 
 export interface NavItem {
   label: string;
@@ -222,7 +237,7 @@ export default function SpotlightNavbar({
                   onItemClick(item, index);
                 }}
               >
-                <span className="spotlight-item-label">{item.label}</span>
+                <span className="spotlight-item-icon" aria-hidden="true">{iconForNavLabel(item.label)}</span><span className="spotlight-item-label">{item.label}</span>
               </a>
             );
           }
