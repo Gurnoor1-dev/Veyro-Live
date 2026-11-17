@@ -38,7 +38,7 @@ export default function SpotlightNavbar({
     canScrollRight: false,
   });
 
-  // Find the single most specific matching route (prevents Overview + subpage both matching)
+  // Find the single most specific matching route
   const activeIndex = (() => {
     let bestIndex = -1;
     let bestLength = -1;
@@ -178,13 +178,13 @@ export default function SpotlightNavbar({
         onPointerMove={handlePointerMove}
         onPointerLeave={handlePointerLeave}
       >
-        {/* Cursor hover spotlight */}
+        {/* Cursor proximity highlight */}
         <span className="spotlight-nav-light" aria-hidden="true" />
 
-        {/* Single gliding active glow + blue indicator line */}
+        {/* Sliding active pill background */}
         {indicator.ready && (
-          <span
-            className="spotlight-active-indicator"
+          <div
+            className="spotlight-active-pill"
             aria-hidden="true"
             style={
               orientation === "vertical"
@@ -197,10 +197,7 @@ export default function SpotlightNavbar({
                     width: `${indicator.size}px`,
                   }
             }
-          >
-            <span className="spotlight-active-glow" />
-            <span className="spotlight-active-line" />
-          </span>
+          />
         )}
 
         {items.map((item, index) => {
