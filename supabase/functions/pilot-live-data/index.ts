@@ -15,9 +15,19 @@ Deno.serve(async (req) => {
   const { data: { user } } = await client.auth.getUser();
   if (!user) return fail("Unauthorized", 401);
   const body = await req.json().catch(() => null);
-  if (!body?.organizationId || typeof body.organizationId !== "string") return fail("Missing Live organization ID", 400);
+  const requestedOrganizationId = typeof body?.organizationId === "string" ? body.organizationId.trim() : "";
+  const organizationSlug = typeof body?.organizationSlug === "string" ? body.organizationSlug.trim().toLowerCase() : "";
+  if (!requestedOrganizationId && (!organizationSlug || organizationSlug.length > 80)) return fail("Missing Live organization ID", 400);
 
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+  if (!requestedOrganizationId) {
+    const { data: organizationRef, error: organizationLookupError } = await admin.from("organizations")
+      .select("live_organization_id").eq("slug", organizationSlug).eq("is_active", true).maybeSingle();
+    if (organizationLookupError || !organizationRef?.live_organization_id) return fail("This organization portal could not be found or is inactive.", 404);
+    body.organizationId = organizationRef.live_organization_id;
+  } else {
+    body.organizationId = requestedOrganizationId;
+  }
   const cacheScope = typeof body.cacheScope === "string" && /^[0-9a-f-]{36}$/i.test(body.cacheScope) ? body.cacheScope : null;
   const cacheKey = user.id + ":" + body.organizationId + ":" + (cacheScope ?? crypto.randomUUID());
   if (cacheScope && !body.pendingId && !["aircraft_positions", "aircraft_operations", "schedule_page", "organization_members"].includes(String(body.action ?? ""))) {
@@ -244,13 +254,15 @@ Deno.serve(async (req) => {
     }
 
     await reserveIfApiRequests(2);
-    const [aircraft, schedulesPage] = await Promise.all([
+    const [aircraft, schedulesPage, bookingsResult] = await Promise.all([
       ifRequest<Array<Record<string, unknown>>>(token, "/live/organizations/" + organization.id + "/aircraft", {}, observeRateLimit, false, true),
       ifRequest<{ items: Array<Record<string, unknown>>; page: number; pageSize: number; totalCount: number; totalPages: number }>(token, "/live/organizations/" + organization.id + "/schedules?page=1&pageSize=100", {}, observeRateLimit, true, true),
+      admin.from("booking_requests").select("id,live_schedule_id,status,request_note,created_at,reviewed_at,rejection_reason")
+        .eq("organization_id", portal.id).eq("pilot_user_id", user.id).order("created_at", { ascending: false }).limit(30),
     ]);
     const schedules = schedulesPage.items ?? [];
     const schedulesPagination = { page: schedulesPage.page, pageSize: schedulesPage.pageSize, totalCount: schedulesPage.totalCount, totalPages: schedulesPage.totalPages };
-    const payload = { organization, aircraft, schedules, schedulesPagination, members: [], role: organization.role, portal: { id: portal.id, slug: portal.slug }, portalId: portal.id, pilotId: user.id, mode: "pilot-portal", rateLimit: rateLimitState };
+    const payload = { organization, aircraft, schedules, schedulesPagination, bookings: bookingsResult.data ?? [], members: [], role: organization.role, portal: { id: portal.id, slug: portal.slug }, portalId: portal.id, pilotId: user.id, mode: "pilot-portal", rateLimit: rateLimitState };
     if (cacheScope) {
       pilotAircraftCache.set(cacheKey, { expiresAt: Date.now() + 5 * 60_000, aircraft });
       pilotCache.set(cacheKey, { expiresAt: Date.now() + 30_000, value: payload });
