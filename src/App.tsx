@@ -309,18 +309,16 @@ function PilotDashboard(){
   events.forEach(event=>window.addEventListener(event,markActivity,{passive:true}));
   return()=>events.forEach(event=>window.removeEventListener(event,markActivity));
  },[]);
- useEffect(()=>{if(!slug||!supabase)return;supabase.from("organizations").select("live_organization_id").eq("slug",slug).single().then(({data})=>{if(data?.live_organization_id)setResolvedOrganizationId(data.live_organization_id)})},[slug]);
 
  const load=async()=>{
-  if(!supabase||!session||!resolvedOrganizationId)return;
+  if(!supabase||!session||(!resolvedOrganizationId&&!slug))return;
   setLoading(true);setError("");
-  const {data,error}=await invokeFunction(supabase,"pilot-live-data",{body:{organizationId:resolvedOrganizationId,cacheScope}});
+  const {data,error}=await invokeFunction(supabase,"pilot-live-data",{body:{organizationId:resolvedOrganizationId||undefined,organizationSlug:!resolvedOrganizationId&&slug?slug:undefined,cacheScope}});
   if(error||!data?.organization){setError(data?.error||error?.message||"Could not load this Live organization.");setLoading(false);return}
-  setOrganization(data.organization);setPortalId(data.portal?.id||"");setAircraft(data.aircraft||[]);setSchedules(data.schedules||[]);setSchedulePagination(data.schedulesPagination||{page:1,pageSize:100,totalCount:(data.schedules||[]).length,totalPages:1});setMembers([]);if(data.rateLimit)setApiRateLimit(data.rateLimit);
-  if(data.portal?.id){const {data:rows}=await supabase.from("booking_requests").select("id,live_schedule_id,status,request_note,created_at,reviewed_at,rejection_reason").eq("organization_id",data.portal.id).eq("pilot_user_id",session.user.id).order("created_at",{ascending:false}).limit(30);setBookings(rows||[])}
+  setResolvedOrganizationId(data.organization.id);setOrganization(data.organization);setPortalId(data.portal?.id||"");setAircraft(data.aircraft||[]);setSchedules(data.schedules||[]);setBookings(data.bookings||[]);setSchedulePagination(data.schedulesPagination||{page:1,pageSize:100,totalCount:(data.schedules||[]).length,totalPages:1});setMembers([]);if(data.rateLimit)setApiRateLimit(data.rateLimit);
   setLastUpdated(new Date());setLoading(false);
  };
- useEffect(()=>{if(session&&resolvedOrganizationId)void load();else if(!isSupabaseConfigured)setLoading(false)},[session,resolvedOrganizationId]);
+ useEffect(()=>{if(session&&(resolvedOrganizationId||slug))void load();else if(!isSupabaseConfigured)setLoading(false)},[session,organizationId,slug]);
 
  const fetchFleetData=async(includeFlights=false)=>{
   if(!supabase||!resolvedOrganizationId||aircraft.length===0)return;
