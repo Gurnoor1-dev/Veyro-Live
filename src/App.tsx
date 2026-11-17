@@ -260,17 +260,6 @@ function currentRateBudget(rateLimit:{remaining:number|null;resetAt:string|null;
  const resetTime=value?(Number.isFinite(numeric)?(numeric<1e12?numeric*1000:numeric):Date.parse(value)):0;
  return resetTime&&resetTime>Date.now()?rateLimit.remaining??undefined:undefined;
 }
-function ageLabel(value?:string){
- if(!value)return "Update time unavailable";
- const timestamp=new Date(value).getTime();if(!Number.isFinite(timestamp))return "Update time unavailable";
- const age=Math.max(0,Date.now()-timestamp);
- const minutes=Math.floor(age/60000);
- if(minutes<1)return "Updated just now";
- if(minutes<60)return "Updated "+minutes+"m ago";
- const hours=Math.floor(minutes/60);
- if(hours<24)return "Updated "+hours+"h ago";
- return "Updated "+Math.floor(hours/24)+"d ago";
-}
 function scheduleStatusLabel(status:number){
  return ({0:"Unknown",1:"Scheduled",2:"Boarding",3:"Boarded",4:"Taxiing to runway",6:"In flight",7:"Diverted",8:"Delayed",9:"Cancelled",10:"Taxiing to parking",11:"Arrived"} as Record<number,string>)[status]||"Scheduled";
 }
