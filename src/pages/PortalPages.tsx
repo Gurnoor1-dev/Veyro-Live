@@ -5,6 +5,8 @@ import { ArrowUpRight, CheckCircle2, Clock3, ExternalLink, FileText, ImagePlus, 
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
 import { invokeFunction } from "../lib/functions";
+import Brand from "../components/Brand";
+import ThemeToggle from "../components/ThemeToggle";
 
 type LiveOrg = { id: string; name: string; role: number; alreadyConnected: boolean };
 type PublicOrg = { id: string; slug: string; display_name: string; logo_url: string | null; tagline: string | null; description: string | null; website_url: string | null; discord_invite_url: string | null };
@@ -154,7 +156,7 @@ export function OrganizationApplicationPage() {
     } finally { setBusy(false); }
   };
 
-  return <main className="shell"><header className="topbar"><Link className="brand" to="/"><span className="brand-mark">V</span><span>VEYRO<span className="brand-light"> LIVE</span></span></Link><Link className="top-link" to="/">Back to directory</Link></header>
+  return <main className="shell"><header className="topbar"><Brand/><div className="top-actions"><Link className="top-link" to="/">Back to directory</Link><ThemeToggle/></div></header>
     <section className="application-intro"><div className="eyebrow">ORGANISATION ONBOARDING</div><h1>Bring your airline<br/><span>into the Veyro network.</span></h1><p>Submit your organisation for review. Once approved, your public portal will be created and listed on the VEYRO homepage.</p></section>
     {trackingCode ? <section className="panel application-success"><CheckCircle2 size={28}/><h2>Application submitted</h2><p>Your application has been sent to the VEYRO review team in Discord. Save this tracking code to follow its progress.</p><div className="tracking-code">{trackingCode}</div><Link className="button button-primary full" to={"/application-status/" + trackingCode}>Track application <ArrowUpRight size={15}/></Link></section>
     : authLoading ? <section className="panel"><p>Checking your VEYRO sign-in…</p></section>
@@ -194,7 +196,7 @@ export function ApplicationStatusPage() {
     return () => { active = false; };
   }, [trackingCode]);
   const app = data?.application;
-  return <main className="shell narrow"><header className="topbar"><Link className="brand" to="/"><span className="brand-mark">V</span><span>VEYRO<span className="brand-light"> LIVE</span></span></Link><Link className="top-link" to="/">Home</Link></header>
+  return <main className="shell narrow"><header className="topbar"><Brand/><div className="top-actions"><Link className="top-link" to="/">Home</Link><ThemeToggle/></div></header>
     <section className="application-intro compact"><div className="eyebrow">APPLICATION TRACKER</div><h1>Application<br/><span>status.</span></h1><p>Updates and notes from the VEYRO review team will appear here.</p></section>
     {loading ? <section className="panel"><p>Loading application…</p></section> : error ? <section className="panel"><div className="notice error">{error}</div><Link className="button button-quiet full" to="/apply">Back to applications</Link></section> : app ? <section className="panel status-panel">
       <div className={"status-pill " + app.status}>{app.status === "pending" ? <Clock3 size={14}/> : <CheckCircle2 size={14}/>} {app.status === "pending" ? "Under review" : app.status === "approved" ? "Approved" : "Not approved"}</div>
@@ -219,7 +221,7 @@ export function PublicOrganizationPage() {
     getPublicDirectory().then((organizations) => { if (active) setOrg(organizations.find((o) => o.slug === slug) ?? null); }).catch(() => { if (active) setOrg(null); }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [slug]);
-  return <main className="shell"><header className="topbar"><Link className="brand" to="/"><span className="brand-mark">V</span><span>VEYRO<span className="brand-light"> LIVE</span></span></Link><Link className="top-link" to="/">Explore network</Link></header>
+  return <main className="shell"><header className="topbar"><Brand/><div className="top-actions"><Link className="top-link" to="/">Explore network</Link><ThemeToggle/></div></header>
     {loading ? <div className="directory-empty">Loading organisation portal…</div> : !org ? <section className="panel portal-empty"><h1>Portal not found</h1><p>This organisation is not listed in the public VEYRO directory.</p><Link className="button button-primary" to="/">Explore organisations</Link></section> :
       <section className="public-org-hero"><div className="public-org-brand">{org.logo_url ? <img src={org.logo_url} alt={org.display_name + " logo"}/> : <span>{org.display_name.slice(0,1)}</span>}</div><div className="eyebrow">INFINITE FLIGHT LIVE ORGANISATION</div><h1>{org.display_name}</h1><p className="public-org-tagline">{org.tagline}</p><p className="public-org-description">{org.description}</p><div className="hero-actions">{org.website_url && <a className="button button-quiet" href={org.website_url} target="_blank" rel="noreferrer">Official website <ExternalLink size={14}/></a>}{org.discord_invite_url && <a className="button button-quiet" href={org.discord_invite_url} target="_blank" rel="noreferrer">Join Discord <ExternalLink size={14}/></a>}<Link className="button button-primary" to={"/"+slug+"/pilot-sign-in"}>Join as a pilot <ArrowUpRight size={15}/></Link></div><div className="hero-footnote">Schedules and fleet are provided by Infinite Flight Live. VEYRO is an independent third-party platform.</div></section>}
     <footer className="footer"><span>© {new Date().getFullYear()} VEYRO LIVE</span><span>Organisation portal</span></footer>
