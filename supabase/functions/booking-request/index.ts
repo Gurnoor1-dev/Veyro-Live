@@ -79,10 +79,11 @@ Deno.serve(async (req) => {
 
   try {
     const activeStatuses = ["pending_approval", "approved", "sync_failed"];
-    const { data: existing, error: existingError } = await admin.from("booking_requests")
+    const { data: existingRecord, error: existingError } = await admin.from("booking_requests")
       .select("id,organization_id,pilot_user_id,pilot_if_user_id,live_schedule_id,live_aircraft_id,status,discord_message_id,created_at")
       .eq("organization_id", org.id).eq("live_schedule_id", body.scheduleId).in("status", activeStatuses).maybeSingle();
     if (existingError) throw existingError;
+    let existing = existingRecord;
 
     if (existing && existing.pilot_user_id !== user.id) {
       return fail("This schedule already has an active reservation.", 409);
@@ -93,7 +94,7 @@ Deno.serve(async (req) => {
     // requests, verify that the Discord post still exists; if it was deleted,
     // continue below and recreate the approval embed instead of making a second booking.
     let existingNeedsDiscordRepair = false;
-    if (existing) {
+    if (existing && existing.status !== "approved") {
       if (existing.status !== "pending_approval") {
         const { data: existingSettings } = existing.discord_message_id
           ? await admin.from("discord_settings").select("guild_id,approval_channel_id").eq("organization_id", org.id).maybeSingle()
@@ -152,6 +153,42 @@ Deno.serve(async (req) => {
     }
     const selected = schedules.find((schedule) => schedule.id === body.scheduleId);
     if (!selected) return fail("This schedule is no longer available. Refresh the flight board.", 409);
+
+    // Infinite Flight is the source of truth for crew assignments. A pilot can
+    // be unassigned directly on the IF website, which does not trigger a Veyro
+    // webhook. Reconcile an old approved reservation against the fresh schedule
+    // payload before applying the active-reservation guard. Pending approvals
+    // are deliberately excluded because they are not expected to be in Live crew.
+    if (existing?.status === "approved") {
+      const liveCrew = Array.isArray(selected.crew) ? selected.crew as Array<{ userId?: string }> : [];
+      const stillAssigned = liveCrew.some((crewMember) => crewMember.userId === profile.infinite_flight_user_id);
+      if (!stillAssigned) {
+        const { error: staleReservationError } = await admin.from("booking_requests")
+          .update({
+            status: "cancelled",
+            rejection_reason: "Pilot was unassigned directly in Infinite Flight; reservation reconciled on the next request.",
+          })
+          .eq("id", existing.id)
+          .eq("status", "approved");
+        if (staleReservationError) throw staleReservationError;
+        console.info("[booking-request] reconciled externally removed crew assignment", {
+          bookingId: existing.id,
+          scheduleId: body.scheduleId,
+        });
+        existing = null;
+      } else {
+        const { data: existingSettings } = existing.discord_message_id
+          ? await admin.from("discord_settings").select("guild_id,approval_channel_id").eq("organization_id", org.id).maybeSingle()
+          : { data: null };
+        return json({
+          booking: existing,
+          alreadyExists: true,
+          discordMessageUrl: existing.discord_message_id && existingSettings
+            ? discordMessageUrl(existingSettings.guild_id, existingSettings.approval_channel_id, existing.discord_message_id)
+            : null,
+        });
+      }
+    }
 
     const automatic = org.booking_mode === "preapproved";
     let booking: any = existing;
