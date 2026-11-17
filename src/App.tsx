@@ -1,7 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import * as L from "leaflet";
-import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
-import "leaflet/dist/leaflet.css";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { Link, Navigate, Route, Routes, useNavigate, useParams, useLocation } from "react-router-dom";
 import { ArrowRight, ArrowUpRight, CalendarDays, ChevronRight, LogOut, Plane, RefreshCw, ShieldCheck, Users, Building2 } from "lucide-react";
@@ -15,6 +12,7 @@ import PilotSignIn from "./pages/PilotSignIn";
 import Brand from "./components/Brand";
 import ThemeToggle from "./components/ThemeToggle";
 import SpotlightNavbar from "./components/SpotlightNavbar";
+const AircraftLiveMap = lazy(() => import("./components/AircraftLiveMap"));
 
 let ifConnectionStatusCache: { userId: string; connected: boolean; expiresAt: number } | null = null;
 export function InfiniteFlightAccount(){
@@ -208,44 +206,6 @@ function scheduleStatusLabel(status:number){
 function flightTypeLabel(type:number){
  return (["Unspecified","Commercial","Charter","Cargo","Training","Test flight","Medical emergency","Military","VIP / Executive","Humanitarian","General aviation","Airshow","Other"] as string[])[type]||"Flight";
 }
-function AircraftMapViewport({points}:{points:[number,number][]}){
- const map=useMap();
- useEffect(()=>{
-  if(points.length===1)map.setView(points[0],4);
-  else if(points.length>1)map.fitBounds(points,{padding:[36,36],maxZoom:5});
- },[map,points.length]);
- return null;
-}
-function AircraftMapMarker({aircraft,position,dark}:{aircraft:any;position:AircraftPosition;dark:boolean}){
- const icon=useMemo(()=>L.divIcon({
-  className:"veyro-aircraft-marker",
-  html:'<span class="veyro-aircraft-marker-core '+(dark?"is-dark":"is-light")+'"><svg viewBox="0 0 24 28" aria-hidden="true" style="transform:rotate('+Number(position.heading||0)+'deg)"><path d="M12 1.5 14.6 10l7.1 4.1v2.8l-7.1-2.2v7l2.7 1.8v2.1L12 24l-5.3 1.6v-2.1L9.4 21v-7l-7.1 2.2v-2.8L9.4 10z"/></svg></span>',
-  iconSize:[38,38],iconAnchor:[19,19],
- }),[dark,position.heading]);
- return <Marker position={[position.latitude,position.longitude]} icon={icon}>
-  <Popup>
-   <div className="aircraft-map-popup">
-    <strong>{aircraft.registration||"Fleet aircraft"}</strong>
-    <span>{position.lastPilotUsername||"Pilot not reported"} · {aircraftState(position).label}</span>
-    <div><b>{Math.round(position.altitude||0).toLocaleString()} ft</b><b>{Math.round(position.speed||0)} kt</b><b>{Math.round(position.heading||0)}° HDG</b><b>{Math.round(position.verticalSpeed||0)} ft/min</b></div>
-    <small>{position.latitude.toFixed(4)}, {position.longitude.toFixed(4)} · {ageLabel(position.updatedAt)}</small>
-   </div>
-  </Popup>
- </Marker>;
-}
-function AircraftLiveMap({aircraft,positions,dark}:{aircraft:any[];positions:Record<string,AircraftPosition>;dark:boolean}){
- const plotted=aircraft.map(item=>({aircraft:item,position:positions[item.id]})).filter(item=>item.position&&item.position.state===2&&item.position.isOnGround===false&&Number.isFinite(item.position.latitude)&&Number.isFinite(item.position.longitude)&&Number.isFinite(new Date(item.position.updatedAt||"").getTime())&&Date.now()-new Date(item.position.updatedAt||"").getTime()<30*60_000);
- const points=plotted.map(item=>[item.position.latitude,item.position.longitude] as [number,number]);
- return <div className="aircraft-map-frame">
-  <MapContainer key={dark?"dark":"light"} center={points[0]??L.latLng(25,10)} zoom={points.length?4:2} scrollWheelZoom zoomControl={false} className="aircraft-live-map">
-   <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>' url={dark?"https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png":"https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"}/>
-   <AircraftMapViewport points={points}/>
-   {plotted.length===0&&<div className="aircraft-map-empty">No aircraft are currently reporting an active in-air position.</div>}
-   {plotted.map(({aircraft:item,position})=><AircraftMapMarker key={item.id} aircraft={item} position={position} dark={dark}/>)}
-  </MapContainer>
-  <div className="aircraft-map-count"><span className="map-live-dot"/>{plotted.length} airborne · {aircraft.length} aircraft in fleet</div>
- </div>;
-}
 function FleetAircraftCard({aircraft}:{aircraft:any}){
  const [imageFailed,setImageFailed]=useState(false);
  const registration=String(aircraft.registration||"UNREGISTERED");
@@ -405,7 +365,7 @@ function PilotDashboard(){
       <section className="panel dashboard-panel aircraft-map-panel">
        <div className="section-heading"><div><h2>Live fleet map</h2><p>Aircraft positions from Infinite Flight Live · 30-second refresh cycle, paced to your API allowance</p></div><button className="button button-quiet" onClick={()=>void fetchFleetData(false)} disabled={positionLoading||aircraft.length===0}><RefreshCw size={13}/>{positionLoading?"Updating…":"Refresh positions"}</button></div>
        {positionError&&<div className="notice">{positionError}</div>}
-       {aircraft.length===0?<div className="empty-state">No aircraft are attached to this organization.</div>:<AircraftLiveMap aircraft={aircraft} positions={positions} dark={darkMap}/>}
+       {aircraft.length===0?<div className="empty-state">No aircraft are attached to this organization.</div>:<Suspense fallback={<div className="aircraft-map-frame aircraft-map-loading">Preparing live map…</div>}><AircraftLiveMap aircraft={aircraft} positions={positions} dark={darkMap}/></Suspense>}
        <div className="aircraft-map-footer"><span>{positionLoading?"Fetching aircraft positions…":positionsUpdated?"Last position refresh "+positionsUpdated.toLocaleTimeString():"Waiting for first position update"}</span><span>{positionedCount} / {aircraft.length} positions available</span></div>
        <div className="map-position-list">{aircraft.map(item=>{const position=positions[item.id];const state=aircraftState(position);return <div className="map-position-item" key={item.id}><span className={"aircraft-status-dot "+state.tone}/><strong>{item.registration||"Aircraft"}</strong><span>{state.label}</span>{position?.lastPilotUsername&&<small>{position.lastPilotUsername}</small>}</div>})}</div>
       </section>
