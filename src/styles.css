@@ -426,3 +426,42 @@ html.dark{color-scheme:dark;--page:#0b0f19;--text:#f1f5f9;--muted:#94a3b8;--soft
 @media(max-width:520px){.schedule-pagination{align-items:stretch;flex-direction:column}.schedule-pagination .button{width:100%}}
 
 .aircraft-map-empty{position:absolute;z-index:450;left:50%;top:50%;transform:translate(-50%,-50%);max-width:260px;padding:13px 16px;border:1px solid var(--border);border-radius:11px;background:var(--surface);color:var(--muted);font-size:10px;line-height:1.6;text-align:center;box-shadow:0 8px 25px rgba(0,0,0,.1);pointer-events:none}
+
+
+/* Veyro Live brand assets and theme-aware logo treatment */
+.theme-filter-defs{position:absolute;width:0;height:0;overflow:hidden;pointer-events:none}
+.brand{gap:0;min-width:0}
+.brand-image{display:block;width:clamp(112px,14vw,142px);height:34px;object-fit:contain;object-position:left center}
+.if-live-logo{display:block;width:min(210px,70%);height:46px;object-fit:contain;object-position:center}
+.if-logo{width:25px;height:25px;object-fit:contain}
+html:not(.dark) .if-login-icon{filter:brightness(0) saturate(100%)}
+html:not(.dark) .if-live-logo{filter:url(#if-live-light-filter)}
+.login-panel-if{overflow:hidden;position:relative}
+.login-brand-stack{display:flex;align-items:center;flex-direction:column;gap:12px;padding:6px 0 10px}
+.login-brand-stack>span{font-size:8px;letter-spacing:.18em;font-weight:800;color:var(--muted);text-align:center}
+.if-oauth-button{min-height:52px;font-size:12px;letter-spacing:-.01em;justify-content:center;gap:12px}
+.if-oauth-button .if-login-icon{width:28px;height:28px;object-fit:contain}
+.login-security-note{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:16px;color:var(--muted);font-size:9px;line-height:1.6;text-align:center}
+.login-session-note{margin-top:14px;padding:11px 13px;border:1px solid var(--border);border-radius:9px;background:var(--surface-muted);color:var(--muted);font-size:9px;line-height:1.65;text-align:center}
+
+/* Smooth, theme-aware spotlight navigation shared by pilot and admin workspaces */
+.spotlight-nav{--spotlight-position:50%;--spotlight-opacity:0;position:relative;isolation:isolate;display:flex;align-items:center;gap:3px;padding:5px;border:1px solid var(--border);border-radius:999px;background:var(--surface);box-shadow:0 8px 28px rgba(15,23,42,.055);overflow:hidden;transition:border-color .22s ease,background .22s ease,box-shadow .22s ease}
+.spotlight-nav-light{position:absolute;z-index:-1;inset:0;pointer-events:none;opacity:var(--spotlight-opacity);background:radial-gradient(130px circle at var(--spotlight-position) 50%,rgba(15,23,42,.10),transparent 72%);transition:opacity .2s ease}
+html.dark .spotlight-nav-light{background:radial-gradient(130px circle at var(--spotlight-position) 50%,rgba(255,255,255,.16),transparent 72%)}
+.spotlight-nav-item{position:relative;z-index:1;display:inline-flex;align-items:center;justify-content:center;min-height:36px;padding:0 15px;border-radius:999px;color:var(--muted);font-size:10px;font-weight:700;white-space:nowrap;transition:color .2s ease,background .2s ease,transform .2s ease}
+.spotlight-nav-item:hover{color:var(--text);background:var(--surface-muted)}
+.spotlight-nav-item.active{color:var(--text);background:var(--surface-muted);box-shadow:inset 0 0 0 1px var(--border)}
+.spotlight-nav-item:focus-visible{outline:2px solid #01b1fd;outline-offset:2px}
+.spotlight-nav-horizontal{width:max-content;max-width:100%;overflow-x:auto;scrollbar-width:none}
+.spotlight-nav-horizontal::-webkit-scrollbar{display:none}
+.spotlight-nav-vertical{width:100%;align-items:stretch;flex-direction:column;border-radius:14px;padding:6px;gap:4px}
+.spotlight-nav-vertical .spotlight-nav-light{background:radial-gradient(160px circle at 50% var(--spotlight-position),rgba(15,23,42,.08),transparent 75%)}
+html.dark .spotlight-nav-vertical .spotlight-nav-light{background:radial-gradient(160px circle at 50% var(--spotlight-position),rgba(255,255,255,.14),transparent 75%)}
+.spotlight-nav-vertical .spotlight-nav-item{justify-content:flex-start;min-height:40px;padding:0 13px;border-radius:9px}
+.admin-spotlight{margin:0 0 22px}
+.admin-spotlight .spotlight-nav-item{min-height:38px}
+.pilot-sidebar .spotlight-nav{margin-top:20px;background:transparent;box-shadow:none;border-color:transparent}
+.pilot-sidebar .spotlight-nav-item{color:var(--muted)}
+.pilot-sidebar .spotlight-nav-item.active{color:var(--text);background:var(--surface);box-shadow:inset 0 0 0 1px var(--border)}
+.dashboard-if-live-mark{width:92px;height:22px;object-fit:contain;opacity:.82}
+@media(max-width:720px){.admin-spotlight{width:100%}.admin-spotlight .spotlight-nav-item{padding:0 11px}.brand-image{width:108px;height:30px}.if-live-logo{height:40px}}
