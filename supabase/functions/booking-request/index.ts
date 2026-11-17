@@ -1,7 +1,13 @@
 import { createClient } from "npm:@supabase/supabase-js@2.56.0";
 import { json, fail } from "../_shared/http.ts";
 import { getOrganizationAccessToken } from "../_shared/org-token.ts";
+import { getUserInfiniteFlightToken, getInfiniteFlightUserInfo } from "../_shared/user-if-token.ts";
 import { ifRequest, IfApiRateLimitError, reserveIfApiRequests } from "../_shared/infinite-flight.ts";
+
+async function adminProfileUpsert(userId: string, infiniteFlightUserId: string, displayName: string) {
+  const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+  return await admin.from("profiles").upsert({ id: userId, infinite_flight_user_id: infiniteFlightUserId, display_name: displayName }, { onConflict: "id" }).select("infinite_flight_user_id").single();
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return json({ ok: true });
@@ -15,8 +21,24 @@ Deno.serve(async (req) => {
   if (!body?.organizationId || !body?.scheduleId || !body?.aircraftId) return fail("Missing booking details");
   const { data: member } = await client.from("organization_memberships").select("user_id").eq("organization_id", body.organizationId).eq("user_id", user.id).eq("is_active", true).single();
   if (!member) return fail("Not an active organization member", 403);
-  const { data: profile } = await client.from("profiles").select("infinite_flight_user_id,discord_user_id").eq("id", user.id).single();
-  if (!profile?.infinite_flight_user_id) return fail("Link and verify your Infinite Flight account before requesting a leg.", 409);
+  let { data: profile } = await client.from("profiles").select("infinite_flight_user_id,discord_user_id,display_name").eq("id", user.id).maybeSingle();
+  // Older OAuth sessions may have valid encrypted credentials but no linked IF
+  // subject because the initial callback could not resolve the OIDC profile.
+  // Repair that link from the user's own token before rejecting a leg request.
+  if (!profile?.infinite_flight_user_id) {
+    try {
+      const personalConnection = await getUserInfiniteFlightToken(user.id);
+      const identity = await getInfiniteFlightUserInfo(personalConnection.token);
+      if (identity) {
+        const { data: repaired, error: repairError } = await adminProfileUpsert(user.id, identity.userId, identity.displayName);
+        if (repairError) console.error("[booking-request] profile link repair failed", repairError.message);
+        else profile = { ...(profile ?? {}), infinite_flight_user_id: identity.userId, display_name: identity.displayName };
+      }
+    } catch (identityError) {
+      console.error("[booking-request] could not resolve Infinite Flight identity", identityError instanceof Error ? identityError.message : String(identityError));
+    }
+  }
+  if (!profile?.infinite_flight_user_id) return fail("Your Infinite Flight connection is active, but your pilot identity could not be verified. Reconnect Infinite Flight from your dashboard, then retry.", 409);
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   const { data: org } = await admin.from("organizations").select("id,live_organization_id,booking_mode").eq("id", body.organizationId).eq("is_active", true).single();
   if (!org) return fail("Organization not found", 404);
