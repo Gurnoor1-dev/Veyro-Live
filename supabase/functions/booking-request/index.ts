@@ -1,7 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.56.0";
 import { json, fail } from "../_shared/http.ts";
 import { getOrganizationAccessToken } from "../_shared/org-token.ts";
-import { ifRequest, IfApiRateLimitError } from "../_shared/infinite-flight.ts";
+import { ifRequest, IfApiRateLimitError, reserveIfApiRequests } from "../_shared/infinite-flight.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return json({ ok: true });
@@ -22,9 +22,12 @@ Deno.serve(async (req) => {
   if (!org) return fail("Organization not found", 404);
   try {
     const token = await getOrganizationAccessToken(org.id);
-    const members = await ifRequest<Array<{ userId: string }>>(token, "/live/organizations/" + org.live_organization_id + "/members");
+    await reserveIfApiRequests(2);
+    const [members, schedules] = await Promise.all([
+      ifRequest<Array<{ userId: string }>>(token, "/live/organizations/" + org.live_organization_id + "/members", {}, undefined, false, true),
+      ifRequest<Array<Record<string, unknown>>>(token, "/live/aircraft/" + body.aircraftId + "/schedules", {}, undefined, false, true),
+    ]);
     if (!members.some((item) => item.userId === profile.infinite_flight_user_id)) return fail("Your Infinite Flight account is not currently a member of this Live organization.", 403);
-    const schedules = await ifRequest<Array<Record<string, unknown>>>(token, "/live/aircraft/" + body.aircraftId + "/schedules");
     const selected = schedules.find((schedule) => schedule.id === body.scheduleId);
     if (!selected) return fail("This schedule is no longer available. Refresh the flight board.", 409);
     const automatic = org.booking_mode === "preapproved";
