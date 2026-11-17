@@ -556,30 +556,6 @@ button:focus:not(:focus-visible), a:focus:not(:focus-visible), [role="button"]:f
   .pilot-content .section-heading .top-link { margin-left: auto; }
 }
 
-/* The selected Spotlight destination gets a subtle text glow and a fine underline. */
-.spotlight-nav-item { position: relative; }
-.spotlight-nav-item::after {
-  content: "";
-  position: absolute;
-  left: 50%; bottom: 4px;
-  width: 16px; height: 2px;
-  border-radius: 99px;
-  opacity: 0;
-  transform: translateX(-50%) scaleX(.45);
-  background: #01b1fd;
-  box-shadow: 0 0 7px rgba(1,177,253,.65), 0 0 15px rgba(1,177,253,.28);
-  transition: opacity .2s ease, transform .2s ease;
-}
-.spotlight-nav-item.active {
-  color: var(--text);
-  text-shadow: 0 0 12px rgba(1,177,253,.25);
-}
-.spotlight-nav-item.active::after { opacity: 1; transform: translateX(-50%) scaleX(1); }
-.spotlight-nav-vertical .spotlight-nav-item::after { left: 14px; bottom: 4px; transform: scaleX(.45); }
-.spotlight-nav-vertical .spotlight-nav-item.active::after { transform: scaleX(1); }
-.spotlight-nav-item:focus-visible { outline: 2px solid var(--soft); outline-offset: 2px; }
-
-
 /* Minimal, balanced global navigation: brand · My Veyro · theme */
 .veyro-minimal-topbar {
   position: relative;
