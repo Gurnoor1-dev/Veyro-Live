@@ -90,13 +90,17 @@ export default function AircraftLiveMap({ aircraft, positions, dark }: {
   positions: Record<string, AircraftPosition>;
   dark: boolean;
 }) {
-  const tracked = aircraft.map(item => ({ aircraft: item, position: positions[item.id] }))
-    .filter(item => item.position &&
-      Number.isFinite(item.position.latitude) &&
-      Number.isFinite(item.position.longitude) &&
-      Math.abs(item.position.latitude) <= 90 &&
-      Math.abs(item.position.longitude) <= 180);
-  const points = tracked.map(item => [item.position.latitude, item.position.longitude] as [number, number]);
+  const tracked = useMemo(() => aircraft.flatMap(item => {
+    const position = positions[item.id];
+    return position &&
+      Number.isFinite(position.latitude) &&
+      Number.isFinite(position.longitude) &&
+      Math.abs(position.latitude) <= 90 &&
+      Math.abs(position.longitude) <= 180
+      ? [{ aircraft: item, position }]
+      : [];
+  }), [aircraft, positions]);
+  const points = useMemo(() => tracked.map(item => [item.position.latitude, item.position.longitude] as [number, number]), [tracked]);
   const counts = tracked.reduce((result, item) => {
     const tone = aircraftState(item.position).tone;
     result[tone] = (result[tone] || 0) + 1;
