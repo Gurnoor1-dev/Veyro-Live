@@ -110,7 +110,7 @@ html.dark{color-scheme:dark;--page:#0b0f19;--text:#f1f5f9;--muted:#94a3b8;--soft
 /* VEYRO Live documentation */
 .docs-app{min-height:100vh;background:var(--page);color:var(--text);font-family:"Plus Jakarta Sans",sans-serif}
 .docs-topbar{height:66px;position:sticky;top:0;z-index:30;display:grid;grid-template-columns:260px 1fr 260px;align-items:center;padding:0 27px;background:var(--surface);border-bottom:1px solid var(--border)}
-.docs-brand{display:inline-flex;align-items:center;gap:10px;font-size:14px;font-weight:800;letter-spacing:-.04em;width:max-content}
+.docs-brand{display:inline-flex;align-items:center;width:max-content}.docs-brand .brand-image{width:122px;height:30px}
 .docs-brand>span:last-child>span{color:var(--muted);font-size:10px;font-weight:600;letter-spacing:.08em}
 .docs-top-center{display:flex;align-items:center;justify-content:center;gap:12px;font-size:10px;font-weight:800;letter-spacing:.16em}
 .docs-version{border:1px solid var(--border);border-radius:5px;padding:5px 7px;color:var(--muted);font-size:8px;letter-spacing:.1em}
