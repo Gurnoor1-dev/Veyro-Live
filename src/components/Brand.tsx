@@ -10,8 +10,9 @@ export default function Brand() {
             <feComponentTransfer in="luminanceMask" result="whiteMask">
               <feFuncA type="linear" slope="10" intercept="-8" />
             </feComponentTransfer>
+            <feComposite in="whiteMask" in2="SourceAlpha" operator="in" result="maskedWhite" />
             <feFlood floodColor="#0f172a" result="darkInk" />
-            <feComposite in="darkInk" in2="whiteMask" operator="in" result="recoloredWhite" />
+            <feComposite in="darkInk" in2="maskedWhite" operator="in" result="recoloredWhite" />
             <feComposite in="recoloredWhite" in2="SourceGraphic" operator="over" />
           </filter>
         </defs>
