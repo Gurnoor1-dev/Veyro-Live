@@ -331,6 +331,7 @@ function PilotDashboard(){
  const [positionsUpdated,setPositionsUpdated]=useState<Date|null>(null);
  const [loading,setLoading]=useState(true);
  const [error,setError]=useState("");
+ const [requestNotice,setRequestNotice]=useState<{message:string;url?:string}|null>(null);
  const [lastUpdated,setLastUpdated]=useState<Date|null>(null);
  const [darkMap,setDarkMap]=useState(()=>document.documentElement.classList.contains("dark"));
  const lastUserActivity=useRef(Date.now());
@@ -425,9 +426,24 @@ function PilotDashboard(){
  const refreshPage=async()=>{await load();if(page==="overview")await fetchFleetData(false);if(page==="schedules")await fetchFleetData(true)};
  const requestLeg=async(item:any)=>{
   if(!supabase||!portalId)return;
-  setRequestBusy(item.id);setError("");
-  try{const {data,error}=await invokeFunction(supabase,"booking-request",{body:{organizationId:portalId,scheduleId:item.id,aircraftId:item.aircraftId}});if(error)throw error;if(data?.booking?.status==="approved")setError("");await load()}
-  catch(e){setError(e instanceof Error?e.message:"Could not request this schedule leg.")}
+  setRequestBusy(item.id);setError("");setRequestNotice(null);
+  try{
+   const {data,error}=await invokeFunction(supabase,"booking-request",{body:{organizationId:portalId,scheduleId:item.id,aircraftId:item.aircraftId}});
+   if(error)throw error;
+   if(data?.booking){
+    const message=data.discordPostRepaired
+     ?"Your existing request was found and its missing Discord approval post has been restored."
+     :data.alreadyExists&&data.booking.status==="pending_approval"
+      ?"You already have an active request for this leg. Its Discord approval post is available below."
+      :data.alreadyExists&&data.booking.status==="approved"
+       ?"This leg is already approved and assigned in Infinite Flight Live."
+       :data.booking.status==="approved"
+        ?"Your leg request was approved and synchronized with Infinite Flight Live."
+        :"Your leg request was sent to your organisation’s Discord approval channel.";
+    setRequestNotice({message,url:data.discordMessageUrl||undefined});
+   }
+   await load();
+  }catch(e){setError(e instanceof Error?e.message:"Could not request this schedule leg.")}
   finally{setRequestBusy("")}
  };
  if(sessionLoading)return <main className="shell narrow"><Header/><section className="panel login-panel"><p>Checking your VEYRO session…</p></section></main>;
@@ -446,6 +462,7 @@ function PilotDashboard(){
    <aside className="pilot-sidebar"><div className="pilot-sidebar-org"><span className="pilot-org-mark">{(organization?.name||"V").slice(0,1)}</span><div><strong>{organization?.name||"Live organisation"}</strong><small>PILOT WORKSPACE</small></div></div><SpotlightNavbar orientation="vertical" activeHref={location.pathname} items={nav.map(item=>({label:item.label,href:(slug?"/"+slug+"/pilot/"+pilotId:"/pilot/"+organizationId)+(item.id==="overview"?"":"/"+item.id)}))}/><div className="pilot-sidebar-foot">PILOT OPERATIONS<br/>Bookings synced to Live</div></aside>
    <section className="pilot-content">
     <div className="dashboard-heading"><div><div className="eyebrow">PILOT WORKSPACE · {page.toUpperCase()}</div><h1>{page==="overview"?(organization?.name||"Your Live organisation"):page==="schedules"?"Fleet & schedules":page==="fleet"?"Organisation fleet":page==="members"?"Organization crew":page==="bookings"?"My bookings":"Pilot profile"}</h1><p>Personal Infinite Flight access · {organization?.role===2?"Owner":organization?.role===1?"Admin":"Member"} · Verified Live member</p></div><img className="dashboard-if-live-mark" src="/images/if-live.png" alt="Infinite Flight Live"/><button className="button button-quiet" onClick={()=>void refreshPage()} disabled={loading||positionLoading}><RefreshCw size={14}/> Refresh</button></div>
+    {requestNotice&&<div className="notice success"><span>{requestNotice.message}</span>{requestNotice.url&&<a href={requestNotice.url} target="_blank" rel="noreferrer">Open Discord approval <ArrowUpRight size={13}/></a>}</div>}
     {error&&<div className="notice error">{error}</div>}
     {page==="overview" ? <>
       <div className="dashboard-stats"><article className="stat-card"><span>Fleet aircraft</span><strong>{aircraft.length}</strong><small><Plane size={12}/> Live organisation fleet</small></article><article className="stat-card"><span>Published schedules</span><strong>{schedules.length}</strong><small><CalendarDays size={12}/> Current schedules</small></article><article className="stat-card"><span>Your Live role</span><strong>{organization?.role===2?"Owner":organization?.role===1?"Admin":organization?"Member":"—"}</strong><small><ShieldCheck size={12}/> Verified by Infinite Flight</small></article><article className="stat-card"><span>Last refreshed</span><strong className="stat-time">{lastUpdated?lastUpdated.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}):"—"}</strong><small>Live API v3</small></article></div>
