@@ -2,6 +2,8 @@ import { useMemo, useState } from "react";
 import type { JSX } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ArrowLeft, ArrowUpRight, BookOpen, ChevronRight, Code2, Copy, FileText, Menu, Search, Shield, X } from "lucide-react";
+import Brand from "../components/Brand";
+import ThemeToggle from "../components/ThemeToggle";
 
 const modules = import.meta.glob("../../docs/*.md", { eager: true, query: "?raw", import: "default" }) as Record<string, string>;
 
@@ -122,9 +124,9 @@ export default function DocsPage() {
   const toc = useMemo(() => [...content.matchAll(/^#{2,3}\s+(.+)$/gm)].map(match => ({ title: match[1], id: match[1].toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") })), [content]);
   return <div className="docs-app">
     <header className="docs-topbar">
-      <Link to="/" className="docs-brand"><span className="brand-mark">V</span><span>VEYRO<span> LIVE</span></span></Link>
+      <div className="docs-brand"><Brand/></div>
       <div className="docs-top-center"><span>DOCUMENTATION</span><span className="docs-version">GUIDES & REFERENCES</span></div>
-      <div className="docs-top-actions"><a href="https://github.com/Gurnoor1-dev/Veyro-Live/tree/main/docs" target="_blank" rel="noreferrer">GitHub docs <ArrowUpRight size={13}/></a><button className="docs-mobile-toggle" onClick={() => setMobileOpen(v => !v)} aria-label="Toggle navigation">{mobileOpen ? <X/> : <Menu/>}</button></div>
+      <div className="docs-top-actions"><a href="https://github.com/Gurnoor1-dev/Veyro-Live/tree/main/docs" target="_blank" rel="noreferrer">GitHub docs <ArrowUpRight size={13}/></a><ThemeToggle/><button className="docs-mobile-toggle" onClick={() => setMobileOpen(v => !v)} aria-label="Toggle navigation">{mobileOpen ? <X/> : <Menu/>}</button></div>
     </header>
     <div className="docs-layout">
       <aside className={"docs-sidebar" + (mobileOpen ? " is-open" : "")}>
