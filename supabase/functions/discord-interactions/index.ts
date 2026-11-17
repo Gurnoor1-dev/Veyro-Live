@@ -23,7 +23,7 @@ async function processDecision(interaction: any, action: string, requestId: stri
   const token = String(interaction.token ?? "");
   try {
     const { data: request, error: requestError } = await admin.from("booking_requests")
-      .select("id,organization_id,status").eq("id", requestId).maybeSingle();
+      .select("id,organization_id,status,reference_code,discord_message_id,reviewed_at").eq("id", requestId).maybeSingle();
     if (requestError || !request || request.status !== "pending_approval") {
       await editOriginal(applicationId, token, { content: "This request is no longer pending.", components: [] });
       return;
@@ -54,8 +54,22 @@ async function processDecision(interaction: any, action: string, requestId: stri
       await editOriginal(applicationId, token, { content: "This request was already reviewed or could not be updated.", components: [] });
       return;
     }
+    const reviewer = interaction.member?.user?.global_name || interaction.member?.user?.username || interaction.user?.global_name || interaction.user?.username || "Organisation administrator";
+    const reviewedAt = new Date().toISOString();
+    const updateEmbed = async (status: "APPROVED" | "REJECTED" | "PENDING") => {
+      const source = interaction.message?.embeds?.[0] ?? {};
+      const fields = Array.isArray(source.fields) ? [...source.fields] : [];
+      const approvedIndex = fields.findIndex((field: any) => field.name === "Approved by");
+      const reviewIndex = fields.findIndex((field: any) => field.name === "Reviewed by");
+      const approverField = { name: status === "APPROVED" ? "Approved by" : "Reviewed by", value: (status === "PENDING" ? "Sync pending" : reviewer) + " · " + (status === "PENDING" ? "—" : reviewedAt.replace("T", " ").slice(0, 16) + " UTC") + " · " + (request.reference_code || "------"), inline: false };
+      if (approvedIndex >= 0) fields.splice(approvedIndex, 1);
+      if (reviewIndex >= 0) fields.splice(reviewIndex, 1);
+      fields.push(approverField);
+      const embed = { ...source, title: "CREW REQUEST · " + status, color: status === "APPROVED" ? 5763719 : status === "REJECTED" ? 15548997 : 16763904, fields };
+      await editOriginal(applicationId, token, { embeds: [embed], components: [] });
+    };
     if (action === "reject") {
-      await editOriginal(applicationId, token, { content: "Request rejected. The booking has been updated in Veyro.", components: [] });
+      await updateEmbed("REJECTED");
       return;
     }
     const syncResponse = await fetch(Deno.env.get("SUPABASE_URL") + "/functions/v1/sync-approval", {
@@ -64,10 +78,10 @@ async function processDecision(interaction: any, action: string, requestId: stri
     });
     const syncResult = await syncResponse.json().catch(() => null);
     if (!syncResponse.ok || !syncResult?.success) {
-      await editOriginal(applicationId, token, { content: "Approval recorded, but Infinite Flight synchronization failed. An administrator can retry synchronization.", components: [] });
+      await updateEmbed("PENDING");
       return;
     }
-    await editOriginal(applicationId, token, { content: "Approved. Pilot crew assignment was synchronized to Infinite Flight Live.", components: [] });
+    await updateEmbed("APPROVED");
   } catch (error) {
     console.error("[discord-interactions] decision processing failed", error instanceof Error ? error.message : String(error));
     try { await editOriginal(applicationId, token, { content: "The decision could not be completed. Please retry or contact an administrator.", components: [] }); } catch { /* interaction token may have expired */ }
