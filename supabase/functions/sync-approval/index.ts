@@ -21,7 +21,7 @@ Deno.serve(async (req) => {
     if (!members.some((member) => member.userId === booking.pilot_if_user_id)) throw new Error("Pilot is no longer an organization member");
     const schedules = await ifRequest<Array<{ id: string }>>(token, "/live/aircraft/" + booking.live_aircraft_id + "/schedules");
     if (!schedules.some((schedule) => schedule.id === booking.live_schedule_id)) throw new Error("Schedule is no longer available");
-    const result = await ifRequest(token, "/live/schedules/" + booking.live_schedule_id + "/crew/" + booking.pilot_if_user_id, { method: "PUT", body: JSON.stringify({ role: 0 }) });
+    const result = await ifRequest(token, "/live/schedules/" + booking.live_schedule_id + "/crew/" + booking.pilot_if_user_id, { method: "PUT", body: JSON.stringify({ role: booking.seat_role === 1 ? 1 : 0 }) });
     const { error } = await admin.from("booking_requests").update({ status: "approved", sync_error_code: null }).eq("id", booking.id).eq("status", "sync_failed");
     if (error) throw error;
     await admin.from("audit_events").insert({ organization_id: booking.organization_id, actor_user_id: booking.reviewed_by, event_type: "booking.live_assignment_confirmed", subject_id: booking.id });
