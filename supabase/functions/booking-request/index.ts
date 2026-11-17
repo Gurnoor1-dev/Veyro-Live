@@ -29,7 +29,8 @@ function buildDiscordMessage(bookingId: string, profile: any, selected: Record<s
         { name: "Route", value: String(route), inline: true },
         { name: "Pilot", value: pilotLabel, inline: true },
         { name: "Seat", value: seatRole === 1 ? "First Officer" : "Captain", inline: true },
-        { name: "Departure", value: departure + " → " + arrival, inline: true },
+        { name: "Departure", value: departure, inline: true },
+        { name: "Arrival", value: arrival, inline: true },
         { name: "Approved by", value: "— · — · " + referenceCode, inline: false },
       ],
       footer: { text: "VEYRO Live • Reference " + referenceCode },
@@ -87,7 +88,7 @@ Deno.serve(async (req) => {
   try {
     const activeStatuses = ["pending_approval", "approved", "sync_failed"];
     const { data: existingRecord, error: existingError } = await admin.from("booking_requests")
-      .select("id,organization_id,pilot_user_id,pilot_if_user_id,live_schedule_id,live_aircraft_id,status,discord_message_id,created_at")
+      .select("id,organization_id,pilot_user_id,pilot_if_user_id,live_schedule_id,live_aircraft_id,status,discord_message_id,created_at,seat_role,reference_code")
       .eq("organization_id", org.id).eq("live_schedule_id", body.scheduleId).in("status", activeStatuses).maybeSingle();
     if (existingError) throw existingError;
     let existing = existingRecord;
@@ -277,7 +278,7 @@ Deno.serve(async (req) => {
       return fail("Discord bot is not configured. The request was not submitted.", 503);
     }
 
-    const payload = buildDiscordMessage(booking.id, profile, selected, seatRole, registration, booking.reference_code || "------");
+    const payload = buildDiscordMessage(booking.id, profile, selected, booking.seat_role ?? seatRole, registration, booking.reference_code || "------");
     let discordMessageId = existing?.discord_message_id ?? null;
     let response: Response | null = null;
     if (discordMessageId) {
