@@ -76,6 +76,7 @@ Deno.serve(async (req) => {
         admin.from("organization_pilot_invites").select("id,email,pilot_name,status,created_at").eq("organization_id", organizationId).order("created_at", { ascending: false }),
         admin.from("discord_settings").select("guild_id,approval_channel_id,allowed_approver_role_ids,enabled").eq("organization_id", organizationId).maybeSingle(),
         admin.from("profiles").select("display_name,discord_user_id").eq("id", user.id).maybeSingle(),
+        admin.from("schedule_simbrief_xml").select("schedule_id,file_name,updated_at").eq("organization_id", organizationId),
       ])
     : null;
 
@@ -99,7 +100,7 @@ Deno.serve(async (req) => {
   if (body.action !== "get_admin_portal") adminPortalCache.clear();
   try {
     if (body.action === "get_admin_portal") {
-      const [membersResult, invitesResult, discordResult, profileResult] = await adminReadsPromise!;
+      const [membersResult, invitesResult, discordResult, profileResult, simbriefResult] = await adminReadsPromise!;
       const memberIds = (membersResult.data ?? []).map((m) => m.user_id);
       const token = userToken;
       await reserveIfApiRequests(2);
@@ -118,6 +119,7 @@ Deno.serve(async (req) => {
         members: (membersResult.data ?? []).map((m) => ({ ...m, display_name: profileMap.get(m.user_id) ?? null })),
         invites: invitesResult.data ?? [],
         discord: discordResult.data ?? null,
+        simbriefPlans: simbriefResult.data ?? [],
         aircraft, schedules
       };
       adminPortalCache.set(portalCacheKey, { expiresAt: Date.now() + 15_000, value: portalPayload });
@@ -213,8 +215,22 @@ Deno.serve(async (req) => {
         if (!scheduleId) return fail("Missing schedule ID.", 400);
         result = await ifRequest(token, "/live/schedules/" + scheduleId + "/flightplan", { method: "PUT", body: JSON.stringify({ flightPlan: body.flightPlan ?? null }) });
       }
-      await admin.from("audit_events").insert({ organization_id: organizationId, actor_user_id: user.id, event_type: "schedule." + body.action, metadata: { scheduleId: scheduleId || null } });
-      return json({ result });
+      const resolvedScheduleId = scheduleId || String((result as any)?.id ?? (result as any)?.schedule?.id ?? (result as any)?.data?.id ?? "");
+      if (body.action === "delete_schedule" && scheduleId) {
+        await admin.from("schedule_simbrief_xml").delete().eq("organization_id", organizationId).eq("schedule_id", scheduleId);
+      }
+      if (typeof body.simbriefXml === "string" && body.simbriefXml.trim()) {
+        if (body.simbriefXml.length > 1500000) return fail("SimBrief XML must be smaller than 1.5 MB.", 413);
+        if (!resolvedScheduleId) return fail("The Live schedule was saved, but its ID could not be resolved for the SimBrief attachment. Refresh schedules and attach the XML while editing.", 502);
+        const { error: xmlError } = await admin.from("schedule_simbrief_xml").upsert({
+          organization_id: organizationId, schedule_id: resolvedScheduleId,
+          file_name: String(body.simbriefFileName ?? "simbrief.xml").slice(0, 180),
+          xml_content: body.simbriefXml, uploaded_by: user.id, updated_at: new Date().toISOString(),
+        }, { onConflict: "organization_id,schedule_id" });
+        if (xmlError) throw new Error("Schedule saved, but the SimBrief XML attachment could not be stored.");
+      }
+      await admin.from("audit_events").insert({ organization_id: organizationId, actor_user_id: user.id, event_type: "schedule." + body.action, metadata: { scheduleId: resolvedScheduleId || null, simbriefAttached: typeof body.simbriefXml === "string" && !!body.simbriefXml } });
+      return json({ result, scheduleId: resolvedScheduleId || null });
     }
 
     return fail("Unsupported organization administration action.", 400);
