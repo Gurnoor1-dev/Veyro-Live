@@ -11,32 +11,48 @@ Deno.serve(async (req) => {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(state));
   const stateHash = Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-  const { data: transaction, error } = await admin.from("oauth_transactions").select("*").eq("state_hash", stateHash).single();
+  // Atomically consume the state in one database round-trip. A replayed callback
+  // cannot obtain the same transaction or exchange the same authorization code twice.
+  const { data: transaction, error } = await admin.from("oauth_transactions")
+    .delete().eq("state_hash", stateHash).select("*").single();
   if (error || !transaction || new Date(transaction.expires_at).getTime() < Date.now()) return fail("Invalid or expired OAuth state", 400);
-  await admin.from("oauth_transactions").delete().eq("state_hash", stateHash);
   try {
+    const startedAt = performance.now();
     const verifier = await decryptSecret(transaction.code_verifier_ciphertext);
     const token = await exchangeAuthorizationCode(code, verifier);
+    const tokenExchangedAt = performance.now();
     const pendingId = crypto.randomUUID();
     const expiresAt = new Date(Date.now() + 10 * 60_000).toISOString();
-    const { error: saveError } = await admin.from("oauth_pending_connections").insert({
-      id: pendingId,
-      user_id: transaction.user_id,
-      access_token_ciphertext: await encryptSecret(token.access_token as string),
-      refresh_token_ciphertext: token.refresh_token ? await encryptSecret(token.refresh_token as string) : null,
-      access_token_expires_at: new Date(Date.now() + Number(token.expires_in ?? 1800) * 1000).toISOString(),
-      granted_scopes: String(token.scope ?? "").split(" ").filter(Boolean),
-      expires_at: expiresAt,
-    });
+    const tokenExpiresAt = new Date(Date.now() + Number(token.expires_in ?? 1800) * 1000).toISOString();
+    // Encrypt once and reuse the ciphertext for the temporary hand-off and the
+    // durable refreshable connection, avoiding duplicate WebCrypto work.
+    const accessTokenCiphertext = await encryptSecret(token.access_token as string);
+    const refreshTokenCiphertext = token.refresh_token ? await encryptSecret(token.refresh_token as string) : null;
+    const scopes = String(token.scope ?? "").split(" ").filter(Boolean);
+    const [{ error: saveError }, { error: connectionError }] = await Promise.all([
+      admin.from("oauth_pending_connections").insert({
+        id: pendingId,
+        user_id: transaction.user_id,
+        access_token_ciphertext: accessTokenCiphertext,
+        refresh_token_ciphertext: refreshTokenCiphertext,
+        access_token_expires_at: tokenExpiresAt,
+        granted_scopes: scopes,
+        expires_at: expiresAt,
+      }),
+      admin.from("user_if_connections").upsert({
+        user_id: transaction.user_id,
+        access_token_ciphertext: accessTokenCiphertext,
+        refresh_token_ciphertext: refreshTokenCiphertext,
+        token_expires_at: tokenExpiresAt,
+        granted_scopes: scopes,
+      }, { onConflict: "user_id" }),
+    ]);
     if (saveError) throw saveError;
-    const { error: connectionError } = await admin.from("user_if_connections").upsert({
-      user_id: transaction.user_id,
-      access_token_ciphertext: await encryptSecret(token.access_token as string),
-      refresh_token_ciphertext: token.refresh_token ? await encryptSecret(token.refresh_token as string) : null,
-      token_expires_at: new Date(Date.now() + Number(token.expires_in ?? 1800) * 1000).toISOString(),
-      granted_scopes: String(token.scope ?? "").split(" ").filter(Boolean),
-    }, { onConflict: "user_id" });
     if (connectionError) throw connectionError;
+    console.info("[if-oauth-callback] completed", {
+      tokenExchangeMs: Math.round(tokenExchangedAt - startedAt),
+      persistenceMs: Math.round(performance.now() - tokenExchangedAt),
+    });
     const rawBase = Deno.env.get("APP_BASE_URL") ?? "";
     const base = rawBase.endsWith("/") ? rawBase.slice(0, -1) : rawBase;
     const requestedPath = String(transaction.redirect_path ?? "/login");
