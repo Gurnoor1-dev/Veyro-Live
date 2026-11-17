@@ -57,30 +57,26 @@ function Landing(){
  </main>
 }
 function Login(){
+ const location=useLocation();
  const [session,setSession]=useState<Session|null>(null);
- const [pending]=useState(new URLSearchParams(location.search).get("pending")||"");
- const [orgs,setOrgs]=useState<any[]>([]);
- const [selected,setSelected]=useState("");
+ const [sessionLoading,setSessionLoading]=useState(true);
  const [busy,setBusy]=useState(false);
  const [error,setError]=useState(new URLSearchParams(location.search).get("connect_error")||"");
- const navigate=useNavigate();
+ const query=new URLSearchParams(location.search);
+ const pending=query.get("pending");
+ const next=query.get("next")||"";
  useEffect(()=>{
-  if(!supabase)return;
+  if(!supabase){setSessionLoading(false);return}
   let active=true;
-  supabase.auth.getSession().then(({data})=>{if(active)setSession(data.session)});
+  supabase.auth.getSession().then(({data})=>{if(active)setSession(data.session)}).finally(()=>{if(active)setSessionLoading(false)});
   const {data}=supabase.auth.onAuthStateChange((_event,nextSession)=>{if(active)setSession(nextSession)});
-  return()=>{active=false;data.subscription.unsubscribe()}
+  return()=>{active=false;data.subscription.unsubscribe()};
  },[]);
- useEffect(()=>{
-  if(!session||!pending||!supabase)return;
-  let active=true;
-  setBusy(true);setError("");
-  invokeFunction(supabase,"if-oauth-organizations",{body:{pendingId:pending}})
-   .then(({data,error})=>{if(error)throw error;if(!active)return;const list=data?.organizations||[];setOrgs(list);if(list.length===1)setSelected(list[0].id)})
-   .catch(e=>{if(active)setError(e instanceof Error?e.message:"Could not load Infinite Flight organizations.")})
-   .finally(()=>{if(active)setBusy(false)});
-  return()=>{active=false}
- },[session,pending]);
+ useEffect(()=>{const message=new URLSearchParams(location.search).get("connect_error");if(message)setError(message)},[location.search]);
+ if(pending){
+  const destination="/account?pending="+encodeURIComponent(pending)+(next?"&next="+encodeURIComponent(next):"");
+  return <Navigate to={destination} replace/>;
+ }
  const connect=async()=>{
   if(!supabase)return;
   setBusy(true);setError("");
@@ -93,71 +89,151 @@ function Login(){
     if(!activeSession)throw new Error("Supabase did not create a session. Please try again.");
     setSession(activeSession);
    }
-   const next=new URLSearchParams(location.search).get("next")||"";
-   const returnTo="/login"+(next?"?next="+encodeURIComponent(next):"");
+   const returnTo="/account"+(next?"?next="+encodeURIComponent(next):"");
    const {data,error}=await invokeFunction(supabase,"if-oauth-start",{body:{returnTo}});
    if(error||!data?.authorizationUrl)throw error||new Error("Could not start Infinite Flight authorization.");
    window.location.assign(data.authorizationUrl);
   }catch(e){setError(e instanceof Error?e.message:"Could not start Infinite Flight authorization.");setBusy(false)}
  };
- const openWorkspace=async()=>{
-  if(!supabase||!session||!selected)return;
-  const chosen=orgs.find(o=>o.id===selected);
-  if(!chosen)return;
-  if(!chosen.portal){
-   if([1,2].includes(chosen.role))navigate("/apply?pending="+encodeURIComponent(pending)+"&org="+encodeURIComponent(selected));
-   else setError("This organization has not connected a Veyro portal yet.");
-   return;
-  }
-  setBusy(true);setError("");
-  const {data,error}=await invokeFunction(supabase,"pilot-live-data",{body:{pendingId:pending,organizationId:selected,cacheScope:getPilotCacheScope()}});
-  if(error||!data?.organization){
-   let message=data?.error||error?.message||"Could not open this organization.";
-   if(error&&"context" in error&&error.context instanceof Response){try{message=(await error.context.clone().json()).error||message}catch{}}
-   setError(message);setBusy(false);return;
-  }
-  if([1,2].includes(chosen.role))navigate("/"+chosen.portal.slug+"/admin");
-  else navigate("/"+chosen.portal.slug+"/pilot/"+session.user.id);
- };
  if(!isSupabaseConfigured)return <main className="shell narrow"><Header/><section className="panel login-panel"><h1>Backend not configured</h1><p>Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in the Vercel project environment, then redeploy.</p></section><Footer/></main>;
- return (
-  <main className="shell narrow">
-   <Header/>
-   <section className="panel login-panel login-panel-if">
-    <div className="login-brand-stack">
-     <img className="if-live-logo" src="/images/if-live.png" alt="Infinite Flight Live"/>
-     <span>ONE CONNECTION. YOUR ENTIRE VEYRO NETWORK.</span>
-    </div>
-    <h1>{pending?"Choose your Live organization":"Take off with Veyro."}</h1>
-    {!pending?<>
-     <p>Sign in securely with Infinite Flight. Veyro creates a private Supabase session for your account—no email address or password required.</p>
-     <button className="button button-primary full if-oauth-button" onClick={connect} disabled={busy}>
-      <img src="/images/if-logo.png" alt="" className="if-login-icon"/>
-      {busy?"Connecting to Infinite Flight…":"Continue with Infinite Flight"}
-      <ArrowRight size={16}/>
-     </button>
-     <div className="login-security-note"><ShieldCheck size={14}/> Your Infinite Flight tokens are encrypted and never exposed to the browser.</div>
-    </>:<>
-     <p>Select an organisation from your Infinite Flight account. Veyro will open the correct workspace based on your verified Live role.</p>
-     {busy&&orgs.length===0?<div className="empty-state">Retrieving your Infinite Flight organisations…</div>:orgs.length===0?<div className="notice">No Live organisations were returned. Check your Infinite Flight membership and reconnect if needed.</div>:<>
-      <label className="field-label">Your Infinite Flight organisations</label>
-      <select className="text-field" value={selected} onChange={e=>setSelected(e.target.value)}>
-       <option value="">Select an organisation</option>
-       {orgs.map(org=><option key={org.id} value={org.id}>{org.name} · {org.role===2?"Owner":org.role===1?"Admin":"Member"}{org.portal?" · Veyro portal":""}</option>)}
-      </select>
-      {selected&&<button className="button button-primary full" onClick={openWorkspace} disabled={busy}>{busy?"Opening workspace…":([1,2].includes(orgs.find(o=>o.id===selected)?.role)?"Open Admin Dashboard":"Open Pilot Dashboard")} <ArrowRight size={16}/></button>}
-     </>}
-     <button className="button button-quiet full" onClick={connect} disabled={busy}>Connect another Infinite Flight account</button>
-    </>}
-    {error&&<div className="notice error">{error}</div>}
-    {session?.user.is_anonymous&&<div className="login-session-note">Your Veyro session is saved on this device. Avoid signing out or clearing browser data if you want to keep this account.</div>}
-   </section>
-   <Footer/>
-  </main>
- );
+ return <main className="shell narrow"><Header/><section className="panel login-panel login-panel-if">
+  <div className="login-brand-stack"><img className="if-live-logo" src="/images/if-live.png" alt="Infinite Flight Live"/><span>ONE CONNECTION. YOUR ENTIRE VEYRO NETWORK.</span></div>
+  <h1>Take off with Veyro.</h1>
+  <p>Sign in securely with Infinite Flight. Once connected, you’ll land directly in My Veyro, where all your available airline portals are gathered in one place.</p>
+  <button className="button button-primary full if-oauth-button" onClick={connect} disabled={busy||sessionLoading}>
+   <img src="/images/if-logo.png" alt="" className="if-login-icon"/>
+   {busy?"Connecting to Infinite Flight…":"Continue with Infinite Flight"}<ArrowRight size={16}/>
+  </button>
+  {session&&<Link className="button button-quiet full login-account-link" to="/account">Open My Veyro <ArrowUpRight size={14}/></Link>}
+  <div className="login-security-note"><ShieldCheck size={14}/> Your Infinite Flight tokens are encrypted and never exposed to the browser.</div>
+  {error&&<div className="notice error">{error}</div>}
+  {session?.user.is_anonymous&&<div className="login-session-note">Your Veyro session is saved on this device. Avoid signing out or clearing browser data if you want to keep this account.</div>}
+ </section><Footer/></main>;
 }
 
-function MyVeyro(){const location=useLocation();const [session,setSession]=useState<Session|null>(null);const [authLoading,setAuthLoading]=useState(true);const [data,setData]=useState<any>(null);const [loading,setLoading]=useState(true);const [busy,setBusy]=useState("");const [error,setError]=useState("");const [notice,setNotice]=useState("");const query=new URLSearchParams(location.search);const next=query.get("next");useEffect(()=>{let active=true;if(!supabase){setAuthLoading(false);setLoading(false);return}supabase.auth.getSession().then(({data})=>{if(active){setSession(data.session);setAuthLoading(false)}});const {data:listener}=supabase.auth.onAuthStateChange((_e,s)=>{if(active)setSession(s)});return()=>{active=false;listener.subscription.unsubscribe()}},[]);const load=async()=>{if(!supabase||!session)return;setLoading(true);setError("");const {data:result,error:invokeError}=await invokeFunction(supabase,"my-portals");if(invokeError){let message=invokeError.message;if("context" in invokeError&&invokeError.context instanceof Response){try{message=(await invokeError.context.clone().json()).error||message}catch{}}setError(message);setLoading(false);return}setData(result);setLoading(false)};useEffect(()=>{if(session)void load();else setLoading(false)},[session]);useEffect(()=>{const err=query.get("connect_error");if(err)setError(err)},[location.search]);const connect=async()=>{if(!supabase)return;setBusy("connect");setError("");const {data:result,error:invokeError}=await invokeFunction(supabase,"if-oauth-start",{body:{returnTo:"/account"+(next?"?next="+encodeURIComponent(next):"")}});if(invokeError||!result?.authorizationUrl){setError(invokeError?.message||"Could not start Infinite Flight authorization.");setBusy("");return}window.location.assign(result.authorizationUrl)};const join=async(invite:any)=>{if(!supabase)return;setBusy(invite.organization.id);setError("");const {data:result,error:invokeError}=await invokeFunction(supabase,"pilot-live-data",{body:{organizationId:invite.organization.live_organization_id,cacheScope:getPilotCacheScope()}});if(invokeError||!result?.portal){let message=invokeError?.message||"Could not activate your pilot access.";if(invokeError&&"context" in invokeError&&invokeError.context instanceof Response){try{message=(await invokeError.context.clone().json()).error||message}catch{}}setError(message);setBusy("");return}setNotice("You're now a member of "+invite.organization.display_name+".");await load();setBusy("")};const memberships=data?.memberships||[];const invitations=data?.invitations||[];const directory=data?.directory||[];const joinedIds=new Set(memberships.map((x:any)=>x.id));const invitedIds=new Set(invitations.map((x:any)=>x.organization.id));if(authLoading)return <main className="shell"><Header/><section className="account-loading">Restoring your VEYRO session…</section></main>;if(!session)return <main className="shell"><Header/><section className="account-welcome"><div className="eyebrow">YOUR VEYRO ACCOUNT</div><h1>One identity.<br/><span>Every airline you fly with.</span></h1><p>Connect once to access your pilot portals, airline memberships and organization administration.</p><Link className="cosmic-cta account-primary" to="/login">Connect Infinite Flight <ArrowRight size={16}/></Link></section><Footer/></main>;return <main className="shell account-shell"><Header/><section className="account-hero"><div><div className="eyebrow"><span className="pulse"/> PERSONAL OPERATIONS CENTRE</div><h1>Welcome back{data?.profile?.display_name?", "+data.profile.display_name:""}.</h1><p>Your airlines, your crew spaces and your Infinite Flight connection — together in one place.</p></div><div className={"account-connection-card "+(data?.infiniteFlight?.connected?"is-connected":"")}><span className="connection-orb"/><div><strong>{data?.infiniteFlight?.connected?"Infinite Flight connected":"Connect Infinite Flight"}</strong><small>{data?.infiniteFlight?.connected?"Your account is ready across VEYRO":"One secure connection unlocks your airline workspaces"}</small></div><button className={data?.infiniteFlight?.connected?"button button-quiet":"button button-primary"} disabled={busy==="connect"} onClick={connect}>{busy==="connect"?"Opening Infinite Flight…":data?.infiniteFlight?.connected?"Reconnect Infinite Flight":"Connect account"}</button></div></section>{error&&<div className="notice error">{error}</div>}{notice&&<div className="notice success">{notice}</div>}<section className="account-section"><div className="account-section-heading"><div><div className="eyebrow">YOUR ORGANISATIONS</div><h2>My airline portals</h2><p>Workspaces where your membership is active.</p></div><span className="account-count">{memberships.length} PORTALS</span></div>{loading?<div className="account-card-grid"><div className="account-skeleton"/><div className="account-skeleton"/></div>:memberships.length===0?<div className="account-empty"><Building2 size={22}/><strong>Your airline spaces will appear here.</strong><span>Connect Infinite Flight and select any organisation where your Live membership is verified, or explore the network below.</span></div>:<div className="account-card-grid">{memberships.map((org:any)=><article className="airline-account-card" key={org.id}><div className="airline-card-top"><div className="airline-card-logo">{org.logo_url?<img src={org.logo_url} alt=""/>:<span>{org.display_name?.slice(0,1)||"V"}</span>}</div><span className="membership-chip">{org.role==="owner"||org.role==="admin"?"ADMIN":"PILOT"}</span></div><h3>{org.display_name}</h3><p>{org.tagline||"Your dedicated Infinite Flight workspace."}</p><div className="airline-card-actions">{(org.role==="owner"||org.role==="admin")&&<Link className="button button-primary" to={"/"+org.slug+"/admin"}>Admin dashboard <ArrowRight size={14}/></Link>}<Link className="button button-quiet" to={"/"+org.slug+"/pilot/"+session.user.id}>Pilot dashboard <ArrowRight size={14}/></Link><Link className="airline-text-link" to={"/"+org.slug}>View airline <ArrowUpRight size={13}/></Link></div></article>)}</div>}</section><section className="account-section"><div className="account-section-heading"><div><div className="eyebrow">INVITATIONS</div><h2>Ready to join</h2><p>Airlines that have invited this VEYRO account.</p></div><span className="account-count">{invitations.length} INVITATIONS</span></div>{invitations.length===0?<div className="account-empty compact"><Users size={20}/><span>No pending invitations. Connect Infinite Flight and choose an organisation where you are a verified Live member.</span></div>:<div className="account-card-grid">{invitations.map((invite:any)=><article className="airline-account-card invite-card" key={invite.id}><div className="airline-card-top"><div className="airline-card-logo">{invite.organization.logo_url?<img src={invite.organization.logo_url} alt=""/>:<span>{invite.organization.display_name?.slice(0,1)||"V"}</span>}</div><span className="membership-chip invited">INVITED</span></div><h3>{invite.organization.display_name}</h3><p>Welcome, {invite.pilotName}. Your airline has invited you to join its pilot community.</p><button className="button button-primary" disabled={busy===invite.organization.id||!data?.infiniteFlight?.connected} onClick={()=>join(invite)}>{busy===invite.organization.id?"Verifying membership…":data?.infiniteFlight?.connected?"Join airline":"Connect Infinite Flight first"} <ArrowRight size={14}/></button></article>)}</div>}</section><section className="account-section"><div className="account-section-heading"><div><div className="eyebrow">THE VEYRO NETWORK</div><h2>Explore airlines</h2><p>Discover public airline portals and learn about their operations.</p></div><span className="account-count">{directory.length} PUBLIC PORTALS</span></div>{loading?<div className="account-skeleton"/>:directory.length===0?<div className="account-empty">No public portals are available yet.</div>:<div className="account-directory-grid">{directory.map((org:any)=><article className="directory-account-card" key={org.id}><div className="airline-card-logo">{org.logo_url?<img src={org.logo_url} alt=""/>:<span>{org.display_name?.slice(0,1)||"V"}</span>}</div><div className="directory-account-copy"><h3>{org.display_name}</h3><p>{org.tagline||"Virtual airline on Infinite Flight Live."}</p><div className="airline-card-actions"><Link className="airline-text-link" to={"/"+org.slug}>Website info <ArrowUpRight size={13}/></Link>{joinedIds.has(org.id)?<span className="membership-chip">MEMBER</span>:invitedIds.has(org.id)?<span className="membership-chip invited">INVITED</span>:<Link className="button button-quiet" to={"/"+org.slug+"/pilot-sign-in"}>Join airline <ArrowRight size={13}/></Link>}</div></div></article>)}</div>}</section><div className="account-bottom-actions"><button className="button button-quiet" onClick={load} disabled={loading}><RefreshCw size={14}/> Refresh my portals</button><Link className="button button-quiet" to="/docs">Platform documentation <ArrowUpRight size={14}/></Link></div><Footer/></main>}
+function MyVeyro(){
+ const location=useLocation();
+ const navigate=useNavigate();
+ const query=new URLSearchParams(location.search);
+ const next=query.get("next")||"";
+ const pendingId=query.get("pending")||"";
+ const [session,setSession]=useState<Session|null>(null);
+ const [authLoading,setAuthLoading]=useState(true);
+ const [data,setData]=useState<any>(null);
+ const [loading,setLoading]=useState(true);
+ const [busy,setBusy]=useState("");
+ const [error,setError]=useState("");
+ const [notice,setNotice]=useState("");
+ const [liveOrganizations,setLiveOrganizations]=useState<any[]>([]);
+ const [liveOrganizationsLoading,setLiveOrganizationsLoading]=useState(false);
+
+ useEffect(()=>{
+  let active=true;
+  if(!supabase){setAuthLoading(false);setLoading(false);return}
+  supabase.auth.getSession().then(({data})=>{if(active){setSession(data.session);setAuthLoading(false)}});
+  const {data:listener}=supabase.auth.onAuthStateChange((_event,nextSession)=>{if(active)setSession(nextSession)});
+  return()=>{active=false;listener.subscription.unsubscribe()};
+ },[]);
+
+ const load=async()=>{
+  if(!supabase||!session)return;
+  setLoading(true);setError("");
+  const {data:result,error:invokeError}=await invokeFunction(supabase,"my-portals");
+  if(invokeError){
+   let message=invokeError.message;
+   if("context" in invokeError&&invokeError.context instanceof Response){try{message=(await invokeError.context.clone().json()).error||message}catch{}}
+   setError(message);setLoading(false);return;
+  }
+  setData(result);setLoading(false);
+ };
+ useEffect(()=>{if(session)void load();else if(!authLoading)setLoading(false)},[session,authLoading]);
+ useEffect(()=>{
+  const message=query.get("connect_error");
+  if(message)setError(message);
+ },[location.search]);
+ useEffect(()=>{
+  if(!session||!pendingId||!supabase){setLiveOrganizations([]);return}
+  let active=true;
+  setLiveOrganizationsLoading(true);
+  invokeFunction(supabase,"if-oauth-organizations",{body:{pendingId}})
+   .then(({data:result,error:invokeError})=>{
+    if(invokeError)throw invokeError;
+    if(active)setLiveOrganizations(result?.organizations||[]);
+   })
+   .catch(e=>{if(active)setError(e instanceof Error?e.message:"Could not load your Infinite Flight organizations. Reconnect and try again.")})
+   .finally(()=>{if(active)setLiveOrganizationsLoading(false)});
+  return()=>{active=false};
+ },[session,pendingId]);
+
+ const connect=async()=>{
+  if(!supabase)return;
+  setBusy("connect");setError("");
+  const returnTo="/account"+(next?"?next="+encodeURIComponent(next):"");
+  const {data:result,error:invokeError}=await invokeFunction(supabase,"if-oauth-start",{body:{returnTo}});
+  if(invokeError||!result?.authorizationUrl){setError(invokeError?.message||"Could not start Infinite Flight authorization.");setBusy("");return}
+  window.location.assign(result.authorizationUrl);
+ };
+ const openLivePortal=async(org:any)=>{
+  if(!supabase||!pendingId||!session)return;
+  if(!org.portal){if([1,2].includes(org.role)){navigate("/apply?pending="+encodeURIComponent(pendingId)+"&org="+encodeURIComponent(org.id));return}setError("This organization does not have a Veyro portal yet.");return}
+  setBusy(org.id);setError("");
+  try{
+   const {data:result,error:invokeError}=await invokeFunction(supabase,"pilot-live-data",{body:{pendingId,organizationId:org.id,cacheScope:getPilotCacheScope()}});
+   if(invokeError||!result?.organization||!result?.portal){
+    let message=result?.error||invokeError?.message||"Could not open this organization.";
+    if(invokeError&&"context" in invokeError&&invokeError.context instanceof Response){try{message=(await invokeError.context.clone().json()).error||message}catch{}}
+    throw new Error(message);
+   }
+   const role=Number(result.organization.role);
+   navigate(role===1||role===2?"/"+result.portal.slug+"/admin":"/"+result.portal.slug+"/pilot/"+session.user.id);
+  }catch(e){setError(e instanceof Error?e.message:"Could not open this portal.");setBusy("")}
+ };
+ const join=async(invite:any)=>{
+  if(!supabase)return;
+  setBusy(invite.organization.id);setError("");
+  const {data:result,error:invokeError}=await invokeFunction(supabase,"pilot-live-data",{body:{organizationId:invite.organization.live_organization_id,cacheScope:getPilotCacheScope()}});
+  if(invokeError||!result?.portal){
+   let message=invokeError?.message||"Could not activate your pilot access.";
+   if(invokeError&&"context" in invokeError&&invokeError.context instanceof Response){try{message=(await invokeError.context.clone().json()).error||message}catch{}}
+   setError(message);setBusy("");return;
+  }
+  setNotice("You're now a member of "+invite.organization.display_name+".");
+  await load();setBusy("");
+ };
+ const memberships=data?.memberships||[];
+ const invitations=data?.invitations||[];
+ const directory=data?.directory||[];
+ const joinedIds=new Set(memberships.map((x:any)=>x.id));
+ const invitedIds=new Set(invitations.map((x:any)=>x.organization.id));
+ const livePortalOrgs=liveOrganizations.filter((org:any)=>org.portal).map((org:any)=>{
+  const known=[...memberships,...directory].find((item:any)=>item.id===org.portal.id);
+  return {...known,id:org.portal.id,slug:org.portal.slug,display_name:known?.display_name||org.portal.displayName||org.name,logo_url:known?.logo_url||null,tagline:known?.tagline||"Verified Infinite Flight organization",role:org.role===2?"owner":org.role===1?"admin":"pilot",liveOrganizationId:org.id,openFromLive:true,liveRole:org.role};
+ });
+ const livePortalIds=new Set(livePortalOrgs.map((org:any)=>org.id));
+ const portalCards=[...livePortalOrgs,...memberships.filter((org:any)=>!livePortalIds.has(org.id))];
+
+ if(authLoading)return <main className="shell"><Header/><section className="account-loading">Restoring your VEYRO session…</section></main>;
+ if(!session)return <main className="shell"><Header/><section className="account-welcome"><div className="eyebrow">YOUR VEYRO ACCOUNT</div><h1>One identity.<br/><span>Every airline you fly with.</span></h1><p>Connect once to access your pilot portals, airline memberships and organization administration.</p><Link className="cosmic-cta account-primary" to="/login">Connect Infinite Flight <ArrowRight size={16}/></Link></section><Footer/></main>;
+
+ return <main className="shell account-shell"><Header/>
+  <section className="account-hero"><div><div className="eyebrow"><span className="pulse"/> PERSONAL OPERATIONS CENTRE</div><h1>Welcome back{data?.profile?.display_name?", "+data.profile.display_name:""}.</h1><p>Your airlines, your crew spaces and your Infinite Flight connection — together in one place.</p></div>
+   <div className={"account-connection-card "+(data?.infiniteFlight?.connected?"is-connected":"")}><span className="connection-orb"/><div><strong>{data?.infiniteFlight?.connected?"Infinite Flight connected":"Connect Infinite Flight"}</strong><small>{data?.infiniteFlight?.connected?"Your account is ready across VEYRO":"One secure connection unlocks your airline workspaces"}</small></div><button className={data?.infiniteFlight?.connected?"button button-quiet":"button button-primary"} disabled={busy==="connect"} onClick={connect}>{busy==="connect"?"Opening Infinite Flight…":data?.infiniteFlight?.connected?"Reconnect Infinite Flight":"Connect account"}</button></div>
+  </section>
+  {error&&<div className="notice error">{error}</div>}{notice&&<div className="notice success">{notice}</div>}
+  {pendingId&&<section className="account-section account-live-portals"><div className="account-section-heading"><div><div className="eyebrow">INFINITE FLIGHT CONNECTION</div><h2>Your available portals</h2><p>Choose an airline workspace. Veyro will verify your Live role and open the right dashboard.</p></div><span className="account-count">{livePortalOrgs.length} AVAILABLE</span></div>
+   {liveOrganizationsLoading?<div className="account-card-grid"><div className="account-skeleton"/><div className="account-skeleton"/></div>:livePortalOrgs.length===0?<div className="account-empty"><Building2 size={22}/><strong>No connected Veyro portals were found.</strong><span>Your Infinite Flight account is connected. If your airline has a Veyro portal, refresh this page or contact its administrator to confirm your access.</span></div>:<div className="account-card-grid">{livePortalOrgs.map((org:any)=><article className="airline-account-card live-portal-card" key={org.id}><div className="airline-card-top"><div className="airline-card-logo">{org.logo_url?<img src={org.logo_url} alt=""/>:<span>{org.display_name?.slice(0,1)||"V"}</span>}</div><span className="membership-chip">{org.role==="owner"||org.role==="admin"?"ADMIN":"PILOT"}</span></div><h3>{org.display_name}</h3><p>{org.tagline}</p><div className="airline-card-actions"><button className="button button-primary" disabled={busy===org.liveOrganizationId} onClick={()=>void openLivePortal(liveOrganizations.find((item:any)=>item.id===org.liveOrganizationId))}>{busy===org.liveOrganizationId?"Verifying access…":org.role==="owner"||org.role==="admin"?"Open admin dashboard":"Open pilot dashboard"} <ArrowRight size={14}/></button><Link className="airline-text-link" to={"/"+org.slug}>View airline <ArrowUpRight size={13}/></Link></div></article>)}</div>}
+   {liveOrganizations.some((org:any)=>!org.portal)&&<div className="account-unlinked-portals"><div><strong>Other Infinite Flight organisations</strong><span>These organisations do not have an active Veyro portal yet.</span></div>{liveOrganizations.filter((org:any)=>!org.portal).map((org:any)=><div className="account-unlinked-row" key={org.id}><span>{org.name} · {org.role===2?"Owner":org.role===1?"Admin":"Member"}</span>{[1,2].includes(org.role)?<Link className="airline-text-link" to={"/apply?pending="+encodeURIComponent(pendingId)+"&org="+encodeURIComponent(org.id)}>Apply for a portal <ArrowUpRight size={13}/></Link>:<small>No portal yet</small>}</div>)}</div>}
+  </section>}
+  <section className="account-section"><div className="account-section-heading"><div><div className="eyebrow">YOUR ORGANISATIONS</div><h2>My airline portals</h2><p>Workspaces where your membership is active.</p></div><span className="account-count">{portalCards.length} PORTALS</span></div>
+   {loading?<div className="account-card-grid"><div className="account-skeleton"/><div className="account-skeleton"/></div>:portalCards.length===0?<div className="account-empty"><Building2 size={22}/><strong>Your airline spaces will appear here.</strong><span>Connect Infinite Flight to discover every Veyro portal available to your account.</span></div>:<div className="account-card-grid">{portalCards.map((org:any)=><article className="airline-account-card" key={org.id}><div className="airline-card-top"><div className="airline-card-logo">{org.logo_url?<img src={org.logo_url} alt=""/>:<span>{org.display_name?.slice(0,1)||"V"}</span>}</div><span className="membership-chip">{org.role==="owner"||org.role==="admin"?"ADMIN":"PILOT"}</span></div><h3>{org.display_name}</h3><p>{org.tagline||"Your dedicated Infinite Flight workspace."}</p><div className="airline-card-actions">{(org.role==="owner"||org.role==="admin")&&(org.openFromLive?<button className="button button-primary" onClick={()=>void openLivePortal(liveOrganizations.find((item:any)=>item.id===org.liveOrganizationId))} disabled={busy===org.liveOrganizationId}>Admin dashboard <ArrowRight size={14}/></button>:<Link className="button button-primary" to={"/"+org.slug+"/admin"}>Admin dashboard <ArrowRight size={14}/></Link>)}{org.openFromLive?<button className="button button-quiet" onClick={()=>void openLivePortal(liveOrganizations.find((item:any)=>item.id===org.liveOrganizationId))} disabled={busy===org.liveOrganizationId}>Pilot dashboard <ArrowRight size={14}/></button>:<Link className="button button-quiet" to={"/"+org.slug+"/pilot/"+session.user.id}>Pilot dashboard <ArrowRight size={14}/></Link>}<Link className="airline-text-link" to={"/"+org.slug}>View airline <ArrowUpRight size={13}/></Link></div></article>)}</div>}
+  </section>
+  <section className="account-section"><div className="account-section-heading"><div><div className="eyebrow">INVITATIONS</div><h2>Ready to join</h2><p>Airlines that have invited this VEYRO account.</p></div><span className="account-count">{invitations.length} INVITATIONS</span></div>{invitations.length===0?<div className="account-empty compact"><Users size={20}/><span>No pending invitations. Connect Infinite Flight and choose an organisation where you are a verified Live member.</span></div>:<div className="account-card-grid">{invitations.map((invite:any)=><article className="airline-account-card invite-card" key={invite.id}><div className="airline-card-top"><div className="airline-card-logo">{invite.organization.logo_url?<img src={invite.organization.logo_url} alt=""/>:<span>{invite.organization.display_name?.slice(0,1)||"V"}</span>}</div><span className="membership-chip invited">INVITED</span></div><h3>{invite.organization.display_name}</h3><p>Welcome, {invite.pilotName}. Your airline has invited you to join its pilot community.</p><button className="button button-primary" disabled={busy===invite.organization.id||!data?.infiniteFlight?.connected} onClick={()=>join(invite)}>{busy===invite.organization.id?"Verifying membership…":data?.infiniteFlight?.connected?"Join airline":"Connect Infinite Flight first"} <ArrowRight size={14}/></button></article>)}</div>}</section>
+  <section className="account-section"><div className="account-section-heading"><div><div className="eyebrow">THE VEYRO NETWORK</div><h2>Explore airlines</h2><p>Discover public airline portals and learn about their operations.</p></div><span className="account-count">{directory.length} PUBLIC PORTALS</span></div>{loading?<div className="account-skeleton"/>:directory.length===0?<div className="account-empty">No public portals are available yet.</div>:<div className="account-directory-grid">{directory.map((org:any)=><article className="directory-account-card" key={org.id}><div className="airline-card-logo">{org.logo_url?<img src={org.logo_url} alt=""/>:<span>{org.display_name?.slice(0,1)||"V"}</span>}</div><div className="directory-account-copy"><h3>{org.display_name}</h3><p>{org.tagline||"Virtual airline on Infinite Flight Live."}</p><div className="airline-card-actions"><Link className="airline-text-link" to={"/"+org.slug}>Website info <ArrowUpRight size={13}/></Link>{joinedIds.has(org.id)?<span className="membership-chip">MEMBER</span>:invitedIds.has(org.id)?<span className="membership-chip invited">INVITED</span>:<Link className="button button-quiet" to={"/"+org.slug+"/pilot-sign-in"}>Join airline <ArrowRight size={13}/></Link>}</div></div></article>)}</div>}</section>
+  {next==="/apply"&&pendingId&&<section className="account-section account-next-step"><div><div className="eyebrow">CONTINUE SETUP</div><h2>Creating a new organization portal?</h2><p>Continue your portal application from your verified Infinite Flight account.</p></div><Link className="button button-primary" to={"/apply?pending="+encodeURIComponent(pendingId)}>Continue application <ArrowRight size={14}/></Link></section>}
+  <div className="account-bottom-actions"><button className="button button-quiet" onClick={load} disabled={loading}><RefreshCw size={14}/> Refresh my portals</button><Link className="button button-quiet" to="/docs">Platform documentation <ArrowUpRight size={14}/></Link></div><Footer/>
+ </main>;
+}
+
 function Organization(){const {slug=""}=useParams();const [session,setSession]=useState<Session|null>(null);const [sessionLoading,setSessionLoading]=useState(true);const [org,setOrg]=useState<any>(null);const [aircraft,setAircraft]=useState<any[]>([]);const [schedules,setSchedules]=useState<any[]>([]);const [error,setError]=useState("");const [loading,setLoading]=useState(true);const [tab,setTab]=useState<"schedules"|"fleet">("schedules");
  useEffect(()=>{let active=true;supabase?.auth.getSession().then(({data})=>{if(active)setSession(data.session)}).finally(()=>{if(active)setSessionLoading(false)});return()=>{active=false}},[]);
  const load=async()=>{if(!supabase||!session)return;setLoading(true);setError("");const [organizationResult,a,s]=await Promise.all([supabase.from("organizations").select("id,slug,display_name,live_organization_id").eq("slug",slug).eq("is_active",true).single(),invokeFunction(supabase,"if-api",{body:{organizationSlug:slug,action:"aircraft"}}),invokeFunction(supabase,"if-api",{body:{organizationSlug:slug,action:"schedules"}})]);const organization=organizationResult.data;if(organizationResult.error||!organization){setError("This organization is unavailable to your account.");setLoading(false);return}setOrg(organization);if(a.error||s.error){setError(a.error?.message||s.error?.message||"Live data could not be loaded.");setLoading(false);return}setAircraft(a.data?.result||[]);setSchedules(s.data?.result||[]);setLoading(false)};
