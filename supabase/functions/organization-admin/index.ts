@@ -77,6 +77,7 @@ Deno.serve(async (req) => {
         admin.from("discord_settings").select("guild_id,approval_channel_id,allowed_approver_role_ids,enabled").eq("organization_id", organizationId).maybeSingle(),
         admin.from("profiles").select("display_name,discord_user_id").eq("id", user.id).maybeSingle(),
         admin.from("schedule_simbrief_xml").select("schedule_id,file_name,updated_at").eq("organization_id", organizationId),
+        admin.from("booking_requests").select("id,pilot_user_id,pilot_if_user_id,live_schedule_id,live_aircraft_id,status,seat_role,reference_code,flight_number,origin_icao,destination_icao,discord_message_id,created_at,reviewed_at,reviewed_by").eq("organization_id", organizationId).order("created_at", { ascending: false }).limit(30),
       ])
     : null;
 
@@ -100,23 +101,25 @@ Deno.serve(async (req) => {
   if (body.action !== "get_admin_portal") adminPortalCache.clear();
   try {
     if (body.action === "get_admin_portal") {
-      const [membersResult, invitesResult, discordResult, profileResult, simbriefResult] = await adminReadsPromise!;
+      const [membersResult, invitesResult, discordResult, profileResult, simbriefResult, bookingsResult] = await adminReadsPromise!;
       const memberIds = (membersResult.data ?? []).map((m) => m.user_id);
+      const profileIds = [...new Set([...memberIds, ...(bookingsResult.data ?? []).flatMap((b: any) => [b.pilot_user_id, b.reviewed_by]).filter(Boolean)])];
       const token = userToken;
       await reserveIfApiRequests(2);
       const [profilesResult, liveData] = await Promise.all([
-        memberIds.length ? admin.from("profiles").select("id,display_name").in("id", memberIds) : Promise.resolve({ data: [] }),
+        profileIds.length ? admin.from("profiles").select("id,display_name,discord_user_id").in("id", profileIds) : Promise.resolve({ data: [] }),
         Promise.all([
           ifRequest<Array<Record<string, unknown>>>(token, "/live/organizations/" + org.live_organization_id + "/aircraft", {}, undefined, false, true),
           ifRequest<Array<Record<string, unknown>>>(token, "/live/organizations/" + org.live_organization_id + "/schedules", {}, undefined, false, true),
         ]),
       ]);
-      const profileMap = new Map((profilesResult.data ?? []).map((p: any) => [p.id, p.display_name]));
+      const profileMap = new Map((profilesResult.data ?? []).map((p: any) => [p.id, { display_name: p.display_name, discord_user_id: p.discord_user_id }]));
       const [aircraft, schedules] = liveData;
       const portalPayload = {
         organization: org,
         adminProfile: profileResult.data ?? null,
-        members: (membersResult.data ?? []).map((m) => ({ ...m, display_name: profileMap.get(m.user_id) ?? null })),
+        members: (membersResult.data ?? []).map((m) => ({ ...m, display_name: profileMap.get(m.user_id)?.display_name ?? null })),
+        bookingRequests: (bookingsResult.data ?? []).map((b: any) => ({ ...b, pilot_display_name: profileMap.get(b.pilot_user_id)?.display_name ?? null, reviewer_display_name: b.reviewed_by ? profileMap.get(b.reviewed_by)?.display_name ?? null : null })),
         invites: invitesResult.data ?? [],
         discord: discordResult.data ?? null,
         simbriefPlans: simbriefResult.data ?? [],
