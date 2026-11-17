@@ -1,0 +1,1 @@
+alter table public.booking_requests drop column if exists aircraft_registration, drop column if exists flight_number, drop column if exists origin_icao, drop column if exists destination_icao, drop column if exists departure_time;
