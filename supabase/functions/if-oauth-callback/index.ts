@@ -2,6 +2,32 @@ import { createClient } from "npm:@supabase/supabase-js@2.56.0";
 import { fail } from "../_shared/http.ts";
 import { decryptSecret, encryptSecret } from "../_shared/crypto.ts";
 import { exchangeAuthorizationCode } from "../_shared/infinite-flight.ts";
+function readInfiniteFlightIdentity(idToken: unknown): { userId: string; displayName: string } | null {
+  if (typeof idToken !== "string") return null;
+  const parts = idToken.split(".");
+  if (parts.length !== 3) return null;
+  try {
+    const encoded = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padded = encoded + "=".repeat((4 - encoded.length % 4) % 4);
+    const binary = atob(padded);
+    const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+    const claims = JSON.parse(new TextDecoder().decode(bytes));
+    const issuer = String(claims.iss ?? "");
+    const audience = claims.aud;
+    const clientId = Deno.env.get("INFINITE_FLIGHT_CLIENT_ID");
+    const audienceMatches = audience === clientId || (Array.isArray(audience) && audience.includes(clientId));
+    if (!["https://auth.infiniteflight.com", "https://auth.infiniteflight.com/"].includes(issuer)) return null;
+    if (!audienceMatches || Number(claims.exp ?? 0) <= Math.floor(Date.now() / 1000)) return null;
+    const userId = typeof claims.sub === "string" ? claims.sub.trim() : "";
+    if (!userId || userId.length > 128) return null;
+    const displayName = typeof claims.preferred_username === "string" ? claims.preferred_username
+      : typeof claims.name === "string" ? claims.name : "Infinite Flight pilot";
+    return { userId, displayName: displayName.slice(0, 80) };
+  } catch {
+    return null;
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method !== "GET") return fail("Method not allowed", 405);
   const url = new URL(req.url);
@@ -29,7 +55,15 @@ Deno.serve(async (req) => {
     const accessTokenCiphertext = await encryptSecret(token.access_token as string);
     const refreshTokenCiphertext = token.refresh_token ? await encryptSecret(token.refresh_token as string) : null;
     const scopes = String(token.scope ?? "").split(" ").filter(Boolean);
-    const [{ error: saveError }, { error: connectionError }] = await Promise.all([
+    const ifIdentity = readInfiniteFlightIdentity(token.id_token);
+    const profileWrite = ifIdentity
+      ? admin.from("profiles").upsert({
+          id: transaction.user_id,
+          infinite_flight_user_id: ifIdentity.userId,
+          display_name: ifIdentity.displayName,
+        }, { onConflict: "id" })
+      : Promise.resolve({ error: null });
+    const [{ error: saveError }, { error: connectionError }, { error: profileError }] = await Promise.all([
       admin.from("oauth_pending_connections").insert({
         id: pendingId,
         user_id: transaction.user_id,
@@ -46,12 +80,15 @@ Deno.serve(async (req) => {
         token_expires_at: tokenExpiresAt,
         granted_scopes: scopes,
       }, { onConflict: "user_id" }),
+      profileWrite,
     ]);
     if (saveError) throw saveError;
     if (connectionError) throw connectionError;
+    if (profileError) throw profileError;
     console.info("[if-oauth-callback] completed", {
       tokenExchangeMs: Math.round(tokenExchangedAt - startedAt),
       persistenceMs: Math.round(performance.now() - tokenExchangedAt),
+      identityLinked: Boolean(ifIdentity),
     });
     const rawBase = Deno.env.get("APP_BASE_URL") ?? "";
     const base = rawBase.endsWith("/") ? rawBase.slice(0, -1) : rawBase;
