@@ -105,16 +105,17 @@ Deno.serve(async (req) => {
       const memberIds = (membersResult.data ?? []).map((m) => m.user_id);
       const profileIds = [...new Set([...memberIds, ...(bookingsResult.data ?? []).flatMap((b: any) => [b.pilot_user_id, b.reviewed_by]).filter(Boolean)])];
       const token = userToken;
-      await reserveIfApiRequests(2);
+      await reserveIfApiRequests(3);
       const [profilesResult, liveData] = await Promise.all([
         profileIds.length ? admin.from("profiles").select("id,display_name,discord_user_id").in("id", profileIds) : Promise.resolve({ data: [] }),
         Promise.all([
           ifRequest<Array<Record<string, unknown>>>(token, "/live/organizations/" + org.live_organization_id + "/aircraft", {}, undefined, false, true),
           ifRequest<Array<Record<string, unknown>>>(token, "/live/organizations/" + org.live_organization_id + "/schedules", {}, undefined, false, true),
+          ifRequest<Array<{ userId: string; username?: string }>>(token, "/live/organizations/" + org.live_organization_id + "/members", {}, undefined, false, true),
         ]),
       ]);
       const profileMap = new Map((profilesResult.data ?? []).map((p: any) => [p.id, { display_name: p.display_name, discord_user_id: p.discord_user_id }]));
-      const [aircraft, schedules] = liveData;
+      const [aircraft, schedules, liveMembers] = liveData;
       const portalPayload = {
         organization: org,
         adminProfile: profileResult.data ?? null,
@@ -123,7 +124,7 @@ Deno.serve(async (req) => {
         invites: invitesResult.data ?? [],
         discord: discordResult.data ?? null,
         simbriefPlans: simbriefResult.data ?? [],
-        aircraft, schedules
+        aircraft, schedules, liveMembers
       };
       adminPortalCache.set(portalCacheKey, { expiresAt: Date.now() + 15_000, value: portalPayload });
       return json(portalPayload);
@@ -195,12 +196,22 @@ Deno.serve(async (req) => {
       return json({ ok: true });
     }
 
-    if (body.action === "create_schedule" || body.action === "update_schedule" || body.action === "delete_schedule" || body.action === "update_flightplan" || body.action === "reorder_schedule") {
+    if (body.action === "create_schedule" || body.action === "update_schedule" || body.action === "delete_schedule" || body.action === "update_flightplan" || body.action === "reorder_schedule" || body.action === "assign_schedule_crew" || body.action === "remove_schedule_crew") {
       const token = userToken;
       if (!userScopes.includes("live:schedules.write")) return fail("Reconnect Infinite Flight from My Veyro and approve the live:schedules.write permission.", 403);
       const scheduleId = String(body.scheduleId ?? "");
       let result: unknown;
-      if (body.action === "reorder_schedule") {
+      if (body.action === "assign_schedule_crew" || body.action === "remove_schedule_crew") {
+        const userId = String(body.userId ?? "");
+        if (!scheduleId || !userId) return fail("Choose a schedule and Infinite Flight crew member.", 400);
+        if (body.action === "assign_schedule_crew") {
+          const role = Number(body.role);
+          if (![0, 1].includes(role)) return fail("Choose Captain or First Officer.", 400);
+          result = await ifRequest(token, "/live/schedules/" + scheduleId + "/crew/" + userId, { method: "PUT", body: JSON.stringify({ role }) });
+        } else {
+          result = await ifRequest(token, "/live/schedules/" + scheduleId + "/crew/" + userId, { method: "DELETE" });
+        }
+      } else if (body.action === "reorder_schedule") {
         const aircraftId = String(body.aircraftId ?? "");
         if (!aircraftId || !scheduleId) return fail("Select an aircraft and schedule.", 400);
         result = await ifRequest(token, "/live/aircraft/" + aircraftId + "/schedules/reorder", { method: "PUT", body: JSON.stringify({ scheduleId, afterId: body.afterId ?? null }) });
