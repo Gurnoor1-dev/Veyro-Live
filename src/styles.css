@@ -578,3 +578,48 @@ button:focus:not(:focus-visible), a:focus:not(:focus-visible), [role="button"]:f
 .spotlight-nav-vertical .spotlight-nav-item::after { left: 14px; bottom: 4px; transform: scaleX(.45); }
 .spotlight-nav-vertical .spotlight-nav-item.active::after { transform: scaleX(1); }
 .spotlight-nav-item:focus-visible { outline: 2px solid var(--soft); outline-offset: 2px; }
+
+
+/* Minimal, balanced global navigation: brand · My Veyro · theme */
+.veyro-minimal-topbar {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0,1fr) auto minmax(0,1fr);
+  align-items: center;
+  gap: 16px;
+}
+.veyro-minimal-topbar > .brand { grid-column: 1; justify-self: start; }
+.veyro-minimal-topbar > .veyro-center-account { grid-column: 2; justify-self: center; }
+.veyro-minimal-topbar > .top-actions,
+.veyro-minimal-topbar > .cosmic-nav-actions { grid-column: 3; justify-self: end; }
+.veyro-center-account {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 18px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: .01em;
+  transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease;
+}
+.veyro-center-account:hover {
+  border-color: rgba(1,177,253,.55);
+  box-shadow: 0 0 20px rgba(1,177,253,.12);
+  transform: translateY(-1px);
+}
+.cosmic-nav.veyro-minimal-topbar { display: grid; }
+@media(max-width:560px) {
+  .veyro-minimal-topbar { gap: 8px; }
+  .veyro-minimal-topbar .brand-image { width: 104px; }
+  .veyro-center-account { min-height: 34px; padding: 0 12px; font-size: 10px; }
+}
+@media(max-width:360px) {
+  .veyro-minimal-topbar { grid-template-columns: minmax(0,1fr) auto auto; gap: 6px; }
+  .veyro-center-account { padding: 0 9px; }
+}
