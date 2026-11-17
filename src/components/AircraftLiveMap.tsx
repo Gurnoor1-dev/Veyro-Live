@@ -1,7 +1,10 @@
-import { useEffect, useMemo } from "react";
-import * as L from "leaflet";
-import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
-import "leaflet/dist/leaflet.css";
+import { useEffect, useMemo, useRef, useState } from "react";
+import maplibregl, { type Map as MapLibreMap, type Marker as MapLibreMarker } from "maplibre-gl";
+import mapWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
+import "maplibre-gl/dist/maplibre-gl.css";
+import "./AircraftLiveMap.css";
+
+maplibregl.setWorkerUrl(mapWorkerUrl);
 
 type AircraftPosition = {
   id: string;
@@ -17,6 +20,7 @@ type AircraftPosition = {
   lastPilotUsername?: string | null;
   updatedAt?: string;
 };
+type TrackedAircraft = { aircraft: any; position: AircraftPosition };
 
 function ageMs(value?: string) {
   if (!value) return Infinity;
@@ -49,40 +53,37 @@ function aircraftState(position?: AircraftPosition) {
   }
   return { label: "Status unknown", tone: "muted" };
 }
-function AircraftMapViewport({ points }: { points: [number, number][] }) {
-  const map = useMap();
-  useEffect(() => {
-    if (points.length === 1) map.setView(points[0], 5);
-    else if (points.length > 1) map.fitBounds(points, { padding: [28, 28], maxZoom: 6 });
-  }, [map, points]);
-  return null;
+function markerElement(position: AircraftPosition, tone: string) {
+  const root = document.createElement("div");
+  root.className = "veyro-map-aircraft tone-" + tone;
+  root.setAttribute("aria-label", aircraftState(position).label);
+  root.innerHTML = '<svg viewBox="0 0 24 28" aria-hidden="true"><path d="M12 1.5 14.6 10l7.1 4.1v2.8l-7.1-2.2v7l2.7 1.8v2.1L12 24l-5.3 1.6v-2.1L9.4 21v-7l-7.1 2.2v-2.8L9.4 10z"/></svg>';
+  root.style.transform = "rotate(" + Number(position.heading || 0) + "deg)";
+  return root;
 }
-function AircraftMapMarker({ aircraft, position, dark }: { aircraft: any; position: AircraftPosition; dark: boolean }) {
-  const state = aircraftState(position);
-  const icon = useMemo(() => L.divIcon({
-    className: "veyro-aircraft-marker",
-    html: '<span class="veyro-aircraft-marker-core tone-' + state.tone + (dark ? ' is-dark' : ' is-light') + '"><svg viewBox="0 0 24 28" aria-hidden="true" style="transform:rotate(' + Number(position.heading || 0) + 'deg)"><path d="M12 1.5 14.6 10l7.1 4.1v2.8l-7.1-2.2v7l2.7 1.8v2.1L12 24l-5.3 1.6v-2.1L9.4 21v-7l-7.1 2.2v-2.8L9.4 10z"/></svg></span>',
-    iconSize: [34, 34],
-    iconAnchor: [17, 17],
-  }), [dark, position.heading, state.tone]);
-
-  return (
-    <Marker position={[position.latitude, position.longitude]} icon={icon}>
-      <Popup>
-        <div className="aircraft-map-popup">
-          <strong>{aircraft.registration || "Fleet aircraft"}</strong>
-          <span>{position.lastPilotUsername || "Pilot not reported"} · {state.label}</span>
-          <div>
-            <b>{Math.round(position.altitude || 0).toLocaleString()} ft</b>
-            <b>{Math.round(position.speed || 0)} kt</b>
-            <b>{Math.round(position.heading || 0)}° HDG</b>
-            <b>{Math.round(position.verticalSpeed || 0)} ft/min</b>
-          </div>
-          <small>{position.latitude.toFixed(4)}, {position.longitude.toFixed(4)} · {ageLabel(position.updatedAt)}</small>
-        </div>
-      </Popup>
-    </Marker>
-  );
+function popupElement(aircraft: any, position: AircraftPosition, state: ReturnType<typeof aircraftState>) {
+  const root = document.createElement("div");
+  root.className = "veyro-map-popup";
+  const title = document.createElement("strong");
+  title.textContent = aircraft.registration || "Fleet aircraft";
+  const subtitle = document.createElement("span");
+  subtitle.textContent = (position.lastPilotUsername || "Pilot not reported") + " · " + state.label;
+  const metrics = document.createElement("div");
+  [Math.round(position.altitude || 0).toLocaleString() + " ft", Math.round(position.speed || 0) + " kt", Math.round(position.heading || 0) + "° HDG", Math.round(position.verticalSpeed || 0) + " ft/min"].forEach(value => {
+    const item = document.createElement("b");
+    item.textContent = value;
+    metrics.append(item);
+  });
+  const coordinates = document.createElement("small");
+  coordinates.textContent = position.latitude.toFixed(4) + ", " + position.longitude.toFixed(4) + " · " + ageLabel(position.updatedAt);
+  root.append(title, subtitle, metrics, coordinates);
+  return root;
+}
+function styleUrl(dark: boolean) {
+  const key = import.meta.env.VITE_MAPTILER_API_KEY?.trim();
+  if (!key) return "https://demotiles.maplibre.org/style.json";
+  const style = dark ? "streets-v4-dark" : "streets-v4";
+  return "https://api.maptiler.com/maps/" + style + "/style.json?key=" + encodeURIComponent(key);
 }
 
 export default function AircraftLiveMap({ aircraft, positions, dark }: {
@@ -90,7 +91,13 @@ export default function AircraftLiveMap({ aircraft, positions, dark }: {
   positions: Record<string, AircraftPosition>;
   dark: boolean;
 }) {
-  const tracked = useMemo(() => aircraft.flatMap(item => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<MapLibreMap | null>(null);
+  const markersRef = useRef<MapLibreMarker[]>([]);
+  const hasFittedRef = useRef(false);
+  const [mapError, setMapError] = useState("");
+  const [mapReady, setMapReady] = useState(false);
+  const tracked = useMemo<TrackedAircraft[]>(() => aircraft.flatMap(item => {
     const position = positions[item.id];
     return position &&
       Number.isFinite(position.latitude) &&
@@ -100,37 +107,78 @@ export default function AircraftLiveMap({ aircraft, positions, dark }: {
       ? [{ aircraft: item, position }]
       : [];
   }), [aircraft, positions]);
-  const points = useMemo(() => tracked.map(item => [item.position.latitude, item.position.longitude] as [number, number]), [tracked]);
-  const counts = tracked.reduce((result, item) => {
+  const counts = useMemo(() => tracked.reduce((result, item) => {
     const tone = aircraftState(item.position).tone;
     result[tone] = (result[tone] || 0) + 1;
     return result;
-  }, {} as Record<string, number>);
+  }, {} as Record<string, number>), [tracked]);
+
+  useEffect(() => {
+    if (!containerRef.current || mapRef.current) return;
+    const map = new maplibregl.Map({
+      container: containerRef.current,
+      style: styleUrl(dark),
+      center: [10, 25],
+      zoom: 2,
+      attributionControl: true,
+      maplibreLogo: true,
+      pitchWithRotate: false,
+      dragRotate: false,
+    });
+    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
+    map.on("load", () => setMapReady(true));
+    map.on("error", event => {
+      const message = event.error?.message || "Map tiles could not be loaded.";
+      if (/401|403|key|unauthor/i.test(message)) setMapError("Map provider rejected the key. Check the VITE_MAPTILER_API_KEY setting and its allowed domain.");
+    });
+    mapRef.current = map;
+    return () => {
+      markersRef.current.forEach(marker => marker.remove());
+      markersRef.current = [];
+      map.remove();
+      mapRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    setMapError("");
+    map.setStyle(styleUrl(dark));
+  }, [dark]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+    markersRef.current.forEach(marker => marker.remove());
+    markersRef.current = tracked.map(({ aircraft: item, position }) => {
+      const state = aircraftState(position);
+      const popup = new maplibregl.Popup({ offset: 18, closeButton: true, maxWidth: "280px" })
+        .setDOMContent(popupElement(item, position, state));
+      const marker = new maplibregl.Marker({
+        element: markerElement(position, state.tone),
+        anchor: "center",
+      }).setLngLat([position.longitude, position.latitude]).setPopup(popup).addTo(map);
+      return marker;
+    });
+    if (!hasFittedRef.current && tracked.length) {
+      if (tracked.length === 1) map.flyTo({ center: [tracked[0].position.longitude, tracked[0].position.latitude], zoom: 5, duration: 700 });
+      else {
+        const bounds = new maplibregl.LngLatBounds();
+        tracked.forEach(item => bounds.extend([item.position.longitude, item.position.latitude]));
+        map.fitBounds(bounds, { padding: 54, maxZoom: 6, duration: 700 });
+      }
+      hasFittedRef.current = true;
+    }
+  }, [mapReady, tracked]);
 
   return (
     <div className="aircraft-map-layout">
       <div className="aircraft-map-main">
         <div className="aircraft-map-frame">
-          <MapContainer
-            key={dark ? "dark" : "light"}
-            center={points[0] ?? L.latLng(25, 10)}
-            zoom={points.length ? 4 : 2}
-            scrollWheelZoom
-            zoomControl={false}
-            className="aircraft-live-map"
-          >
-            <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
-              url={dark
-                ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-                : "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"}
-            />
-            <AircraftMapViewport points={points} />
-            {tracked.map(({ aircraft: item, position }) => (
-              <AircraftMapMarker key={item.id} aircraft={item} position={position} dark={dark} />
-            ))}
-          </MapContainer>
-          {tracked.length === 0 && <div className="aircraft-map-empty">Waiting for aircraft position reports.</div>}
+          <div ref={containerRef} className="aircraft-live-map" />
+          {!mapReady && <div className="aircraft-map-loading-overlay">Preparing vector map…</div>}
+          {mapError && <div className="aircraft-map-error">{mapError}</div>}
           <div className="aircraft-map-count"><span className="map-live-dot"/>{tracked.length} positioned · {aircraft.length} in fleet</div>
         </div>
         <div className="aircraft-map-legend" aria-label="Aircraft map legend">
@@ -139,6 +187,7 @@ export default function AircraftLiveMap({ aircraft, positions, dark }: {
           <span><i className="tone-ground"/>On ground</span>
           <span><i className="tone-parked"/>Parked 12h+</span>
         </div>
+        {!import.meta.env.VITE_MAPTILER_API_KEY && <p className="aircraft-map-provider-note">Using MapLibre demo tiles. Add a MapTiler key for production map coverage.</p>}
       </div>
       <aside className="aircraft-map-roster">
         <div className="aircraft-map-roster-heading"><strong>Fleet positions</strong><span>{tracked.length}/{aircraft.length} tracked</span></div>
