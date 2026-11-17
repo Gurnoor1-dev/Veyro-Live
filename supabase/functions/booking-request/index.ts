@@ -95,11 +95,14 @@ Deno.serve(async (req) => {
     let existingNeedsDiscordRepair = false;
     if (existing) {
       if (existing.status !== "pending_approval") {
+        const { data: existingSettings } = existing.discord_message_id
+          ? await admin.from("discord_settings").select("guild_id,approval_channel_id").eq("organization_id", org.id).maybeSingle()
+          : { data: null };
         return json({
           booking: existing,
           alreadyExists: true,
-          discordMessageUrl: existing.discord_message_id
-            ? discordMessageUrl("", "", existing.discord_message_id)
+          discordMessageUrl: existing.discord_message_id && existingSettings
+            ? discordMessageUrl(existingSettings.guild_id, existingSettings.approval_channel_id, existing.discord_message_id)
             : null,
         });
       }
@@ -248,7 +251,12 @@ Deno.serve(async (req) => {
       return fail("The approval post was created, but Veyro could not save its Discord reference. Please contact an administrator.", 502);
     }
     const url = discordMessageUrl(discord.guild_id, discord.approval_channel_id, discordMessage.id);
-    return json({ booking: { ...booking, discord_message_id: discordMessage.id }, alreadyExists: Boolean(existing || existingNeedsDiscordRepair), discordMessageUrl: url });
+    return json({
+      booking: { ...booking, discord_message_id: discordMessage.id },
+      alreadyExists: Boolean(existing || existingNeedsDiscordRepair),
+      discordPostRepaired: Boolean(existingNeedsDiscordRepair),
+      discordMessageUrl: url,
+    });
   } catch (error) {
     if (error instanceof IfApiRateLimitError) return fail(error.message, 429, { "Retry-After": String(error.retryAfterSeconds) });
     console.error("[booking-request] failed", error);
