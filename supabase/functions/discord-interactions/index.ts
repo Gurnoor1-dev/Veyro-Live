@@ -65,7 +65,7 @@ async function processDecision(interaction: any, action: string, requestId: stri
       if (approvedIndex >= 0) fields.splice(approvedIndex, 1);
       if (reviewIndex >= 0) fields.splice(reviewIndex, 1);
       fields.push(approverField);
-      const embed = { ...source, title: "CREW REQUEST · " + status, color: status === "APPROVED" ? 5763719 : status === "REJECTED" ? 15548997 : 16763904, fields };
+      const embed = { title: "CREW REQUEST · " + status, description: source.description, url: source.url, timestamp: source.timestamp, color: status === "APPROVED" ? 5763719 : status === "REJECTED" ? 15548997 : 16763904, footer: source.footer, author: source.author, thumbnail: source.thumbnail, image: source.image, fields };
       await editOriginal(applicationId, token, { embeds: [embed], components: [] });
     };
     if (action === "reject") {
