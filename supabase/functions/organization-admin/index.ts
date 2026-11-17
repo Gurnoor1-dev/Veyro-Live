@@ -69,6 +69,16 @@ Deno.serve(async (req) => {
     if (cachedPortal && cachedPortal.expiresAt > Date.now()) return json(cachedPortal.value);
   }
 
+  // Start the dashboard's independent database reads while the IF token and role are being verified.
+  const adminReadsPromise = body.action === "get_admin_portal"
+    ? Promise.all([
+        admin.from("organization_memberships").select("user_id,role,is_active,created_at").eq("organization_id", organizationId).order("created_at"),
+        admin.from("organization_pilot_invites").select("id,email,pilot_name,status,created_at").eq("organization_id", organizationId).order("created_at", { ascending: false }),
+        admin.from("discord_settings").select("guild_id,approval_channel_id,allowed_approver_role_ids,enabled").eq("organization_id", organizationId).maybeSingle(),
+        admin.from("profiles").select("display_name,discord_user_id").eq("id", user.id).maybeSingle(),
+      ])
+    : null;
+
   let userToken: string;
   let userScopes: string[];
   let liveOrganization: { id: string; name?: string; role: number } | undefined;
@@ -89,12 +99,7 @@ Deno.serve(async (req) => {
   if (body.action !== "get_admin_portal") adminPortalCache.clear();
   try {
     if (body.action === "get_admin_portal") {
-      const [membersResult, invitesResult, discordResult, profileResult] = await Promise.all([
-        admin.from("organization_memberships").select("user_id,role,is_active,created_at").eq("organization_id", organizationId).order("created_at"),
-        admin.from("organization_pilot_invites").select("id,email,pilot_name,status,created_at").eq("organization_id", organizationId).order("created_at", { ascending: false }),
-        admin.from("discord_settings").select("guild_id,approval_channel_id,allowed_approver_role_ids,enabled").eq("organization_id", organizationId).maybeSingle(),
-        admin.from("profiles").select("display_name,discord_user_id").eq("id", user.id).maybeSingle()
-      ]);
+      const [membersResult, invitesResult, discordResult, profileResult] = await adminReadsPromise!;
       const memberIds = (membersResult.data ?? []).map((m) => m.user_id);
       const token = userToken;
       await reserveIfApiRequests(2);
