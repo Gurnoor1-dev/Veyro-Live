@@ -98,7 +98,11 @@ Deno.serve(async (req) => {
     destination.searchParams.set("if_connected", "1");
     destination.searchParams.set("pending", pendingId);
     return new Response(null, { status: 302, headers: { Location: destination.toString() } });
-  } catch {
-    return fail("Infinite Flight authorization failed", 502);
+  } catch (error) {
+    console.error("[if-oauth-callback] authorization processing failed", error instanceof Error ? error.message : String(error));
+    const base = (Deno.env.get("APP_BASE_URL") ?? "").replace(/\/$/, "");
+    const destination = new URL("/login", base || new URL(req.url).origin);
+    destination.searchParams.set("connect_error", "Infinite Flight could not finish linking this session. Please retry; if this repeats, contact Veyro support.");
+    return new Response(null, { status: 302, headers: { Location: destination.toString() } });
   }
 });
