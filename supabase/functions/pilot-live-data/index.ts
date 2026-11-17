@@ -195,17 +195,27 @@ Deno.serve(async (req) => {
 
     let rateLimitState: IfApiRateLimitState = { remaining: null, resetAt: null, isPro: false };
     const observeRateLimit = (state: IfApiRateLimitState) => { rateLimitState = state; };
-    const organization = await ifRequest<{ id: string; name: string; role: number }>(token, "/live/organizations/" + body.organizationId, {}, observeRateLimit);
+    // Resolve the Veyro portal in parallel with the first Live membership check.
+    // The Live response is still required before any membership or dashboard data is returned.
+    const [organization, portalResult] = await Promise.all([
+      ifRequest<{ id: string; name: string; role: number }>(token, "/live/organizations/" + body.organizationId, {}, observeRateLimit),
+      admin.from("organizations").select("id,slug").eq("live_organization_id", body.organizationId).eq("is_active", true).maybeSingle(),
+    ]);
     if (!organization) return fail("Your Infinite Flight account is not a member of this organization.", 403);
     // The v3 Live organization list is already scoped to the authenticated
     // Infinite Flight user. Confirm membership there; do not call an undocumented
     // OIDC user-info URL (it returns 404 and blocks every dashboard).
-    const { data: portal } = await admin.from("organizations").select("id,slug").eq("live_organization_id", organization.id).eq("is_active", true).single();
-    if (!portal) return fail("This organization does not have a Veyro pilot portal.", 404);
-    const { data: invite } = user.email
-      ? await admin.from("organization_pilot_invites").select("id,pilot_name,status,accepted_user_id").eq("organization_id", portal.id).ilike("email", user.email.toLowerCase()).in("status", ["invited", "accepted"]).maybeSingle()
-      : { data: null };
-    const { data: existingMembership } = await admin.from("organization_memberships").select("role,is_active").eq("organization_id", portal.id).eq("user_id", user.id).maybeSingle();
+    const portal = portalResult.data;
+    if (portalResult.error || !portal) return fail("This organization does not have a Veyro pilot portal.", 404);
+    const inviteQuery = user.email
+      ? admin.from("organization_pilot_invites").select("id,pilot_name,status,accepted_user_id").eq("organization_id", portal.id).ilike("email", user.email.toLowerCase()).in("status", ["invited", "accepted"]).maybeSingle()
+      : Promise.resolve({ data: null });
+    const [inviteResult, membershipResult] = await Promise.all([
+      inviteQuery,
+      admin.from("organization_memberships").select("role,is_active").eq("organization_id", portal.id).eq("user_id", user.id).maybeSingle(),
+    ]);
+    const invite = inviteResult.data;
+    const existingMembership = membershipResult.data;
     if (existingMembership && !existingMembership.is_active) return fail("Your pilot access has been disabled by the organization administrator.", 403);
     const hasVerifiedLiveMembership = Number.isInteger(organization.role) && organization.role >= 0 && organization.role <= 2;
     if (!invite && !existingMembership && !hasVerifiedLiveMembership) {
@@ -219,39 +229,39 @@ Deno.serve(async (req) => {
     // Create the Veyro membership from that verified role so OAuth-only users
     // do not need an email account to enter their organization's portal.
     const verifiedVeyroRole = organization.role === 2 ? "owner" : organization.role === 1 ? "admin" : "pilot";
-    if (!existingMembership) {
-      const { error: memberError } = await admin.from("organization_memberships").insert({
-        organization_id: portal.id, user_id: user.id, role: verifiedVeyroRole, is_active: true,
-      });
-      if (memberError) return fail("Could not activate your organization membership.", 500);
-    } else if (existingMembership.role === "pilot" && ["admin", "owner"].includes(verifiedVeyroRole)) {
-      const { error: roleError } = await admin.from("organization_memberships")
-        .update({ role: verifiedVeyroRole }).eq("organization_id", portal.id).eq("user_id", user.id);
-      if (roleError) return fail("Could not update your verified organization role.", 500);
-    }
-    if (invite && invite.status === "invited") {
-      const { error: inviteError } = await admin.from("organization_pilot_invites").update({
-        status: "accepted", accepted_user_id: user.id, accepted_at: new Date().toISOString(),
-      }).eq("id", invite.id);
-      if (inviteError) return fail("Your pilot invitation could not be accepted. Please retry.", 500);
-    }
-    // Infinite Flight API data must not be persisted; keep only Veyro-owned profile details.
-    const { error: profileError } = await admin.from("profiles").upsert({
+    const memberWrite = !existingMembership
+      ? admin.from("organization_memberships").insert({
+          organization_id: portal.id, user_id: user.id, role: verifiedVeyroRole, is_active: true,
+        })
+      : existingMembership.role === "pilot" && ["admin", "owner"].includes(verifiedVeyroRole)
+        ? admin.from("organization_memberships").update({ role: verifiedVeyroRole }).eq("organization_id", portal.id).eq("user_id", user.id)
+        : Promise.resolve({ error: null });
+    const inviteWrite = invite && invite.status === "invited"
+      ? admin.from("organization_pilot_invites").update({
+          status: "accepted", accepted_user_id: user.id, accepted_at: new Date().toISOString(),
+        }).eq("id", invite.id)
+      : Promise.resolve({ error: null });
+    // Keep Veyro-owned profile and connection records in parallel; Live API data remains temporary.
+    const profileWrite = admin.from("profiles").upsert({
       id: user.id,
       display_name: invite?.pilot_name ?? user.user_metadata?.display_name ?? user.user_metadata?.name ?? (user.email ? user.email.split("@")[0] : "Infinite Flight pilot"),
     }, { onConflict: "id" });
-    if (profileError) return fail("Could not save your Veyro pilot profile.", 500);
-
-    if (body.pendingId) {
-      const { error } = await admin.from("user_if_connections").upsert({
-        user_id: user.id,
-        access_token_ciphertext: await encryptSecret(token),
-        refresh_token_ciphertext: refreshCiphertext,
-        token_expires_at: expiry,
-        granted_scopes: scopes,
-      }, { onConflict: "user_id" });
-      if (error) return fail("Could not securely save your pilot connection.", 500);
-    }
+    const connectionWrite = body.pendingId
+      ? encryptSecret(token).then((ciphertext) => admin.from("user_if_connections").upsert({
+          user_id: user.id,
+          access_token_ciphertext: ciphertext,
+          refresh_token_ciphertext: refreshCiphertext,
+          token_expires_at: expiry,
+          granted_scopes: scopes,
+        }, { onConflict: "user_id" }))
+      : Promise.resolve({ error: null });
+    const [memberResult, inviteWriteResult, profileWriteResult, connectionWriteResult] = await Promise.all([
+      memberWrite, inviteWrite, profileWrite, connectionWrite,
+    ]);
+    if (memberResult.error) return fail("Could not activate your organization membership.", 500);
+    if (inviteWriteResult.error) return fail("Your pilot invitation could not be accepted. Please retry.", 500);
+    if (profileWriteResult.error) return fail("Could not save your Veyro pilot profile.", 500);
+    if (connectionWriteResult.error) return fail("Could not securely save your pilot connection.", 500);
 
     await reserveIfApiRequests(2);
     const [aircraft, schedulesPage, bookingsResult] = await Promise.all([
