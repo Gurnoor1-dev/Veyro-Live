@@ -38,7 +38,6 @@ export default function SpotlightNavbar({
     canScrollRight: false,
   });
 
-  // Find the single most specific matching route
   const activeIndex = (() => {
     let bestIndex = -1;
     let bestLength = -1;
@@ -64,8 +63,8 @@ export default function SpotlightNavbar({
 
     const { scrollLeft, scrollWidth, clientWidth } = nav;
     setScrollState({
-      canScrollLeft: scrollLeft > 4,
-      canScrollRight: scrollLeft + clientWidth < scrollWidth - 4,
+      canScrollLeft: scrollLeft > 6,
+      canScrollRight: scrollLeft + clientWidth < scrollWidth - 6,
     });
   }, [orientation]);
 
@@ -91,16 +90,15 @@ export default function SpotlightNavbar({
         ready: true,
       });
 
-      // Auto-scroll active item smoothly into view if partially clipped
       const navLeft = nav.scrollLeft;
       const navRight = navLeft + nav.clientWidth;
       const elLeft = activeEl.offsetLeft;
       const elRight = elLeft + activeEl.offsetWidth;
 
-      if (elLeft < navLeft + 24) {
-        nav.scrollTo({ left: Math.max(0, elLeft - 24), behavior: "smooth" });
-      } else if (elRight > navRight - 24) {
-        nav.scrollTo({ left: elRight - nav.clientWidth + 24, behavior: "smooth" });
+      if (elLeft < navLeft + 32) {
+        nav.scrollTo({ left: Math.max(0, elLeft - 32), behavior: "smooth" });
+      } else if (elRight > navRight - 32) {
+        nav.scrollTo({ left: elRight - nav.clientWidth + 32, behavior: "smooth" });
       }
     }
   }, [activeIndex, orientation]);
@@ -144,7 +142,7 @@ export default function SpotlightNavbar({
   };
 
   const scrollByAmount = (direction: -1 | 1) => {
-    navRef.current?.scrollBy({ left: direction * 180, behavior: "smooth" });
+    navRef.current?.scrollBy({ left: direction * 200, behavior: "smooth" });
   };
 
   const wrapperClasses = [
@@ -159,6 +157,9 @@ export default function SpotlightNavbar({
 
   return (
     <div className={wrapperClasses}>
+      {/* Outer ambient glow layer */}
+      <div className="spotlight-shell-glow" aria-hidden="true" />
+
       {orientation === "horizontal" && scrollState.canScrollLeft && (
         <button
           type="button"
@@ -166,7 +167,7 @@ export default function SpotlightNavbar({
           onClick={() => scrollByAmount(-1)}
           aria-label="Scroll navigation left"
         >
-          ‹
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
         </button>
       )}
 
@@ -178,10 +179,10 @@ export default function SpotlightNavbar({
         onPointerMove={handlePointerMove}
         onPointerLeave={handlePointerLeave}
       >
-        {/* Cursor proximity highlight */}
+        {/* Cursor proximity light */}
         <span className="spotlight-nav-light" aria-hidden="true" />
 
-        {/* Sliding active pill background */}
+        {/* Liquid Glass Sliding Active Pill */}
         {indicator.ready && (
           <div
             className="spotlight-active-pill"
@@ -197,7 +198,9 @@ export default function SpotlightNavbar({
                     width: `${indicator.size}px`,
                   }
             }
-          />
+          >
+            <div className="spotlight-pill-reflection" />
+          </div>
         )}
 
         {items.map((item, index) => {
@@ -219,7 +222,7 @@ export default function SpotlightNavbar({
                   onItemClick(item, index);
                 }}
               >
-                <span>{item.label}</span>
+                <span className="spotlight-item-label">{item.label}</span>
               </a>
             );
           }
@@ -234,7 +237,7 @@ export default function SpotlightNavbar({
               className={itemClass}
               aria-current={isActive ? "page" : undefined}
             >
-              <span>{item.label}</span>
+              <span className="spotlight-item-label">{item.label}</span>
             </Link>
           );
         })}
@@ -247,7 +250,7 @@ export default function SpotlightNavbar({
           onClick={() => scrollByAmount(1)}
           aria-label="Scroll navigation right"
         >
-          ›
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
         </button>
       )}
     </div>
