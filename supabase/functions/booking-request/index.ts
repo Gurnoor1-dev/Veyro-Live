@@ -125,9 +125,17 @@ Deno.serve(async (req) => {
           });
         }
         if (check.status !== 404) {
+          // A bot without Read Message History may receive 403 even though its
+          // original post is still present. Keep the reservation idempotent and
+          // give the pilot the direct message link instead of creating duplicates.
           const detail = await check.text().catch(() => "");
-          console.error("[booking-request] could not verify existing Discord post", { status: check.status, detail: detail.slice(0, 500) });
-          return fail("Your leg request already exists, but Veyro could not verify its Discord approval post. Ask an administrator to check the approval channel.", 502);
+          console.warn("[booking-request] Discord post verification was limited", { status: check.status, detail: detail.slice(0, 300) });
+          return json({
+            booking: existing,
+            alreadyExists: true,
+            discordMessageUrl: discordMessageUrl(discord.guild_id, discord.approval_channel_id, existing.discord_message_id),
+            discordVerificationLimited: true,
+          });
         }
       }
       existingNeedsDiscordRepair = true;
