@@ -61,7 +61,7 @@ async function processDecision(interaction: any, action: string, requestId: stri
       const fields = Array.isArray(source.fields) ? [...source.fields] : [];
       const approvedIndex = fields.findIndex((field: any) => field.name === "Approved by");
       const reviewIndex = fields.findIndex((field: any) => field.name === "Reviewed by");
-      const approverField = { name: status === "APPROVED" ? "Approved by" : "Reviewed by", value: (status === "PENDING" ? "Sync pending" : reviewer) + " · " + (status === "PENDING" ? "—" : reviewedAt.replace("T", " ").slice(0, 16) + " UTC") + " · " + (request.reference_code || "------"), inline: false };
+      const approverField = { name: status === "APPROVED" ? "Approved by" : "Reviewed by", value: (status === "PENDING" ? "Sync pending" : "**" + reviewer + "**") + " · " + (status === "PENDING" ? "—" : reviewedAt.replace("T", " ").slice(0, 16) + " UTC") + " · " + (request.reference_code || "------"), inline: false };
       if (approvedIndex >= 0) fields.splice(approvedIndex, 1);
       if (reviewIndex >= 0) fields.splice(reviewIndex, 1);
       fields.push(approverField);
