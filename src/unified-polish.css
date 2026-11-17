@@ -458,13 +458,6 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .aircraft-map-legend i.tone-ground,.aircraft-map-roster-summary i.tone-ground { background:#3b82f6; }
 .aircraft-map-legend i.tone-parked,.aircraft-map-roster-summary i.tone-parked { background:#eab308; }
 .veyro-aircraft-marker { background:transparent; border:0; }
-.veyro-aircraft-marker-core { display:grid; place-items:center; width:30px; height:30px; border:1px solid rgba(255,255,255,.78); border-radius:50%; box-shadow:0 2px 10px rgba(0,0,0,.28); }
-.veyro-aircraft-marker-core svg { width:17px; height:20px; fill:#fff; }
-.veyro-aircraft-marker-core.tone-air { background:#16a34a; }
-.veyro-aircraft-marker-core.tone-stopped { background:#9333ea; }
-.veyro-aircraft-marker-core.tone-ground { background:#2563eb; }
-.veyro-aircraft-marker-core.tone-parked { background:#ca8a04; }
-.veyro-aircraft-marker-core.tone-muted { background:#64748b; }
 .aircraft-map-count { z-index:500; }
 .aircraft-map-empty { position:absolute; z-index:450; top:50%; left:50%; transform:translate(-50%,-50%); padding:10px 13px; border-radius:9px; background:var(--surface); color:var(--muted); font-size:9px; box-shadow:var(--veyro-shadow); white-space:nowrap; pointer-events:none; }
 .aircraft-map-footer { display:flex; flex-wrap:wrap; justify-content:space-between; gap:4px 10px; padding:7px 2px 0; font-size:8px; line-height:1.4; color:var(--muted); }
@@ -485,19 +478,23 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
   .aircraft-map-roster { max-height: 220px; }
 }
 
-/* MapLibre vector map and condensed pilot overview cards */
+/* MapLibre vector map and Lucide filled-icon status-coded aircraft markers */
 .aircraft-map-frame { position:relative; }
 .aircraft-live-map { position:absolute; inset:0; width:100%; height:100%; }
 .aircraft-map-frame .maplibregl-map { width:100%; height:100%; }
 .aircraft-map-frame .maplibregl-ctrl-group { border:1px solid var(--border); border-radius:9px; overflow:hidden; box-shadow:0 3px 12px rgba(0,0,0,.12); }
 .aircraft-map-frame .maplibregl-ctrl button { width:30px; height:30px; }
-.veyro-map-aircraft { display:grid; place-items:center; width:31px; height:31px; border:1px solid rgba(255,255,255,.9); border-radius:50%; box-shadow:0 2px 10px rgba(0,0,0,.3); cursor:pointer; }
-.veyro-map-aircraft svg { width:17px; height:20px; fill:#fff; }
-.veyro-map-aircraft.tone-air { background:#16a34a; }
-.veyro-map-aircraft.tone-stopped { background:#9333ea; }
-.veyro-map-aircraft.tone-ground { background:#2563eb; }
-.veyro-map-aircraft.tone-parked { background:#ca8a04; }
-.veyro-map-aircraft.tone-muted { background:#64748b; }
+
+/* Status-coded filled Lucide airplane markers */
+.veyro-map-aircraft { display:grid; place-items:center; width:34px; height:34px; border:1.5px solid rgba(255,255,255,.9); border-radius:50%; box-shadow:0 3px 12px rgba(0,0,0,.35); cursor:pointer; transition:transform 0.15s ease; }
+.veyro-map-aircraft:hover { transform:scale(1.12); }
+.veyro-map-aircraft svg { width:18px; height:18px; }
+.veyro-map-aircraft.tone-air { background:#16a34a; color:#ffffff; }
+.veyro-map-aircraft.tone-stopped { background:#9333ea; color:#ffffff; }
+.veyro-map-aircraft.tone-ground { background:#2563eb; color:#ffffff; }
+.veyro-map-aircraft.tone-parked { background:#ca8a04; color:#ffffff; }
+.veyro-map-aircraft.tone-muted { background:#64748b; color:#ffffff; }
+
 .veyro-map-popup { display:flex; flex-direction:column; gap:5px; min-width:180px; color:#172033; font-family:inherit; }
 .veyro-map-popup strong { font-size:12px; }
 .veyro-map-popup span,.veyro-map-popup small { font-size:10px; color:#64748b; }
