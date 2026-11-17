@@ -125,8 +125,8 @@ export default function DocsPage() {
   return <div className="docs-app">
     <header className="docs-topbar">
       <div className="docs-brand"><Brand/></div>
-      <div className="docs-top-center"><span>DOCUMENTATION</span><span className="docs-version">GUIDES & REFERENCES</span></div>
-      <div className="docs-top-actions"><a href="https://github.com/Gurnoor1-dev/Veyro-Live/tree/main/docs" target="_blank" rel="noreferrer">GitHub docs <ArrowUpRight size={13}/></a><ThemeToggle/><button className="docs-mobile-toggle" onClick={() => setMobileOpen(v => !v)} aria-label="Toggle navigation">{mobileOpen ? <X/> : <Menu/>}</button></div>
+      <Link className="nav-account-link veyro-center-account" to="/account">My Veyro <ArrowUpRight size={13}/></Link>
+      <div className="docs-top-actions"><ThemeToggle/><button className="docs-mobile-toggle" onClick={() => setMobileOpen(v => !v)} aria-label="Toggle documentation menu">{mobileOpen ? <X/> : <Menu/>}</button></div>
     </header>
     <div className="docs-layout">
       <aside className={"docs-sidebar" + (mobileOpen ? " is-open" : "")}>
