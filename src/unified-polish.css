@@ -1,0 +1,173 @@
+/* VEYRO Live — unified product polish */
+:root{
+  --veyro-accent:#0a9ed8;
+  --veyro-accent-soft:rgba(10,158,216,.10);
+  --veyro-shadow:0 14px 38px rgba(15,23,42,.045);
+}
+html.dark{
+  --veyro-accent:#42bff0;
+  --veyro-accent-soft:rgba(66,191,240,.12);
+  --veyro-shadow:0 18px 48px rgba(0,0,0,.16);
+}
+html{scroll-behavior:smooth;scroll-padding-top:88px}
+body{font-feature-settings:"ss01" on}
+button,a,input,select,textarea{-webkit-tap-highlight-color:transparent}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--veyro-accent);outline-offset:3px}
+.shell{width:min(1240px,calc(100% - 64px))}
+.shell.narrow{width:min(600px,calc(100% - 36px))}
+.topbar{height:68px;flex:none}
+.brand-image{display:block;max-width:132px;max-height:34px;object-fit:contain}
+.theme-toggle{width:36px;height:36px;border-radius:10px}
+.footer{min-height:58px;gap:12px;font-size:9px}
+.button{min-height:39px;border-radius:10px;padding:10px 14px;font-size:11px}
+.button:disabled{cursor:not-allowed;opacity:.58;transform:none}
+.button-primary{box-shadow:0 5px 14px rgba(15,23,42,.08)}
+.panel,.feature,.stat-card,.airline-account-card,.directory-account-card,.org-directory-card,.docs-category-card{box-shadow:var(--veyro-shadow)}
+.panel{border-radius:15px;padding:24px}
+.notice{border-radius:11px;padding:12px 14px}
+.text-field{min-height:42px;border-radius:10px;background:var(--surface)}
+.text-field:focus{border-color:var(--veyro-accent);box-shadow:0 0 0 3px var(--veyro-accent-soft)}
+.field-label,.admin-field{font-size:10px;letter-spacing:.01em}
+.empty-state{padding:26px 12px}
+.directory-empty{padding:18px}
+.dashboard-heading{padding:30px 0 18px;align-items:center;gap:16px}
+.dashboard-heading h1{font-size:clamp(25px,3vw,34px);line-height:1.12;margin:9px 0 5px}
+.dashboard-heading p{max-width:620px;line-height:1.65;font-size:11px}
+.dashboard-if-live-mark{max-width:110px;max-height:34px;object-fit:contain;opacity:.8;margin-left:auto}
+.dashboard-stats{gap:10px}
+.stat-card{min-width:0;padding:15px;border-radius:13px;gap:7px}
+.stat-card>span{font-size:9px;letter-spacing:.02em}
+.stat-card strong{font-size:24px;line-height:1.15}
+.stat-card small{font-size:8px;line-height:1.45}
+.dashboard-panel{padding:18px;border-radius:14px}
+.section-heading{gap:12px;margin-bottom:14px}
+.section-heading h2{font-size:14px}
+.section-heading p{line-height:1.6}
+.data-row{padding:12px 0;gap:10px}
+.data-row strong{font-size:11px}
+.data-row small{font-size:9px;line-height:1.5}
+.row-status{border:1px solid var(--border);border-radius:999px}
+.dashboard-columns{gap:12px;margin:12px 0 28px}
+.admin-shell{width:min(1240px,calc(100% - 64px))}
+.admin-spotlight{margin:0 0 16px}
+.admin-grid{gap:12px;margin-bottom:20px}
+.admin-card{padding:19px}
+.admin-card h2{font-size:15px}
+.admin-field{gap:6px;margin:11px 0}
+.admin-list-row,.admin-schedule-row{padding:11px 0}
+.icon-action{min-height:32px;border-radius:8px}
+.aircraft-schedule-group{padding:10px 0}
+.pilot-shell{width:min(1360px,calc(100% - 64px))}
+.pilot-layout{grid-template-columns:196px minmax(0,1fr);gap:22px;padding:18px 0 30px}
+.pilot-sidebar{padding-right:14px;min-height:0}
+.pilot-sidebar nav{gap:3px;padding-top:12px}
+.pilot-sidebar nav a{padding:9px 10px;border-radius:9px;font-size:10px}
+.pilot-sidebar-org{padding:5px 3px 15px}
+.pilot-content .dashboard-heading{padding:2px 0 17px}
+.pilot-data-panel{margin-top:12px}
+.account-hero{padding:30px 0 22px;gap:20px}
+.account-hero h1{font-size:clamp(28px,4vw,42px);letter-spacing:-.055em}
+.account-hero p{line-height:1.7}
+.account-section{margin:18px 0 24px}
+.account-section-heading{margin-bottom:13px;gap:12px}
+.account-section-heading h2{font-size:19px;letter-spacing:-.045em;margin:5px 0}
+.account-card-grid,.account-directory-grid{gap:12px}
+.airline-account-card,.directory-account-card{padding:17px;border-radius:14px}
+.airline-account-card h3,.directory-account-card h3{font-size:14px}
+.airline-account-card p,.directory-account-card p{line-height:1.65}
+.account-empty{padding:24px;border-radius:14px}
+.account-bottom-actions{padding:4px 0 18px;gap:9px}
+.account-connection-card{padding:14px;border-radius:13px;gap:12px}
+.account-loading{padding:48px 0}
+.account-welcome{padding:70px 0 55px}
+.account-welcome h1{font-size:clamp(36px,6vw,58px)}
+.login-panel{margin:42px auto 30px;padding:27px;max-width:560px}
+.login-panel h1{font-size:clamp(27px,4vw,35px);line-height:1.15;margin:18px 0 9px}
+.login-panel>p{font-size:11px;line-height:1.8}
+.login-brand-stack{gap:10px}
+.if-live-logo{max-width:154px;max-height:42px;object-fit:contain}
+.if-oauth-button{min-height:48px;margin-top:20px;border-radius:11px}
+.login-security-note,.login-session-note{margin-top:13px;font-size:9px;line-height:1.65}
+.application-intro{padding:42px 0 18px}
+.application-intro h1{font-size:clamp(34px,5vw,52px);margin:13px 0 9px}
+.application-intro p{font-size:11px;line-height:1.75}
+.application-panel{padding:22px;margin:0 0 28px}
+.application-step{margin:22px 0 8px}
+.application-success,.status-panel{margin:18px 0 30px}
+.public-org-hero{padding:54px 0 70px}
+.docs-topbar{height:66px}
+.docs-layout{min-height:calc(100vh - 66px)}
+.docs-sidebar{padding:18px 14px}
+.docs-main{padding-bottom:48px}
+.docs-overview-page{padding-top:52px}
+.docs-overview-meta{margin:20px 0 30px}
+.docs-card-grid{gap:11px}
+.docs-category-card{padding:16px;border-radius:13px}
+.docs-article-layout{padding-top:36px;gap:34px}
+.docs-article h1{font-size:clamp(29px,4vw,42px)}
+.docs-markdown{line-height:1.8}
+.docs-markdown h2,.docs-markdown h3{margin-top:27px}
+.docs-pagination{margin-top:34px}
+.spotlight-nav{border-radius:12px}
+.spotlight-nav-item{border-radius:9px}
+.fleet-aircraft-card{border-radius:14px;overflow:hidden}
+.aircraft-map-panel{margin-top:12px}
+.aircraft-map-frame{border-radius:12px;overflow:hidden}
+@media(max-width:900px){
+  .shell,.admin-shell,.pilot-shell{width:calc(100% - 40px)}
+  .pilot-layout{grid-template-columns:1fr;gap:14px}
+  .pilot-sidebar{border-right:0;border-bottom:1px solid var(--border);padding:0 0 12px}
+  .pilot-sidebar-org{padding-bottom:11px}
+  .pilot-sidebar nav{flex-direction:row;overflow-x:auto;padding:9px 0 2px}
+  .pilot-sidebar nav a{white-space:nowrap}
+  .pilot-sidebar-foot{display:none}
+}
+@media(max-width:700px){
+  .shell,.admin-shell,.pilot-shell{width:calc(100% - 30px)}
+  .topbar{height:60px}
+  .brand-image{max-width:112px;max-height:30px}
+  .footer{padding:14px 0;min-height:54px}
+  .dashboard-heading{padding:23px 0 14px;align-items:flex-start;flex-wrap:wrap}
+  .dashboard-heading>div:first-child{flex:1 1 100%}
+  .dashboard-if-live-mark{display:none}
+  .dashboard-heading>.button{align-self:flex-start}
+  .dashboard-stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .stat-card{padding:12px}
+  .stat-card strong{font-size:21px}
+  .dashboard-panel,.admin-card{padding:15px}
+  .admin-grid{grid-template-columns:1fr;gap:10px}
+  .account-hero{padding:24px 0 16px;display:flex;flex-direction:column;align-items:stretch}
+  .account-connection-card{display:grid;grid-template-columns:auto minmax(0,1fr)}
+  .account-connection-card button{grid-column:1/-1;width:100%}
+  .account-section{margin:14px 0 20px}
+  .account-section-heading{align-items:flex-start}
+  .account-card-grid,.account-directory-grid{grid-template-columns:1fr}
+  .login-panel{margin:26px auto 22px;padding:20px}
+  .application-intro{padding:30px 0 15px}
+  .application-panel{padding:17px}
+  .public-org-hero{padding:38px 0 50px}
+  .docs-topbar{height:60px}
+  .docs-layout{min-height:calc(100vh - 60px)}
+  .docs-sidebar{top:60px}
+  .docs-main{padding:0 15px 36px}
+  .docs-overview-page{padding-top:36px}
+  .docs-overview-page h1{font-size:clamp(32px,9vw,42px)}
+  .docs-article-layout{padding-top:28px}
+  .docs-article h1{font-size:31px}
+  .data-row{align-items:flex-start;flex-direction:column}
+  .data-row>.admin-action-row,.data-row>.button,.data-row>.row-status{align-self:flex-start}
+}
+@media(max-width:420px){
+  .shell,.admin-shell,.pilot-shell{width:calc(100% - 24px)}
+  .dashboard-stats{gap:7px}
+  .stat-card{padding:10px}
+  .stat-card>span{font-size:8px}
+  .stat-card strong{font-size:19px}
+  .section-heading{align-items:flex-start;flex-direction:column}
+  .section-heading>.button,.section-heading>.top-link{align-self:flex-start}
+  .login-panel{padding:17px}
+  .account-count{font-size:8px}
+}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+}
