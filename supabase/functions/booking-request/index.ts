@@ -213,11 +213,6 @@ Deno.serve(async (req) => {
         live_aircraft_id: body.aircraftId,
         seat_role: seatRole,
         reference_code: referenceCode,
-        aircraft_registration: registration,
-        flight_number: String(selected.callsign ?? ""),
-        origin_icao: String(selected.originIcao ?? ""),
-        destination_icao: String(selected.destinationIcao ?? ""),
-        departure_time: selected.isTimeless ? null : (selected.scheduledDepartureUtc ?? null),
         request_note: typeof body.note === "string" ? body.note.slice(0, 500) : null,
         status: automatic ? "sync_failed" : "pending_approval",
       }).select("id,status,created_at,seat_role,reference_code").single();
