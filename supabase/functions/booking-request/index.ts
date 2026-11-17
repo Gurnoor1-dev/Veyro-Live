@@ -13,21 +13,26 @@ function discordMessageUrl(guildId: string, channelId: string, messageId: string
   return "https://discord.com/channels/" + guildId + "/" + channelId + "/" + messageId;
 }
 
-function buildDiscordMessage(bookingId: string, profile: any, selected: Record<string, unknown>) {
+function buildDiscordMessage(bookingId: string, profile: any, selected: Record<string, unknown>, seatRole: number, registration: string, referenceCode: string) {
   const route = [selected.originIcao, selected.destinationIcao].filter(Boolean).join(" → ") || "Route details available in Live";
   const pilotLabel = profile.discord_user_id ? "<@" + profile.discord_user_id + ">" : "Pilot account " + profile.infinite_flight_user_id;
+  const departure = selected.isTimeless ? "Any time" : selected.scheduledDepartureUtc ? new Date(String(selected.scheduledDepartureUtc)).toISOString().replace("T", " ").slice(0, 16) + " UTC" : "Any time";
+  const arrival = selected.isTimeless ? "Any time" : selected.scheduledArrivalUtc ? new Date(String(selected.scheduledArrivalUtc)).toISOString().replace("T", " ").slice(0, 16) + " UTC" : "Any time";
   return {
     content: "New flight-leg request requires administrator review.",
     embeds: [{
-      title: "Flight leg request",
-      color: 5793266,
+      title: "CREW REQUEST · PENDING",
+      color: 16763904,
       fields: [
-        { name: "Pilot", value: pilotLabel, inline: true },
+        { name: "Registration", value: registration || "—", inline: true },
+        { name: "Flight number", value: String(selected.callsign ?? "—"), inline: true },
         { name: "Route", value: String(route), inline: true },
-        { name: "Callsign", value: String(selected.callsign ?? "Not provided"), inline: true },
-        { name: "Request ID", value: bookingId },
+        { name: "Pilot", value: pilotLabel, inline: true },
+        { name: "Seat", value: seatRole === 1 ? "First Officer" : "Captain", inline: true },
+        { name: "Departure", value: departure + " → " + arrival, inline: true },
+        { name: "Approved by", value: "— · — · " + referenceCode, inline: false },
       ],
-      footer: { text: "VEYRO Live • Review before approving" },
+      footer: { text: "VEYRO Live • Reference " + referenceCode },
     }],
     components: [{
       type: 1,
@@ -50,6 +55,8 @@ Deno.serve(async (req) => {
   if (!user) return fail("Unauthorized", 401);
   const body = await req.json().catch(() => null);
   if (!body?.organizationId || !body?.scheduleId || !body?.aircraftId) return fail("Missing booking details");
+  const seatRole = body.seatRole === 1 ? 1 : body.seatRole === 0 || body.seatRole === undefined ? 0 : -1;
+  if (seatRole < 0) return fail("Choose Captain or First Officer before requesting this leg.", 400);
 
   const { data: member } = await client.from("organization_memberships").select("user_id")
     .eq("organization_id", body.organizationId).eq("user_id", user.id).eq("is_active", true).single();
@@ -143,16 +150,19 @@ Deno.serve(async (req) => {
     }
 
     const token = await getOrganizationAccessToken(org.id);
-    await reserveIfApiRequests(2);
-    const [members, schedules] = await Promise.all([
+    await reserveIfApiRequests(3);
+    const [members, schedules, aircraft] = await Promise.all([
       ifRequest<Array<{ userId: string }>>(token, "/live/organizations/" + org.live_organization_id + "/members", {}, undefined, false, true),
       ifRequest<Array<Record<string, unknown>>>(token, "/live/aircraft/" + body.aircraftId + "/schedules", {}, undefined, false, true),
+      ifRequest<Array<Record<string, unknown>>>(token, "/live/organizations/" + org.live_organization_id + "/aircraft", {}, undefined, false, true),
     ]);
     if (!members.some((item) => item.userId === profile.infinite_flight_user_id)) {
       return fail("Your Infinite Flight account is not currently a member of this Live organization.", 403);
     }
     const selected = schedules.find((schedule) => schedule.id === body.scheduleId);
     if (!selected) return fail("This schedule is no longer available. Refresh the flight board.", 409);
+    const selectedAircraft = aircraft.find((item) => item.id === body.aircraftId);
+    const registration = String(selectedAircraft?.registration ?? selectedAircraft?.tailNumber ?? "—");
 
     // Infinite Flight is the source of truth for crew assignments. A pilot can
     // be unassigned directly on the IF website, which does not trigger a Veyro
@@ -193,15 +203,23 @@ Deno.serve(async (req) => {
     const automatic = org.booking_mode === "preapproved";
     let booking: any = existing;
     if (!booking) {
+      const referenceCode = Array.from(crypto.getRandomValues(new Uint8Array(6)), (value) => "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"[value % 36]).join("");
       const { data: created, error } = await client.from("booking_requests").insert({
         organization_id: org.id,
         pilot_user_id: user.id,
         pilot_if_user_id: profile.infinite_flight_user_id,
         live_schedule_id: body.scheduleId,
         live_aircraft_id: body.aircraftId,
+        seat_role: seatRole,
+        reference_code: referenceCode,
+        aircraft_registration: registration,
+        flight_number: String(selected.callsign ?? ""),
+        origin_icao: String(selected.originIcao ?? ""),
+        destination_icao: String(selected.destinationIcao ?? ""),
+        departure_time: selected.isTimeless ? null : (selected.scheduledDepartureUtc ?? null),
         request_note: typeof body.note === "string" ? body.note.slice(0, 500) : null,
         status: automatic ? "sync_failed" : "pending_approval",
-      }).select("id,status,created_at").single();
+      }).select("id,status,created_at,seat_role,reference_code").single();
 
       if (error) {
         if (error.code !== "23505") return fail("Could not create booking request", 500);
@@ -230,7 +248,7 @@ Deno.serve(async (req) => {
       try {
         await ifRequest(token, "/live/schedules/" + body.scheduleId + "/crew/" + profile.infinite_flight_user_id, {
           method: "PUT",
-          body: JSON.stringify({ role: 0 }),
+          body: JSON.stringify({ role: seatRole }),
         });
         const { error: updateError } = await admin.from("booking_requests").update({
           status: "approved", reviewed_at: new Date().toISOString(), sync_error_code: null,
@@ -259,7 +277,7 @@ Deno.serve(async (req) => {
       return fail("Discord bot is not configured. The request was not submitted.", 503);
     }
 
-    const payload = buildDiscordMessage(booking.id, profile, selected);
+    const payload = buildDiscordMessage(booking.id, profile, selected, seatRole, registration, booking.reference_code || "------");
     let discordMessageId = existing?.discord_message_id ?? null;
     let response: Response | null = null;
     if (discordMessageId) {
