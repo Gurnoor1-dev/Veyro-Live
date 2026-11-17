@@ -120,7 +120,7 @@ export default function AircraftLiveMap({ aircraft, positions, dark }: {
       style: styleUrl(dark),
       center: [10, 25],
       zoom: 2,
-      attributionControl: true,
+      attributionControl: {},
       maplibreLogo: true,
       pitchWithRotate: false,
       dragRotate: false,
