@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import * as maplibregl from "maplibre-gl";
 import type { Map as MapLibreMap, Marker as MapLibreMarker } from "maplibre-gl";
 import mapWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
+import { Plane } from "lucide-react";
+import { createRoot } from "react-dom/client";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 maplibregl.setWorkerUrl(mapWorkerUrl);
@@ -53,14 +55,30 @@ function aircraftState(position?: AircraftPosition) {
   }
   return { label: "Status unknown", tone: "muted" };
 }
+
 function markerElement(position: AircraftPosition, tone: string) {
   const root = document.createElement("div");
   root.className = "veyro-map-aircraft tone-" + tone;
   root.setAttribute("aria-label", aircraftState(position).label);
-  root.innerHTML = '<svg viewBox="0 0 24 28" aria-hidden="true"><path d="M12 1.5 14.6 10l7.1 4.1v2.8l-7.1-2.2v7l2.7 1.8v2.1L12 24l-5.3 1.6v-2.1L9.4 21v-7l-7.1 2.2v-2.8L9.4 10z"/></svg>';
-  root.style.transform = "rotate(" + Number(position.heading || 0) + "deg)";
+  
+  // Rotate element according to the API heading
+  const heading = Number(position.heading || 0);
+  root.style.transform = `rotate(${heading}deg)`;
+  root.style.transformOrigin = "center center";
+
+  // Render filled Lucide Plane icon inside the marker container using React's createRoot
+  const iconContainer = document.createElement("div");
+  iconContainer.style.display = "flex";
+  iconContainer.style.alignItems = "center";
+  iconContainer.style.justifyContent = "center";
+  root.appendChild(iconContainer);
+
+  const reactRoot = createRoot(iconContainer);
+  reactRoot.render(<Plane size={18} fill="currentColor" strokeWidth={1} />);
+
   return root;
 }
+
 function popupElement(aircraft: any, position: AircraftPosition, state: ReturnType<typeof aircraftState>) {
   const root = document.createElement("div");
   root.className = "veyro-map-popup";
