@@ -4,7 +4,6 @@ import { Link,Navigate,useParams,useLocation } from "react-router-dom";
 import { Plane,RefreshCw,Save,Trash2,Users } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
-import { InfiniteFlightAccount } from "../App";
 import { invokeFunction } from "../lib/functions";
 import Brand from "../components/Brand";
 import ThemeToggle from "../components/ThemeToggle";
@@ -24,7 +23,7 @@ export default function AdminPortal(){
  const edit=(s:any)=>{setEditing(s);setAircraftId(s.aircraftId);setForm({callsign:s.callsign,flightType:s.flightType??1,originIcao:s.originIcao,destinationIcao:s.destinationIcao,isTimeless:!!s.isTimeless,departure:local(s.scheduledDepartureUtc),arrival:local(s.scheduledArrivalUtc),briefing:s.briefing||"",flightPlan:s.flightPlan||""});setTab("schedules")};
  if(sessionLoading)return <main className="shell narrow"><header className="topbar"><Brand/></header><section className="panel">Restoring your VEYRO session…</section></main>;if(!session)return <Navigate to={"/login?next="+encodeURIComponent(location.pathname+location.search)} replace/>;
  const aircraft=data?.aircraft||[],schedules=data?.schedules||[];
- return <main className="shell admin-shell"><header className="topbar"><Brand/><div className="top-actions"><InfiniteFlightAccount/><Link className="top-link" to="/account">My Veyro</Link><Link className="top-link" to={"/"+slug}>Public portal</Link><ThemeToggle/></div></header>
+ return <main className="shell admin-shell"><header className="topbar veyro-minimal-topbar"><Brand/><Link className="nav-account-link veyro-center-account" to="/account">My Veyro</Link><div className="top-actions"><ThemeToggle/></div></header>
  <section className="dashboard-heading"><div><div className="eyebrow">ORGANIZATION CONTROL CENTER</div><h1>{data?.organization?.display_name||slug}</h1><p>Manage your airline, pilots, fleet schedules and approvals.</p></div><img className="dashboard-if-live-mark" src="/images/if-live.png" alt="Infinite Flight Live"/><button className="button button-quiet" onClick={load} disabled={loading}><RefreshCw size={14}/> Refresh</button></section>
  {error&&<div className="notice error">{error}</div>}{notice&&<div className="notice success">{notice}</div>}
  <SpotlightNavbar className="admin-spotlight" activeHref={"#"+tab} items={[{label:"Overview",href:"#overview"},{label:"Public profile",href:"#profile"},{label:"Pilots",href:"#pilots"},{label:"Fleet & schedules",href:"#schedules"},{label:"Approvals",href:"#approvals"}]} onItemClick={item=>setTab(item.href.slice(1))}/>
