@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import maplibregl, { type Map as MapLibreMap, type Marker as MapLibreMarker } from "maplibre-gl";
+import * as maplibregl from "maplibre-gl";
+import type { Map as MapLibreMap, Marker as MapLibreMarker } from "maplibre-gl";
 import mapWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 import "maplibre-gl/dist/maplibre-gl.css";
-import "./AircraftLiveMap.css";
 
 maplibregl.setWorkerUrl(mapWorkerUrl);
 
