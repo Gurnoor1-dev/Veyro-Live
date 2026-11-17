@@ -1,0 +1,1 @@
+grant select, insert, update, delete on public.schedule_simbrief_xml to service_role;
