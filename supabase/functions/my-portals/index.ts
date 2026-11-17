@@ -1,11 +1,15 @@
 import { createClient } from "npm:@supabase/supabase-js@2.56.0";
 import { json, fail } from "../_shared/http.ts";
+
+const portalCache = new Map<string, { expiresAt: number; value: any }>();
+
 Deno.serve(async (req) => {
  if (req.method === "OPTIONS") return json({ ok: true });
  if (req.method !== "POST") return fail("Method not allowed",405);
  const authorization=req.headers.get("Authorization"); if(!authorization)return fail("Unauthorized",401);
  const userClient=createClient(Deno.env.get("SUPABASE_URL")!,Deno.env.get("SUPABASE_ANON_KEY")!,{global:{headers:{Authorization:authorization}}});
  const {data:{user}}=await userClient.auth.getUser(); if(!user)return fail("Unauthorized",401);
+ const cached=portalCache.get(user.id); if(cached&&cached.expiresAt>Date.now())return json(cached.value);
  const admin=createClient(Deno.env.get("SUPABASE_URL")!,Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
  const [profile,connection,memberships,invites,directory,ownedOrganizations]=await Promise.all([
   admin.from("profiles").select("display_name,discord_user_id,infinite_flight_user_id").eq("id",user.id).maybeSingle(),
@@ -25,5 +29,8 @@ Deno.serve(async (req) => {
  for(const org of ownedOrganizations.data??[]){const existing=memberMap.get(org.id);memberMap.set(org.id,{...org,role:"owner",joinedAt:existing?.joinedAt??org.created_at,accessSource:existing?"owner-and-membership":"owner"});}
  const memberRows=[...memberMap.values()].sort((a:any,b:any)=>a.display_name.localeCompare(b.display_name));
  const inviteRows=(invites.data??[]).flatMap((i:any)=>{const org=byId.get(i.organization_id);return org?[{id:i.id,pilotName:i.pilot_name,createdAt:i.created_at,organization:org}]:[]});
- return json({profile:profile.data??null,email:user.email??null,infiniteFlight:{connected:Boolean(connection.data&&((connection.data.token_expires_at&&new Date(connection.data.token_expires_at).getTime()>Date.now())||connection.data.refresh_token_ciphertext)),expiresAt:connection.data?.token_expires_at??null,scopes:connection.data?.granted_scopes??[]},memberships:memberRows,invitations:inviteRows,directory:directory.data??[]});
+ const payload={profile:profile.data??null,email:user.email??null,infiniteFlight:{connected:Boolean(connection.data&&((connection.data.token_expires_at&&new Date(connection.data.token_expires_at).getTime()>Date.now())||connection.data.refresh_token_ciphertext)),expiresAt:connection.data?.token_expires_at??null,scopes:connection.data?.granted_scopes??[]},memberships:memberRows,invitations:inviteRows,directory:directory.data??[]};
+ portalCache.set(user.id,{expiresAt:Date.now()+15_000,value:payload});
+ if(portalCache.size>500){for(const [key,value] of portalCache){if(value.expiresAt<=Date.now())portalCache.delete(key);}}
+ return json(payload);
 });
