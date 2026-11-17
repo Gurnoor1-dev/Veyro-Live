@@ -2,7 +2,6 @@ import { createClient } from "npm:@supabase/supabase-js@2.56.0";
 import { fail } from "../_shared/http.ts";
 import { decryptSecret, encryptSecret } from "../_shared/crypto.ts";
 import { exchangeAuthorizationCode } from "../_shared/infinite-flight.ts";
-import { getInfiniteFlightUserInfo } from "../_shared/user-if-token.ts";
 function readInfiniteFlightIdentity(idToken: unknown): { userId: string; displayName: string } | null {
   if (typeof idToken !== "string") return null;
   const parts = idToken.split(".");
@@ -56,7 +55,7 @@ Deno.serve(async (req) => {
     const accessTokenCiphertext = await encryptSecret(token.access_token as string);
     const refreshTokenCiphertext = token.refresh_token ? await encryptSecret(token.refresh_token as string) : null;
     const scopes = String(token.scope ?? "").split(" ").filter(Boolean);
-    const ifIdentity = await getInfiniteFlightUserInfo(token.access_token as string) ?? readInfiniteFlightIdentity(token.id_token);
+    const ifIdentity = readInfiniteFlightIdentity(token.id_token);
     const profileWrite = ifIdentity
       ? admin.from("profiles").upsert({
           id: transaction.user_id,
