@@ -28,6 +28,41 @@ function readInfiniteFlightIdentity(idToken: unknown): { userId: string; display
   }
 }
 
+async function persistInfiniteFlightIdentity(admin: ReturnType<typeof createClient>, userId: string, identity: { userId: string; displayName: string }) {
+  const { data: existing, error: lookupError } = await admin.from("profiles")
+    .select("id").eq("infinite_flight_user_id", identity.userId).maybeSingle();
+  if (lookupError) throw lookupError;
+  if (existing?.id && existing.id !== userId) {
+    const oldId = existing.id as string;
+    const { data: currentProfile, error: currentLookupError } = await admin.from("profiles").select("id").eq("id", userId).maybeSingle();
+    if (currentLookupError) throw currentLookupError;
+    if (currentProfile) throw new Error("This Veyro session is already linked to a different Infinite Flight account.");
+    // An anonymous session may be recreated after browser storage is cleared.
+    // The verified Infinite Flight subject is the ownership proof for recovering
+    // its existing Veyro profile and associated memberships/bookings.
+    const migrations = await Promise.all([
+      admin.from("organization_memberships").update({ user_id: userId }).eq("user_id", oldId),
+      admin.from("booking_requests").update({ pilot_user_id: userId }).eq("pilot_user_id", oldId),
+      admin.from("booking_requests").update({ reviewed_by: userId }).eq("reviewed_by", oldId),
+      admin.from("organization_pilot_invites").update({ accepted_user_id: userId }).eq("accepted_user_id", oldId),
+      admin.from("organization_pilot_invites").update({ invited_by: userId }).eq("invited_by", oldId),
+      admin.from("organizations").update({ created_by: userId }).eq("created_by", oldId),
+      admin.from("user_if_connections").delete().eq("user_id", oldId),
+    ]);
+    const failed = migrations.find((result) => result.error);
+    if (failed?.error) throw failed.error;
+    const { error: moveProfileError } = await admin.from("profiles").update({
+      id: userId, display_name: identity.displayName, infinite_flight_user_id: identity.userId,
+    }).eq("id", oldId);
+    if (moveProfileError) throw moveProfileError;
+    return;
+  }
+  const { error } = await admin.from("profiles").upsert({
+    id: userId, infinite_flight_user_id: identity.userId, display_name: identity.displayName,
+  }, { onConflict: "id" });
+  if (error) throw error;
+}
+
 Deno.serve(async (req) => {
   if (req.method !== "GET") return fail("Method not allowed", 405);
   const url = new URL(req.url);
@@ -56,13 +91,8 @@ Deno.serve(async (req) => {
     const refreshTokenCiphertext = token.refresh_token ? await encryptSecret(token.refresh_token as string) : null;
     const scopes = String(token.scope ?? "").split(" ").filter(Boolean);
     const ifIdentity = readInfiniteFlightIdentity(token.id_token);
-    const profileWrite = ifIdentity
-      ? admin.from("profiles").upsert({
-          id: transaction.user_id,
-          infinite_flight_user_id: ifIdentity.userId,
-          display_name: ifIdentity.displayName,
-        }, { onConflict: "id" })
-      : Promise.resolve({ error: null });
+    if (ifIdentity) await persistInfiniteFlightIdentity(admin, transaction.user_id, ifIdentity);
+    const profileWrite = Promise.resolve({ error: null });
     const [{ error: saveError }, { error: connectionError }, { error: profileError }] = await Promise.all([
       admin.from("oauth_pending_connections").insert({
         id: pendingId,
