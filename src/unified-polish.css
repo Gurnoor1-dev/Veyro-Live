@@ -679,7 +679,7 @@ html.dark .spotlight-nav {
   z-index: 0;
   top: 5px;
   bottom: 5px;
-  left: 5px;
+  left: 0;
   width: 0;
   border: 1px solid color-mix(in srgb, var(--veyro-accent) 28%, var(--border));
   border-radius: 11px;
@@ -716,7 +716,7 @@ html.dark .spotlight-nav {
 }
 .spotlight-nav-vertical .spotlight-item-label { min-width: 0; }
 .spotlight-nav-vertical .spotlight-active-pill {
-  top: 6px;
+  top: 0;
   right: 6px;
   bottom: auto;
   left: 6px;
