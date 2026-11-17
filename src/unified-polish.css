@@ -171,3 +171,260 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
 }
+
+/* Dashboard layout correction — compact headers and overflow-safe grids */
+.admin-shell,
+.pilot-shell,
+.admin-shell *,
+.pilot-shell * {
+  min-width: 0;
+}
+.admin-shell,
+.pilot-shell {
+  max-width: 100%;
+  overflow-x: clip;
+}
+.admin-shell > .dashboard-heading,
+.pilot-content > .dashboard-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  justify-content: initial;
+  column-gap: 18px;
+  row-gap: 8px;
+  padding: 20px 0 16px;
+  margin: 0;
+}
+.admin-shell > .dashboard-heading > div:first-child,
+.pilot-content > .dashboard-heading > div:first-child {
+  min-width: 0;
+}
+.admin-shell > .dashboard-heading h1,
+.pilot-content > .dashboard-heading h1 {
+  margin: 6px 0 4px;
+  line-height: 1.12;
+  overflow-wrap: anywhere;
+}
+.admin-shell > .dashboard-heading p,
+.pilot-content > .dashboard-heading p {
+  margin: 0;
+  max-width: 58ch;
+  line-height: 1.5;
+}
+.admin-shell > .dashboard-heading .dashboard-if-live-mark,
+.pilot-content > .dashboard-heading .dashboard-if-live-mark {
+  display: block;
+  width: 94px;
+  max-width: 100%;
+  max-height: 28px;
+  margin: 0;
+  object-fit: contain;
+}
+.admin-shell > .dashboard-heading > .button,
+.pilot-content > .dashboard-heading > .button {
+  justify-self: end;
+  white-space: nowrap;
+  margin: 0;
+}
+.admin-shell .dashboard-stats,
+.pilot-content .dashboard-stats {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  width: 100%;
+  gap: 10px;
+}
+.admin-shell .admin-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 12px;
+  width: 100%;
+}
+.admin-shell .admin-card,
+.pilot-content .dashboard-panel,
+.pilot-content .stat-card {
+  min-width: 0;
+  max-width: 100%;
+}
+.admin-shell .admin-card > *,
+.pilot-content .dashboard-panel > * {
+  max-width: 100%;
+}
+.admin-shell .admin-two-col {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.admin-shell .text-field,
+.admin-shell textarea,
+.admin-shell select,
+.pilot-content .text-field {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+.admin-shell .admin-list-row,
+.admin-shell .admin-schedule-row,
+.pilot-content .data-row,
+.pilot-content .map-position-item,
+.pilot-content .next-leg-card,
+.pilot-content .aircraft-operation-card > summary {
+  min-width: 0;
+  max-width: 100%;
+}
+.admin-shell .admin-list-row > div,
+.admin-shell .admin-schedule-row > div,
+.pilot-content .data-row > div,
+.pilot-content .next-leg-route,
+.pilot-content .next-leg-meta {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.pilot-content .dashboard-columns,
+.pilot-content .fleet-aircraft-grid,
+.pilot-content .aircraft-operations-list,
+.pilot-content .map-position-list,
+.pilot-content .next-leg-list {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+.pilot-content .fleet-aircraft-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+}
+.pilot-content .next-leg-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+.pilot-content .next-leg-card > button {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+.pilot-content .map-position-item {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.pilot-content .aircraft-map-panel,
+.pilot-content .aircraft-map-frame,
+.pilot-content .aircraft-map-frame > *,
+.pilot-content .aircraft-map-panel canvas {
+  max-width: 100%;
+  min-width: 0;
+}
+.pilot-content .aircraft-map-frame {
+  overflow: hidden;
+}
+.pilot-content .section-heading {
+  min-width: 0;
+  flex-wrap: wrap;
+}
+.pilot-content .section-heading > div:first-child {
+  min-width: 0;
+  flex: 1 1 240px;
+}
+.admin-shell .admin-action-row,
+.pilot-content .admin-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  max-width: 100%;
+}
+.admin-shell .admin-action-row > *,
+.pilot-content .admin-action-row > * {
+  flex: 0 1 auto;
+}
+@media (max-width: 900px) {
+  .admin-shell > .dashboard-heading,
+  .pilot-content > .dashboard-heading {
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: 12px;
+    padding: 17px 0 14px;
+  }
+  .admin-shell > .dashboard-heading > div:first-child,
+  .pilot-content > .dashboard-heading > div:first-child {
+    grid-column: 1 / -1;
+  }
+  .admin-shell > .dashboard-heading .dashboard-if-live-mark,
+  .pilot-content > .dashboard-heading .dashboard-if-live-mark {
+    display: none;
+  }
+  .admin-shell > .dashboard-heading > .button,
+  .pilot-content > .dashboard-heading > .button {
+    grid-column: 2;
+    grid-row: 2;
+    justify-self: end;
+  }
+  .admin-shell .dashboard-stats,
+  .pilot-content .dashboard-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 700px) {
+  .admin-shell .admin-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .admin-shell .admin-two-col {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+  .admin-shell > .dashboard-heading,
+  .pilot-content > .dashboard-heading {
+    padding: 15px 0 12px;
+    row-gap: 8px;
+  }
+  .admin-shell > .dashboard-heading h1,
+  .pilot-content > .dashboard-heading h1 {
+    font-size: clamp(24px, 7vw, 31px);
+  }
+  .admin-shell > .dashboard-heading p,
+  .pilot-content > .dashboard-heading p {
+    font-size: 10px;
+  }
+  .admin-shell .admin-card,
+  .pilot-content .dashboard-panel {
+    padding: 14px;
+  }
+  .pilot-content .next-leg-card {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .pilot-content .next-leg-card > button {
+    grid-column: 1;
+    width: 100%;
+  }
+  .pilot-content .data-row {
+    align-items: stretch;
+  }
+  .pilot-content .data-row > .admin-action-row {
+    width: 100%;
+  }
+  .pilot-content .data-row > .admin-action-row > .button {
+    flex: 1 1 100%;
+  }
+}
+@media (max-width: 420px) {
+  .admin-shell,
+  .pilot-shell {
+    width: calc(100% - 22px);
+  }
+  .admin-shell .dashboard-stats,
+  .pilot-content .dashboard-stats {
+    gap: 7px;
+  }
+  .admin-shell .stat-card,
+  .pilot-content .stat-card {
+    padding: 10px;
+  }
+  .admin-shell .stat-card strong,
+  .pilot-content .stat-card strong {
+    font-size: clamp(17px, 5vw, 21px);
+    overflow-wrap: anywhere;
+  }
+  .admin-shell .admin-action-row > *,
+  .pilot-content .admin-action-row > * {
+    max-width: 100%;
+  }
+}
