@@ -427,3 +427,8 @@ textarea.text-field { min-height: 112px; resize: vertical; }
  .admin-settings-layout .admin-card { padding: 17px; }
  .admin-settings-layout .admin-field { font-size: 10px; }
 }
+
+
+.admin-notification-test { grid-column: 1 / -1; }
+.admin-notification-test .admin-field { max-width: 420px; }
+.admin-notification-test .button { margin-top: 4px; }
