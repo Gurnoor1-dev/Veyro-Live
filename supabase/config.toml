@@ -50,3 +50,6 @@ verify_jwt = false
 
 [functions.organization-admin]
 verify_jwt = true
+
+[functions.live-automation]
+verify_jwt = false
