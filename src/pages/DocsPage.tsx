@@ -9,7 +9,7 @@ const modules = import.meta.glob("../../docs/*.md", { eager: true, query: "?raw"
 
 const groups = [
   { name: "GETTING STARTED", items: ["DEVELOPER-SETUP.md", "ORGANISATIONS.md", "PILOTS.md", "ORG-APPLICATIONS.md"] },
-  { name: "PLATFORM", items: ["ARCHITECTURE.md", "DISCORD-SETUP.md", "LIVE-AUTOMATION.md"] },
+  { name: "PLATFORM", items: ["ARCHITECTURE.md", "DISCORD-SETUP.md", "LIVE-AUTOMATION.md", "NOTIFICATIONS.md"] },
   { name: "SECURITY & COMPLIANCE", items: ["SECURITY.md", "API-COMPLIANCE.md", "INFINITE-FLIGHT-TESTING-COMPLIANCE.md"] },
   { name: "PROJECT & RELEASE", items: ["CONTRIBUTING.md", "RELEASE-CHECKLIST.md"] },
 ];
@@ -21,6 +21,7 @@ const titles: Record<string, string> = {
   "ARCHITECTURE.md": "Architecture",
   "DISCORD-SETUP.md": "Discord integration",
   "LIVE-AUTOMATION.md": "Live automation",
+  "NOTIFICATIONS.md": "Notification channels",
   "SECURITY.md": "Security",
   "API-COMPLIANCE.md": "API compliance",
   "INFINITE-FLIGHT-TESTING-COMPLIANCE.md": "Testing compliance",
@@ -35,6 +36,7 @@ const descriptions: Record<string, string> = {
   "ARCHITECTURE.md": "Understand the platform, data flow and tenancy model.",
   "DISCORD-SETUP.md": "Configure Discord approvals and interactions.",
   "LIVE-AUTOMATION.md": "Understand the Infinite Flight Live data and automation workflow.",
+  "NOTIFICATIONS.md": "Configure dedicated Discord channels for landing dispatch, unassigned legs, schedule revisor and activity logs.",
   "SECURITY.md": "Authentication, authorization, secrets and data protection.",
   "API-COMPLIANCE.md": "Infinite Flight API data-use requirements and scopes.",
   "INFINITE-FLIGHT-TESTING-COMPLIANCE.md": "Testing access limits and API request safeguards.",
