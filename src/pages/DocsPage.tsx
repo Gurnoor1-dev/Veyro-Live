@@ -11,7 +11,7 @@ const groups = [
   { name: "GETTING STARTED", items: ["DEVELOPER-SETUP.md", "ORGANISATIONS.md", "PILOTS.md", "ORG-APPLICATIONS.md"] },
   { name: "PLATFORM", items: ["ARCHITECTURE.md", "DISCORD-SETUP.md", "LIVE-AUTOMATION.md"] },
   { name: "SECURITY & COMPLIANCE", items: ["SECURITY.md", "API-COMPLIANCE.md", "INFINITE-FLIGHT-TESTING-COMPLIANCE.md"] },
-  { name: "PROJECT", items: ["CONTRIBUTING.md"] },
+  { name: "PROJECT & RELEASE", items: ["CONTRIBUTING.md", "RELEASE-CHECKLIST.md"] },
 ];
 const titles: Record<string, string> = {
   "DEVELOPER-SETUP.md": "Developer setup",
@@ -25,6 +25,7 @@ const titles: Record<string, string> = {
   "API-COMPLIANCE.md": "API compliance",
   "INFINITE-FLIGHT-TESTING-COMPLIANCE.md": "Testing compliance",
   "CONTRIBUTING.md": "Contributing",
+  "RELEASE-CHECKLIST.md": "Release checklist",
 };
 const descriptions: Record<string, string> = {
   "DEVELOPER-SETUP.md": "Set up your local environment, Supabase project and deployment.",
@@ -38,6 +39,7 @@ const descriptions: Record<string, string> = {
   "API-COMPLIANCE.md": "Infinite Flight API data-use requirements and scopes.",
   "INFINITE-FLIGHT-TESTING-COMPLIANCE.md": "Testing access limits and API request safeguards.",
   "CONTRIBUTING.md": "Project contribution rules and engineering conventions.",
+  "RELEASE-CHECKLIST.md": "Route, responsive, security and integration checks required before release.",
 };
 const slug = (file: string) => file.replace(/\.md$/i, "").toLowerCase();
 const fileFor = (value: string) => Object.keys(modules).find(path => path.endsWith("/" + value));
