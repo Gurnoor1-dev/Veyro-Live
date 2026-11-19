@@ -8,6 +8,7 @@ const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
 const adminPortalCache = new Map<string, { expiresAt: number; value: any }>();
+const discordBotToken = Deno.env.get("DISCORD_BOT_TOKEN") ?? "";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return json({ ok: true });
@@ -63,6 +64,85 @@ Deno.serve(async (req) => {
   const databaseAdmin = Boolean((membership?.is_active && ["owner", "admin"].includes(membership.role)) || org.created_by === user.id);
   if (!databaseAdmin) return fail("Organization administrator access required.", 403);
   const organizationId = resolvedOrganizationId;
+  if (body.action === "send_notification_test") {
+    const notificationType = String(body.notificationType ?? "");
+    const channelFields: Record<string, string> = {
+      landing_dispatch: "landing_dispatch_channel_id",
+      initial_schedule_open: "unassigned_legs_channel_id",
+      schedule_revisor: "schedule_revisor_channel_id",
+      activity_log: "activity_log_channel_id",
+    };
+    const field = channelFields[notificationType];
+    if (!field) return fail("Choose a supported notification channel.", 400);
+    const { data: settings, error: settingsError } = await admin.from("discord_settings")
+      .select("guild_id,enabled,landing_dispatch_channel_id,unassigned_legs_channel_id,schedule_revisor_channel_id,activity_log_channel_id")
+      .eq("organization_id", organizationId).maybeSingle();
+    if (settingsError || !settings?.enabled) return fail("Discord integration is not enabled for this organisation.", 400);
+    const channelId = String((settings as Record<string, unknown>)[field] ?? "");
+    if (!/^\\d{17,20}$/.test(channelId)) return fail("Configure and save this notification channel before sending a test.", 400);
+    if (!discordBotToken) return fail("Discord bot token is not configured on the server.", 503);
+    const pilotId = "1477116751710912613";
+    const route = "KJFK → LFPG";
+    const aircraft = "IF-GNRT";
+    const timestamp = new Date().toISOString();
+    let payload: Record<string, unknown>;
+    if (notificationType === "landing_dispatch") {
+      payload = {
+        content: "**Hilo** has landed at **KJFK**. You're on the next leg (**KJFK - LFPG**), <@" + pilotId + ">",
+        embeds: [{ title: "NEXT LEG DISPATCH", color: 5793266, fields: [
+          { name: "Next flight", value: "TEST", inline: true },
+          { name: "Aircraft", value: aircraft, inline: true },
+          { name: "Route", value: route, inline: true },
+        ], footer: { text: "VEYRO Live • Automatic landing dispatch • TEST" }, timestamp }],
+        allowed_mentions: { parse: [], users: [pilotId] },
+      };
+    } else if (notificationType === "initial_schedule_open" || notificationType === "schedule_revisor") {
+      const initial = notificationType === "initial_schedule_open";
+      payload = {
+        content: "A scheduled leg is now open for eligible pilots to claim.",
+        embeds: [{ title: "SCHEDULE OPEN · SELF-SERVICE", description: (initial
+          ? "This is the aircraft's first scheduled leg and it has no assigned crew. Claim an available crew position below. Assignments are sent directly to Infinite Flight."
+          : "The aircraft has remained on the ground for at least 12 hours. Claim an available crew position below. Assignments are sent directly to Infinite Flight.") + "\\n\\n**TEST MESSAGE** — sample only; no Live schedule will be changed.",
+          color: 5793266, fields: [
+            { name: "Flight", value: "TEST", inline: true },
+            { name: "Aircraft", value: aircraft, inline: true },
+            { name: "Route", value: route, inline: true },
+            { name: "Departure", value: "Not scheduled", inline: true },
+            { name: "Arrival", value: "Not scheduled", inline: true },
+            { name: "Current crew", value: "0 / 3", inline: true },
+          ], footer: { text: "VEYRO Live • Choose Assign to select Captain or First Officer • TEST" }, timestamp }],
+        components: [{ type: 1, components: [{ type: 2, style: 1, label: "Assign", custom_id: "test-notification-disabled", emoji: { name: "🛫" }, disabled: true }] }],
+        allowed_mentions: { parse: [] },
+      };
+    } else {
+      payload = {
+        content: "",
+        embeds: [{ title: "ORGANISATION ACTIVITY", color: 5793266, description: "This is a test of the organisation activity notification destination.",
+          fields: [
+            { name: "Event", value: "Notification test", inline: true },
+            { name: "Pilot", value: "<@" + pilotId + ">", inline: true },
+            { name: "Leg", value: route, inline: true },
+            { name: "Aircraft", value: aircraft, inline: true },
+            { name: "Previous pilot", value: "Hilo", inline: true },
+          ], footer: { text: "VEYRO Live • Organisation activity • TEST" }, timestamp }],
+        allowed_mentions: { parse: [], users: [pilotId] },
+      };
+    }
+    const response = await fetch("https://discord.com/api/v10/channels/" + channelId + "/messages", {
+      method: "POST",
+      headers: { Authorization: "Bot " + discordBotToken, "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const message = await response.json().catch(() => null);
+    if (!response.ok || !message?.id) {
+      console.warn("[organization-admin] Discord test delivery failed", response.status);
+      return fail(response.status === 403 ? "The bot cannot send messages in this channel. Check View Channel and Send Messages permissions." :
+        response.status === 404 ? "The configured channel was not found or is not accessible to the bot." : "Discord rejected the test message (HTTP " + response.status + ").", 502);
+    }
+    await admin.from("audit_events").insert({ organization_id: organizationId, actor_user_id: user.id,
+      event_type: "discord.notification_test_sent", metadata: { notificationType, channelId, messageId: String(message.id) } });
+    return json({ ok: true, channelId, messageId: String(message.id) });
+  }
   const portalCacheKey = organizationId + ":" + user.id;
   if (body.action === "get_admin_portal") {
     const cachedPortal = adminPortalCache.get(portalCacheKey);
