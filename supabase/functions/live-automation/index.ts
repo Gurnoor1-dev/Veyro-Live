@@ -77,7 +77,7 @@ function isCurrentGroundState(position: Position, arrivalMs: number, active?: Ac
   const updatedMs = Date.parse(position.updatedAt);
   return Number.isFinite(updatedMs) && Math.abs(updatedMs - arrivalMs) <= 30 * 60_000;
 }
-function eventPayload(type: "landing_dispatch" | "schedule_revisor", previous: Schedule, next: Schedule, aircraft: Aircraft, position?: Position, discordUserId?: string) {
+function eventPayload(type: "landing_dispatch" | "schedule_revisor" | "initial_schedule_open", previous: Schedule, next: Schedule, aircraft: Aircraft, position?: Position, discordUserId?: string) {
   const route = safeText(next.originIcao, 8) + " → " + safeText(next.destinationIcao, 8);
   if (type === "landing_dispatch") {
     const content = "**" + safeText(position?.lastPilotUsername, 80) + "** has landed at **" +
@@ -103,7 +103,7 @@ function eventPayload(type: "landing_dispatch" | "schedule_revisor", previous: S
     content: "A scheduled leg is now open for eligible pilots to claim.",
     embeds: [{
       title: "SCHEDULE OPEN · SELF-SERVICE",
-      description: "The aircraft has remained on the ground for at least 12 hours. Claim an available crew position below. Assignments are sent directly to Infinite Flight.",
+      description: type === "initial_schedule_open" ? "This is the aircraft's first scheduled leg and it has no assigned crew. Claim an available crew position below. Assignments are sent directly to Infinite Flight." : "The aircraft has remained on the ground for at least 12 hours. Claim an available crew position below. Assignments are sent directly to Infinite Flight.",
       color: 5793266,
       fields: [
         { name: "Flight", value: safeText(next.callsign, 32), inline: true },
@@ -124,7 +124,7 @@ function eventPayload(type: "landing_dispatch" | "schedule_revisor", previous: S
   };
 }
 async function publishEvent(orgId: string, channelId: string, event: {
-  event_key: string; event_type: "landing_dispatch" | "schedule_revisor";
+  event_key: string; event_type: "landing_dispatch" | "schedule_revisor" | "initial_schedule_open";
   schedule_id: string; related_schedule_id: string; aircraft_id: string;
 }, payload: Record<string, unknown>): Promise<boolean> {
   const { data: existing } = await admin.from("live_automation_events").select("*").eq("event_key", event.event_key).maybeSingle();
@@ -237,7 +237,25 @@ async function runOrganization(org: {id:string;live_organization_id:string}, cou
       lastScanned = aircraft.id;
       counters.scanned++;
       const completed = latestCompleted(schedules, aircraft.id);
-      if (!completed?.actualArrivalUtc) continue;
+      if (!completed?.actualArrivalUtc) {
+        const firstUnassigned = schedules.filter((s) => s.aircraftId === aircraft.id && [1,8].includes(Number(s.status)))
+          .sort((a, b) => a.sequence - b.sequence)[0];
+        if (!firstUnassigned || (firstUnassigned.crew ?? []).length !== 0 ||
+          schedules.some((s) => s.aircraftId === aircraft.id && s.sequence < firstUnassigned.sequence)) continue;
+        const positionAge = Date.now() - Date.parse(position.updatedAt);
+        if (position.isOnGround !== true || !Number.isFinite(positionAge) || positionAge < -30_000 ||
+          positionAge > 2 * 60_000 || activeMap.has(aircraft.id)) continue;
+        const initialKey = "initial:" + firstUnassigned.id;
+        const { data: priorInitial } = await admin.from("live_automation_events").select("status")
+          .eq("event_key", initialKey).maybeSingle();
+        if (priorInitial?.status === "sent") continue;
+        const sent = await publishEvent(org.id, settings.approval_channel_id, {
+          event_key: initialKey, event_type: "initial_schedule_open",
+          schedule_id: firstUnassigned.id, related_schedule_id: null, aircraft_id: aircraft.id,
+        }, eventPayload("initial_schedule_open", firstUnassigned, firstUnassigned, aircraft));
+        if (sent) counters.opened++;
+        continue;
+      }
       const next = nextLeg(schedules, completed);
       if (!next) continue;
       const arrivalMs = Date.parse(completed.actualArrivalUtc);
@@ -317,7 +335,7 @@ Deno.serve(async (req) => {
   const { data: organizations, error } = await admin.from("organizations")
     .select("id,live_organization_id").eq("is_active", true);
   if (error) return fail("Could not load active organizations", 500);
-  const counters = { scanned: 0, dispatched: 0, revised: 0, skipped: 0, failed: 0 };
+  const counters = { scanned: 0, dispatched: 0, revised: 0, opened: 0, skipped: 0, failed: 0 };
   for (const org of organizations ?? []) {
     try {
       await runOrganization(org, counters);
