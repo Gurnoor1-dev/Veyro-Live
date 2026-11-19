@@ -79,7 +79,7 @@ Deno.serve(async (req) => {
       .eq("organization_id", organizationId).maybeSingle();
     if (settingsError || !settings?.enabled) return fail("Discord integration is not enabled for this organisation.", 400);
     const channelId = String((settings as Record<string, unknown>)[field] ?? "");
-    if (!/^\\d{17,20}$/.test(channelId)) return fail("Configure and save this notification channel before sending a test.", 400);
+    if (!/^\d{17,20}$/.test(channelId)) return fail("Configure and save this notification channel before sending a test.", 400);
     if (!discordBotToken) return fail("Discord bot token is not configured on the server.", 503);
     const pilotId = "1477116751710912613";
     const route = "KJFK → LFPG";
