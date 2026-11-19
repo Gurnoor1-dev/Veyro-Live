@@ -185,3 +185,98 @@ textarea.text-field { min-height: 112px; resize: vertical; }
     transition-duration: .01ms !important;
   }
 }
+
+
+/* Phase 2 — pilot workspace visual system */
+.pilot-layout { grid-template-columns: 224px minmax(0, 1fr); gap: 30px; padding-top: 22px; }
+.pilot-sidebar { position: sticky; top: 82px; align-self: start; min-height: min(660px, calc(100dvh - 110px)); border-right-color: var(--veyro-border); }
+.pilot-sidebar-org { padding: 10px 8px 20px; gap: 12px; }
+.pilot-org-mark { width: 40px; height: 40px; border-radius: 12px; background: var(--veyro-accent-soft); color: var(--veyro-accent-strong); border-color: var(--veyro-border); font-size: 15px; }
+.pilot-sidebar-org strong { font-size: 12px; color: var(--veyro-text); }
+.pilot-sidebar-org small, .pilot-sidebar-foot { font-size: 9px; letter-spacing: .11em; }
+.pilot-sidebar nav { gap: 5px; padding-top: 16px; }
+.pilot-sidebar nav a { min-height: 44px; display: flex; align-items: center; padding: 10px 12px; border: 1px solid transparent; border-radius: 10px; font-size: 12px; transition: background .18s ease, border-color .18s ease, color .18s ease; }
+.pilot-sidebar nav a:hover { background: var(--veyro-surface-subtle); border-color: var(--veyro-border); }
+.pilot-sidebar nav a.active { background: var(--veyro-accent-soft); border-color: color-mix(in srgb, var(--veyro-accent) 20%, transparent); color: var(--veyro-accent-strong); box-shadow: inset 3px 0 0 var(--veyro-accent); }
+.pilot-content .dashboard-heading { align-items: center; gap: 14px; padding: 8px 0 22px; }
+.pilot-content .dashboard-heading h1 { font-size: clamp(24px, 3vw, 34px); letter-spacing: -.055em; }
+.pilot-content .dashboard-heading p { font-size: 12px; line-height: 1.6; }
+.pilot-content .dashboard-heading .dashboard-if-live-mark { width: 82px; height: auto; object-fit: contain; margin-left: auto; }
+.pilot-flight-hero { position: relative; display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(250px, .8fr); gap: 24px; align-items: center; overflow: hidden; margin: 0 0 16px; padding: clamp(20px, 3vw, 30px); border: 1px solid color-mix(in srgb, var(--veyro-accent) 25%, var(--veyro-border)); border-radius: var(--veyro-radius-xl); background: radial-gradient(ellipse at 95% 0%, var(--veyro-accent-soft), transparent 48%), linear-gradient(135deg, var(--veyro-surface-raised), var(--veyro-surface-subtle)); box-shadow: var(--veyro-shadow-sm); }
+.pilot-flight-hero-copy { min-width: 0; }
+.pilot-flight-kicker, .pilot-next-leg-label { display: inline-flex; align-items: center; gap: 8px; color: var(--veyro-text-muted); font-size: 9px; font-weight: 800; letter-spacing: .14em; }
+.pilot-flight-live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--veyro-success); box-shadow: 0 0 0 4px color-mix(in srgb, var(--veyro-success) 14%, transparent); }
+.pilot-flight-hero h2 { margin: 13px 0 8px; color: var(--veyro-text); font-size: clamp(21px, 2.7vw, 30px); letter-spacing: -.055em; line-height: 1.13; }
+.pilot-flight-hero p { max-width: 480px; margin: 0; color: var(--veyro-text-muted); font-size: 12px; line-height: 1.7; }
+.pilot-flight-actions { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 19px; }
+.pilot-flight-actions .button { min-height: 42px; }
+.pilot-next-leg { display: flex; min-width: 0; flex-direction: column; gap: 10px; padding: 18px; border: 1px solid var(--veyro-border); border-radius: 15px; background: color-mix(in srgb, var(--veyro-surface) 88%, transparent); }
+.pilot-next-route { color: var(--veyro-text); font-size: clamp(21px, 2.5vw, 28px); letter-spacing: -.055em; overflow-wrap: anywhere; }
+.pilot-next-route span { padding: 0 4px; color: var(--veyro-accent); }
+.pilot-next-callsign { color: var(--veyro-text-muted); font-size: 11px; line-height: 1.55; }
+.pilot-next-status { align-self: flex-start; padding: 5px 9px; border: 1px solid var(--veyro-border); border-radius: 999px; background: var(--veyro-surface-subtle); color: var(--veyro-text-muted); font-size: 10px; font-weight: 700; }
+.pilot-next-empty { color: var(--veyro-text); font-size: 17px; letter-spacing: -.03em; }
+.pilot-content .dashboard-stats { gap: 10px; margin-bottom: 16px; }
+.pilot-content .stat-card { min-height: 112px; justify-content: space-between; border-radius: 13px; }
+.pilot-content .stat-card > span { font-size: 11px; font-weight: 650; }
+.pilot-content .stat-card strong { font-size: clamp(22px, 2.5vw, 29px); }
+.pilot-content .stat-card small { font-size: 10px; line-height: 1.45; }
+.pilot-content .dashboard-panel { border-radius: 15px; padding: clamp(16px, 2vw, 22px); }
+.pilot-content .section-heading { gap: 12px; }
+.pilot-content .section-heading h2 { font-size: 15px; }
+.pilot-content .section-heading p { font-size: 11px; line-height: 1.55; }
+.pilot-content .data-row { gap: 14px; padding: 16px 0; }
+.pilot-content .data-row strong { font-size: 13px; }
+.pilot-content .data-row small { font-size: 11px; line-height: 1.5; }
+.pilot-content .row-status { font-size: 10px; border-radius: 999px; }
+.pilot-quick-access { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 14px 0 28px; }
+.pilot-quick-link { display: flex; min-width: 0; align-items: center; gap: 12px; padding: 15px; border: 1px solid var(--veyro-border); border-radius: 13px; background: var(--veyro-surface); transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease; }
+.pilot-quick-link:hover { transform: translateY(-2px); border-color: var(--veyro-border-strong); box-shadow: var(--veyro-shadow-sm); }
+.pilot-quick-link > span:first-child { display: grid; width: 38px; height: 38px; flex: none; place-items: center; border-radius: 11px; background: var(--veyro-accent-soft); color: var(--veyro-accent-strong); }
+.pilot-quick-link > span:last-child { display: flex; min-width: 0; flex-direction: column; gap: 4px; }
+.pilot-quick-link strong { color: var(--veyro-text); font-size: 12px; }
+.pilot-quick-link small { color: var(--veyro-text-muted); font-size: 10px; line-height: 1.45; }
+.pilot-content .pilot-booking-board { overflow: hidden; }
+.pilot-content .pilot-leg-table { min-width: 680px; }
+.pilot-content .pilot-leg-table th { color: var(--veyro-text-muted); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; }
+.pilot-content .pilot-leg-table td { padding-top: 13px; padding-bottom: 13px; font-size: 11px; }
+.pilot-content .pilot-leg-table td strong { font-size: 12px; }
+.pilot-content .pilot-leg-table td small { display: block; margin-top: 4px; color: var(--veyro-text-muted); font-size: 10px; }
+.pilot-content .fleet-aircraft-grid { gap: 12px; }
+.pilot-content .profile-detail { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; }
+.pilot-content .profile-detail span { color: var(--veyro-text-muted); font-size: 11px; }
+.pilot-content .profile-detail strong { max-width: 65%; color: var(--veyro-text); font-size: 12px; text-align: right; overflow-wrap: anywhere; }
+@media (max-width: 900px) {
+ .pilot-layout { grid-template-columns: 190px minmax(0, 1fr); gap: 18px; }
+ .pilot-flight-hero { grid-template-columns: minmax(0, 1fr); }
+ .pilot-next-leg { max-width: none; }
+}
+@media (max-width: 760px) {
+ .pilot-layout { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+ .pilot-sidebar { position: static; min-height: 0; padding: 0 0 10px; }
+ .pilot-sidebar-org { padding: 5px 3px 12px; }
+ .pilot-sidebar nav { gap: 6px; padding: 10px 0 2px; }
+ .pilot-sidebar nav a { min-height: 42px; padding: 9px 12px; }
+ .pilot-content .dashboard-heading { align-items: flex-start; flex-wrap: wrap; }
+ .pilot-content .dashboard-heading .dashboard-if-live-mark { width: 66px; margin-left: auto; }
+ .pilot-content .dashboard-heading > button { margin-left: auto; }
+ .pilot-flight-hero { gap: 16px; padding: 19px; }
+ .pilot-content .dashboard-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 480px) {
+ .pilot-content .dashboard-heading { gap: 10px; }
+ .pilot-content .dashboard-heading > div:first-child { flex-basis: 100%; }
+ .pilot-content .dashboard-heading .dashboard-if-live-mark { width: 58px; margin-left: 0; }
+ .pilot-content .dashboard-heading > button { margin-left: auto; }
+ .pilot-flight-hero { padding: 16px; border-radius: 16px; }
+ .pilot-flight-hero h2 { font-size: 23px; }
+ .pilot-flight-actions { display: grid; grid-template-columns: 1fr; }
+ .pilot-flight-actions .button { width: 100%; justify-content: center; }
+ .pilot-next-leg { padding: 15px; }
+ .pilot-quick-access { grid-template-columns: minmax(0, 1fr); }
+ .pilot-content .dashboard-panel { padding: 15px; }
+ .pilot-content .data-row { align-items: flex-start; flex-direction: column; }
+ .pilot-content .data-row > .admin-action-row { width: 100%; justify-content: space-between; flex-wrap: wrap; }
+ .pilot-content .profile-detail { align-items: flex-start; flex-direction: column; }
+ .pilot-content .profile-detail strong { max-width: 100%; text-align: left; }
+}
