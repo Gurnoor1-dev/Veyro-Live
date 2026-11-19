@@ -280,3 +280,74 @@ textarea.text-field { min-height: 112px; resize: vertical; }
  .pilot-content .profile-detail { align-items: flex-start; flex-direction: column; }
  .pilot-content .profile-detail strong { max-width: 100%; text-align: left; }
 }
+
+
+/* Phase 3 — organisation administration workspace */
+.admin-shell { max-width: 1320px; }
+.admin-shell > .dashboard-heading { align-items: center; gap: 18px; padding: 34px 0 22px; }
+.admin-shell > .dashboard-heading h1 { margin: 9px 0 7px; font-size: clamp(27px, 3vw, 36px); letter-spacing: -.06em; }
+.admin-shell > .dashboard-heading p { max-width: 620px; font-size: 12px; line-height: 1.65; }
+.admin-shell > .dashboard-heading .dashboard-if-live-mark { width: 82px; max-height: 48px; object-fit: contain; margin-left: auto; }
+.admin-spotlight { margin-bottom: 20px; }
+.admin-shell .dashboard-stats { gap: 12px; margin-bottom: 16px; }
+.admin-shell .stat-card { min-height: 118px; justify-content: space-between; border-radius: 14px; padding: 18px; }
+.admin-shell .stat-card > span { color: var(--veyro-text-muted); font-size: 11px; font-weight: 650; }
+.admin-shell .stat-card strong { color: var(--veyro-text); font-size: clamp(23px, 2.5vw, 30px); letter-spacing: -.06em; }
+.admin-shell .stat-card small { color: var(--veyro-text-muted); font-size: 10px; }
+.admin-command-banner { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin: 0 0 15px; padding: 19px 21px; border: 1px solid color-mix(in srgb, var(--veyro-accent) 25%, var(--veyro-border)); border-radius: 15px; background: radial-gradient(ellipse at 100% 0%, var(--veyro-accent-soft), transparent 55%), var(--veyro-surface); }
+.admin-command-banner > div { display: flex; min-width: 0; flex-direction: column; gap: 6px; }
+.admin-command-banner .eyebrow { color: var(--veyro-accent-strong); font-size: 9px; }
+.admin-command-banner strong { color: var(--veyro-text); font-size: 15px; letter-spacing: -.025em; }
+.admin-command-banner p { margin: 0; color: var(--veyro-text-muted); font-size: 11px; line-height: 1.55; }
+.admin-command-banner .button { flex: none; min-height: 42px; }
+.admin-shell .admin-card { border-radius: 15px; padding: clamp(17px, 2vw, 23px); }
+.admin-shell .admin-card h2 { color: var(--veyro-text); font-size: 15px; letter-spacing: -.035em; }
+.admin-shell .admin-card > p { color: var(--veyro-text-muted); font-size: 11px; line-height: 1.65; }
+.admin-shell .admin-list-row { gap: 14px; padding: 14px 0; }
+.admin-shell .admin-list-row > div { min-width: 0; }
+.admin-shell .admin-list-row strong { color: var(--veyro-text); font-size: 12px; overflow-wrap: anywhere; }
+.admin-shell .admin-list-row small { color: var(--veyro-text-muted); font-size: 10px; line-height: 1.5; overflow-wrap: anywhere; }
+.admin-inline-count { display: inline-flex; align-items: center; justify-content: center; min-width: 26px; height: 26px; padding: 0 8px; border: 1px solid var(--veyro-border); border-radius: 999px; background: var(--veyro-surface-subtle); color: var(--veyro-text); font-size: 10px; font-weight: 800; }
+.admin-search-field { display: flex; min-width: 0; flex-direction: column; gap: 6px; margin: 12px 0; }
+.admin-search-field > span { color: var(--veyro-text-muted); font-size: 10px; font-weight: 700; }
+.admin-search-field .text-field { min-height: 42px; font-size: 12px; }
+.admin-queue-heading { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.admin-queue-heading h2 { margin: 0 0 5px; }
+.admin-queue-heading p { margin: 0; }
+.admin-queue-filters { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(150px, .6fr); gap: 12px; padding: 5px 0 10px; }
+.admin-request-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; flex: none; }
+.admin-request-actions .icon-action { white-space: nowrap; text-decoration: none; }
+.admin-request-actions .admin-overview-tag { white-space: nowrap; }
+.admin-shell .admin-subheading { display: flex; align-items: center; gap: 9px; margin-top: 24px; }
+.admin-shell .admin-mode { padding: 14px 12px; border: 1px solid var(--veyro-border); border-radius: 11px; background: var(--veyro-surface); }
+.admin-shell .admin-mode:has(input:checked) { border-color: color-mix(in srgb, var(--veyro-accent) 45%, var(--veyro-border)); background: var(--veyro-accent-soft); }
+.admin-shell .admin-field { gap: 7px; color: var(--veyro-text-muted); font-size: 11px; font-weight: 650; }
+.admin-shell .text-field { border-radius: 10px; }
+.admin-shell .button { min-height: 40px; }
+.admin-shell .admin-booking-queue { grid-column: 1 / -1; }
+.admin-shell .admin-overview-grid { gap: 14px; }
+.admin-shell .admin-overview-card { border-radius: 15px; }
+.admin-shell .admin-overview-heading h2 { font-size: 15px; }
+.admin-shell .admin-overview-heading p { font-size: 11px; }
+.admin-shell .footer { margin-top: 38px; }
+@media (max-width: 760px) {
+ .admin-shell > .dashboard-heading { align-items: flex-start; flex-wrap: wrap; padding-top: 25px; }
+ .admin-shell > .dashboard-heading > div:first-child { flex: 1 1 100%; }
+ .admin-shell > .dashboard-heading .dashboard-if-live-mark { width: 65px; margin-left: 0; }
+ .admin-shell > .dashboard-heading > button { margin-left: auto; }
+ .admin-command-banner { align-items: flex-start; flex-direction: column; }
+ .admin-command-banner .button { width: 100%; justify-content: center; }
+ .admin-shell .dashboard-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+ .admin-queue-filters { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+ .admin-shell .admin-booking-queue { grid-column: auto; }
+}
+@media (max-width: 480px) {
+ .admin-shell > .dashboard-heading h1 { font-size: 27px; }
+ .admin-shell .dashboard-stats { gap: 8px; }
+ .admin-shell .stat-card { min-height: 104px; padding: 14px; }
+ .admin-command-banner { padding: 16px; }
+ .admin-shell .admin-card { padding: 15px; }
+ .admin-shell .admin-list-row { align-items: flex-start; flex-direction: column; }
+ .admin-request-actions { width: 100%; justify-content: space-between; }
+ .admin-queue-heading { align-items: flex-start; }
+}
