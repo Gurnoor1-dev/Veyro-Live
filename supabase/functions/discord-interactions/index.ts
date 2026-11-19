@@ -176,8 +176,22 @@ async function processScheduleClaim(interaction: any, scheduleId: string, seatRo
     }
     const position = await ifRequest<any>(token, "/live/aircraft/" + event.aircraft_id + "/position");
     const positionTime = Date.parse(String(position?.updatedAt ?? ""));
-    if (position?.isOnGround !== true || !Number.isFinite(positionTime) || positionTime < Date.parse(previous.actualArrivalUtc) - 15 * 60_000) {
+    if (position?.isOnGround !== true || !Number.isFinite(positionTime) ||
+      positionTime < Date.parse(previous.actualArrivalUtc) - 15 * 60_000 || positionTime > Date.now() + 2 * 60_000) {
       await editOriginal(applicationId, interactionToken, { content: "Infinite Flight no longer confirms this aircraft as grounded. The schedule cannot be claimed right now.", components: [] });
+      return;
+    }
+    const flightPage = await ifRequest<any>(token, "/live/aircraft/" + event.aircraft_id + "/flights", {}, undefined, true);
+    const flightLog = Array.isArray(flightPage?.items) ? flightPage.items : [];
+    const previousArrivalMs = Date.parse(previous.actualArrivalUtc);
+    const newerActiveFlight = flightLog.some((flight: any) => Number(flight.status) === 0 &&
+      flight.actualDepartureUtc && Date.parse(flight.actualDepartureUtc) >= previousArrivalMs - 2 * 60_000);
+    const matchingCompletedFlight = flightLog.some((flight: any) => Number(flight.status) === 1 &&
+      flight.actualArrivalUtc && Math.abs(Date.parse(flight.actualArrivalUtc) - previousArrivalMs) <= 30 * 60_000 &&
+      String(flight.originIcao ?? "").toUpperCase() === String(previous.originIcao ?? "").toUpperCase() &&
+      String(flight.destinationIcao ?? "").toUpperCase() === String(previous.destinationIcao ?? "").toUpperCase());
+    if (newerActiveFlight || !matchingCompletedFlight) {
+      await editOriginal(applicationId, interactionToken, { content: "The latest Infinite Flight aircraft log does not confirm this aircraft as parked after the completed leg. The schedule cannot be claimed right now.", components: [] });
       return;
     }
     const members = await ifRequest<any[]>(token, "/live/organizations/" + org.live_organization_id + "/members");
