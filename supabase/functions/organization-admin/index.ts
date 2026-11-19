@@ -74,7 +74,7 @@ Deno.serve(async (req) => {
     ? Promise.all([
         admin.from("organization_memberships").select("user_id,role,is_active,created_at").eq("organization_id", organizationId).order("created_at"),
         admin.from("organization_pilot_invites").select("id,email,pilot_name,status,created_at").eq("organization_id", organizationId).order("created_at", { ascending: false }),
-        admin.from("discord_settings").select("guild_id,approval_channel_id,allowed_approver_role_ids,enabled").eq("organization_id", organizationId).maybeSingle(),
+        admin.from("discord_settings").select("guild_id,approval_channel_id,allowed_approver_role_ids,landing_dispatch_channel_id,unassigned_legs_channel_id,schedule_revisor_channel_id,activity_log_channel_id,enabled").eq("organization_id", organizationId).maybeSingle(),
         admin.from("profiles").select("display_name,discord_user_id").eq("id", user.id).maybeSingle(),
         admin.from("schedule_simbrief_xml").select("schedule_id,file_name,updated_at").eq("organization_id", organizationId),
         admin.from("booking_requests").select("id,pilot_user_id,pilot_if_user_id,live_schedule_id,live_aircraft_id,status,seat_role,reference_code,discord_message_id,created_at,reviewed_at,reviewed_by").eq("organization_id", organizationId).order("created_at", { ascending: false }).limit(30),
@@ -187,12 +187,21 @@ Deno.serve(async (req) => {
       const guildId = String(body.guildId ?? "").trim();
       const channelId = String(body.channelId ?? "").trim();
       const roles = Array.isArray(body.roleIds) ? body.roleIds.map((v: unknown) => String(v).trim()).filter(Boolean).slice(0, 30) : [];
-      if (!/^\d{17,20}$/.test(guildId) || !/^\d{17,20}$/.test(channelId)) return fail("Enter valid Discord server and channel IDs.", 400);
+      const channelFields = {
+        landing_dispatch_channel_id: String(body.landingDispatchChannelId ?? "").trim() || null,
+        unassigned_legs_channel_id: String(body.unassignedLegsChannelId ?? "").trim() || null,
+        schedule_revisor_channel_id: String(body.scheduleRevisorChannelId ?? "").trim() || null,
+        activity_log_channel_id: String(body.activityLogChannelId ?? "").trim() || null,
+      };
+      if (!/^\d{17,20}$/.test(guildId) || !/^\d{17,20}$/.test(channelId)) return fail("Enter valid Discord server and booking approvals channel IDs.", 400);
+      if (roles.some((role) => !/^\d{17,20}$/.test(role))) return fail("Every approver role must be a valid Discord role ID.", 400);
+      if (Object.values(channelFields).some((id) => id !== null && !/^\d{17,20}$/.test(id))) return fail("Every notification destination must be a valid Discord channel ID, or left blank.", 400);
       const { error } = await admin.from("discord_settings").upsert({
         organization_id: organizationId, guild_id: guildId, approval_channel_id: channelId,
-        allowed_approver_role_ids: roles, enabled: true, updated_at: new Date().toISOString()
+        allowed_approver_role_ids: roles, ...channelFields, enabled: true, updated_at: new Date().toISOString()
       }, { onConflict: "organization_id" });
-      if (error) return fail("Could not save Discord settings.", 500);
+      if (error) return fail("Could not save Discord and notification settings.", 500);
+      await admin.from("audit_events").insert({ organization_id: organizationId, actor_user_id: user.id, event_type: "organization.discord_settings_updated" });
       return json({ ok: true });
     }
 
