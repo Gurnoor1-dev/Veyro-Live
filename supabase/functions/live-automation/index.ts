@@ -202,7 +202,7 @@ async function runOrganization(org: {id:string;live_organization_id:string}, cou
       .select("session_ids,sessions_refreshed_at,aircraft_cursor").eq("organization_id", org.id).maybeSingle();
     let sessionIds: string[] = Array.isArray(runtime?.session_ids) ? runtime.session_ids : [];
     const refreshedAt = runtime?.sessions_refreshed_at ? Date.parse(runtime.sessions_refreshed_at) : 0;
-    if (!sessionIds.length || !refreshedAt || Date.now() - refreshedAt >= 10 * 60_000) {
+    if (!runtime?.sessions_refreshed_at || !refreshedAt || Date.now() - refreshedAt >= 10 * 60_000) {
       const sessions = await ifRequest<Array<{id:string}>>(token, "/sessions");
       sessionIds = (sessions ?? []).map((session) => session.id).filter(Boolean);
       await admin.from("live_automation_runtime").upsert({
