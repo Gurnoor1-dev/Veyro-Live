@@ -56,7 +56,9 @@ function isPagedLiveEndpoint(pathname: string): boolean {
 }
 
 export async function ifRequest<T>(token: string, path: string, init: RequestInit = {}, onRateLimit?: IfApiRateLimitObserver, returnPage = false, alreadyReserved = false): Promise<T> {
-  if (!path.startsWith("/live/") || path.includes("..")) throw new Error("Unsupported API path");
+  const livePath = path.startsWith("/live/");
+  const publicSessionPath = /^\/sessions(?:\/[^/]+\/flights)?$/.test(path);
+  if ((!livePath && !publicSessionPath) || path.includes("..")) throw new Error("Unsupported API path");
 
   const method = (init.method ?? "GET").toUpperCase();
   const requestUrl = new URL(IF_API + path);
