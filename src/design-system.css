@@ -395,3 +395,35 @@ textarea.text-field { min-height: 112px; resize: vertical; }
 @media (prefers-reduced-motion: reduce) {
  .docs-sidebar { transition: none !important; }
 }
+
+
+/* Dedicated organisation integrations and notification settings */
+.admin-settings-layout { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(240px, .65fr); gap: 14px; align-items: start; margin: 16px 0 34px; }
+.admin-settings-layout > .panel { min-width: 0; }
+.admin-settings-layout .admin-card { padding: clamp(18px, 2.4vw, 26px); }
+.admin-settings-layout h2 { margin: 8px 0; color: var(--veyro-text); font-size: 19px; letter-spacing: -.045em; }
+.admin-settings-layout h3 { margin: 10px 0; color: var(--veyro-text); font-size: 14px; letter-spacing: -.03em; }
+.admin-settings-layout p { max-width: 680px; color: var(--veyro-text-muted); font-size: 11px; line-height: 1.75; }
+.admin-settings-layout form { margin-top: 16px; }
+.admin-settings-layout .admin-field { display: flex; flex-direction: column; gap: 7px; margin: 15px 0; color: var(--veyro-text-muted); font-size: 11px; font-weight: 650; }
+.admin-settings-layout .text-field { min-height: 43px; border-color: var(--veyro-border); background: var(--veyro-surface-subtle); color: var(--veyro-text); }
+.admin-settings-layout .admin-textarea { min-height: 88px; resize: vertical; }
+.admin-settings-layout .text-field:focus { border-color: var(--veyro-accent); box-shadow: 0 0 0 3px var(--veyro-accent-soft); outline: 0; }
+.admin-settings-layout button { min-height: 42px; }
+.admin-settings-note { margin: 14px 0; padding: 12px 14px; border: 1px solid var(--veyro-border); border-radius: 10px; background: var(--veyro-surface-subtle); color: var(--veyro-text-muted); font-size: 10px; line-height: 1.7; }
+.admin-settings-aside { position: sticky; top: 18px; }
+.admin-settings-aside .admin-settings-summary { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 13px 0; border-top: 1px solid var(--veyro-border); }
+.admin-settings-aside .admin-settings-summary span { color: var(--veyro-text-muted); font-size: 10px; }
+.admin-settings-aside .admin-settings-summary strong { color: var(--veyro-text); font-size: 10px; text-align: right; }
+.admin-settings-aside .button { margin-top: 12px; }
+.admin-spotlight { overflow-x: auto; scrollbar-width: thin; }
+.admin-spotlight > * { flex: 0 0 auto; }
+@media (max-width: 800px) {
+ .admin-settings-layout { grid-template-columns: minmax(0, 1fr); }
+ .admin-settings-aside { position: static; }
+}
+@media (max-width: 560px) {
+ .admin-spotlight { margin-inline: -4px; padding-bottom: 4px; }
+ .admin-settings-layout .admin-card { padding: 17px; }
+ .admin-settings-layout .admin-field { font-size: 10px; }
+}
