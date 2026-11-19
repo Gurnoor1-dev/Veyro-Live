@@ -81,35 +81,35 @@ textarea:focus-visible, [tabindex]:not([tabindex="-1"]):focus-visible {
   outline: 3px solid var(--veyro-focus);
   outline-offset: 3px;
 }
-:where(button, a, input, select, textarea) { touch-action: manipulation; }
-:where(img, video, canvas, svg) { max-width: 100%; }
+button, a, input, select, textarea { touch-action: manipulation; }
+img, video, canvas, svg { max-width: 100%; }
 img { height: auto; }
-:where(p, li) { text-wrap: pretty; }
-:where(h1, h2, h3, h4) { text-wrap: balance; }
-:where(h1) { line-height: 1.08; }
-:where(h2, h3, h4) { line-height: 1.2; }
-:where(.button, button.button) {
+p, li { text-wrap: pretty; }
+h1, h2, h3, h4 { text-wrap: balance; }
+h1 { line-height: 1.08; }
+h2, h3, h4 { line-height: 1.2; }
+.button, button.button {
   min-height: 42px;
   font-family: var(--veyro-font-sans);
   font-weight: 700;
   letter-spacing: -.01em;
 }
-:where(.button-primary) {
+.button-primary {
   background: var(--surface-strong, #142033);
   transition: transform .18s ease, box-shadow .18s ease, filter .18s ease;
 }
 :where(.button-primary:hover:not(:disabled)) { box-shadow: var(--veyro-shadow-md); }
 :where(.button-quiet:hover:not(:disabled)) { border-color: var(--veyro-border-strong); }
-:where(button:disabled, .button:disabled) { cursor: not-allowed; }
-:where(.panel, .feature, .stat-card, .admin-card, .dashboard-panel,
-  .airline-account-card, .directory-account-card, .org-directory-card) {
+button:disabled, .button:disabled { cursor: not-allowed; }
+.panel, .feature, .stat-card, .admin-card, .dashboard-panel,
+  .airline-account-card, .directory-account-card, .org-directory-card {
   min-width: 0;
   overflow-wrap: anywhere;
 }
-:where(.panel, .feature, .stat-card, .admin-card, .dashboard-panel) {
+.panel, .feature, .stat-card, .admin-card, .dashboard-panel {
   box-shadow: var(--veyro-shadow-sm);
 }
-:where(.field-label, label.field-label) {
+.field-label, label.field-label {
   display: block;
   margin-bottom: 7px;
   color: var(--veyro-text-muted);
@@ -117,64 +117,64 @@ img { height: auto; }
   font-weight: 700;
   line-height: 1.45;
 }
-:where(.text-field, input, select, textarea) { accent-color: var(--veyro-accent); }
-:where(.text-field) {
+.text-field, input, select, textarea { accent-color: var(--veyro-accent); }
+.text-field {
   width: 100%;
   min-width: 0;
   min-height: 44px;
   font-size: 14px;
 }
-:where(textarea.text-field) { min-height: 112px; resize: vertical; }
-:where(.notice, .empty-state, .directory-empty, .account-empty) {
+textarea.text-field { min-height: 112px; resize: vertical; }
+.notice, .empty-state, .directory-empty, .account-empty {
   overflow-wrap: anywhere;
 }
-:where(.status-pill, .membership-chip, .row-status, .aircraft-status-chip) {
+.status-pill, .membership-chip, .row-status, .aircraft-status-chip {
   max-width: 100%;
   white-space: normal;
 }
-:where(.table-scroll, .data-list, .pilot-booking-board) { min-width: 0; }
-:where(.table-scroll) { overscroll-behavior-inline: contain; scrollbar-width: thin; }
-:where(.topbar, .section-heading, .dashboard-heading, .account-section-heading) { min-width: 0; }
-:where(.topbar > *, .section-heading > *, .dashboard-heading > *) { min-width: 0; }
-:where(.brand-image) { width: auto; }
-:where(.theme-toggle) {
+.table-scroll, .data-list, .pilot-booking-board { min-width: 0; }
+.table-scroll { overscroll-behavior-inline: contain; scrollbar-width: thin; }
+.topbar, .section-heading, .dashboard-heading, .account-section-heading { min-width: 0; }
+.topbar > *, .section-heading > *, .dashboard-heading > * { min-width: 0; }
+.brand-image { width: auto; }
+.theme-toggle {
   min-width: 40px;
   min-height: 40px;
   border-radius: var(--veyro-radius-sm);
 }
-:where(.footer) { line-height: 1.5; }
-:where(.spotlight-nav, .pilot-sidebar nav) { scrollbar-width: thin; }
-:where(.spotlight-nav-item, .pilot-sidebar nav a) { min-height: 42px; }
-:where(.veyro-toast-viewport) { z-index: 10000; }
-:where(.seat-modal, .modal, [role="dialog"]) { max-height: min(88dvh, 820px); overflow-y: auto; }
-:where(.shell, .admin-shell, .pilot-shell) { min-width: 0; }
+.footer { line-height: 1.5; }
+.spotlight-nav, .pilot-sidebar nav { scrollbar-width: thin; }
+.spotlight-nav-item, .pilot-sidebar nav a { min-height: 42px; }
+.veyro-toast-viewport { z-index: 10000; }
+.seat-modal, .modal, [role="dialog"] { max-height: min(88dvh, 820px); overflow-y: auto; }
+.shell, .admin-shell, .pilot-shell { min-width: 0; }
 
 @media (hover: hover) and (pointer: fine) {
-  :where(a, button) { transition-duration: .18s; }
+  a, button { transition-duration: .18s; }
 }
 @media (max-width: 760px) {
   html { scroll-padding-top: 72px; }
-  :where(.shell, .admin-shell, .pilot-shell) {
+  .shell, .admin-shell, .pilot-shell {
     width: min(100% - 32px, var(--veyro-content-width));
   }
-  :where(.panel) { padding: clamp(16px, 4vw, 24px); }
-  :where(.dashboard-heading) { align-items: flex-start; flex-wrap: wrap; }
-  :where(.dashboard-heading > div:first-child) { flex: 1 1 220px; }
-  :where(.dashboard-stats) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  :where(.section-heading, .account-section-heading) { align-items: flex-start; flex-wrap: wrap; }
-  :where(.footer) { flex-wrap: wrap; padding: 14px 0; }
+  .panel { padding: clamp(16px, 4vw, 24px); }
+  .dashboard-heading { align-items: flex-start; flex-wrap: wrap; }
+  .dashboard-heading > div:first-child { flex: 1 1 220px; }
+  .dashboard-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .section-heading, .account-section-heading { align-items: flex-start; flex-wrap: wrap; }
+  .footer { flex-wrap: wrap; padding: 14px 0; }
 }
 @media (max-width: 480px) {
-  :where(.shell, .admin-shell, .pilot-shell) { width: calc(100% - 24px); }
-  :where(.topbar) { gap: 10px; }
-  :where(.top-actions) { gap: 8px; }
-  :where(.dashboard-stats) { gap: 8px; }
-  :where(.stat-card) { padding: 12px; }
-  :where(.stat-card strong) { font-size: clamp(20px, 6vw, 25px); }
-  :where(.hero-actions, .account-bottom-actions) { width: 100%; }
-  :where(.hero-actions .button, .account-bottom-actions .button) { flex: 1 1 auto; }
-  :where(.application-two-col) { grid-template-columns: minmax(0, 1fr); }
-  :where(.seat-modal-backdrop) { padding: 12px; }
+  .shell, .admin-shell, .pilot-shell { width: calc(100% - 24px); }
+  .topbar { gap: 10px; }
+  .top-actions { gap: 8px; }
+  .dashboard-stats { gap: 8px; }
+  .stat-card { padding: 12px; }
+  .stat-card strong { font-size: clamp(20px, 6vw, 25px); }
+  .hero-actions, .account-bottom-actions { width: 100%; }
+  .hero-actions .button, .account-bottom-actions .button { flex: 1 1 auto; }
+  .application-two-col { grid-template-columns: minmax(0, 1fr); }
+  .seat-modal-backdrop { padding: 12px; }
 }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
