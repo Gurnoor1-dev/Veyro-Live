@@ -51,7 +51,7 @@ function latestCompleted(schedules: Schedule[], aircraftId: string): Schedule | 
     .sort((a, b) => Date.parse(String(b.actualArrivalUtc)) - Date.parse(String(a.actualArrivalUtc)))[0] ?? null;
 }
 function nextLeg(schedules: Schedule[], previous: Schedule): Schedule | null {
-  return schedules.filter((s) => s.aircraftId === previous.aircraftId && s.sequence > previous.sequence && s.status !== 9 && s.status !== 11)
+  return schedules.filter((s) => s.aircraftId === previous.aircraftId && s.sequence > previous.sequence && [1,2,3,8].includes(Number(s.status)))
     .sort((a, b) => a.sequence - b.sequence)[0] ?? null;
 }
 function activeFlightMap(flights: ActiveFlight[]): Map<string, ActiveFlight> {
