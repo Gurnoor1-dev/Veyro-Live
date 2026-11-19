@@ -15,7 +15,7 @@ The **Discord Integration** page separately stores the server ID, booking approv
 
 ## Database migration
 
-The migration `20261119172000_discord_notification_channels.sql` adds the four optional text columns to `public.discord_settings`. It does not overwrite any existing channel IDs.
+The migration `20261119115558_discord_notification_channels.sql` adds the four optional text columns to `public.discord_settings`. It does not overwrite any existing channel IDs.
 
 ## Set channel IDs with SQL
 
