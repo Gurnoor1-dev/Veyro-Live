@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { JSX } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ArrowLeft, ArrowUpRight, BookOpen, ChevronRight, Code2, Copy, FileText, Menu, Search, Shield, X } from "lucide-react";
@@ -8,8 +8,8 @@ import ThemeToggle from "../components/ThemeToggle";
 const modules = import.meta.glob("../../docs/*.md", { eager: true, query: "?raw", import: "default" }) as Record<string, string>;
 
 const groups = [
-  { name: "GETTING STARTED", items: ["DEVELOPER-SETUP.md", "ORGANISATIONS.md", "PILOTS.md"] },
-  { name: "PLATFORM", items: ["ARCHITECTURE.md", "DISCORD-SETUP.md"] },
+  { name: "GETTING STARTED", items: ["DEVELOPER-SETUP.md", "ORGANISATIONS.md", "PILOTS.md", "ORG-APPLICATIONS.md"] },
+  { name: "PLATFORM", items: ["ARCHITECTURE.md", "DISCORD-SETUP.md", "LIVE-AUTOMATION.md"] },
   { name: "SECURITY & COMPLIANCE", items: ["SECURITY.md", "API-COMPLIANCE.md", "INFINITE-FLIGHT-TESTING-COMPLIANCE.md"] },
   { name: "PROJECT", items: ["CONTRIBUTING.md"] },
 ];
@@ -17,8 +17,10 @@ const titles: Record<string, string> = {
   "DEVELOPER-SETUP.md": "Developer setup",
   "ORGANISATIONS.md": "Organisations",
   "PILOTS.md": "Pilot guide",
+  "ORG-APPLICATIONS.md": "Organisation applications",
   "ARCHITECTURE.md": "Architecture",
   "DISCORD-SETUP.md": "Discord integration",
+  "LIVE-AUTOMATION.md": "Live automation",
   "SECURITY.md": "Security",
   "API-COMPLIANCE.md": "API compliance",
   "INFINITE-FLIGHT-TESTING-COMPLIANCE.md": "Testing compliance",
@@ -28,8 +30,10 @@ const descriptions: Record<string, string> = {
   "DEVELOPER-SETUP.md": "Set up your local environment, Supabase project and deployment.",
   "ORGANISATIONS.md": "Connect and manage a Virtual Airline workspace.",
   "PILOTS.md": "Learn how pilots connect and use their Live workspace.",
+  "ORG-APPLICATIONS.md": "Application review, approval and first organisation setup.",
   "ARCHITECTURE.md": "Understand the platform, data flow and tenancy model.",
   "DISCORD-SETUP.md": "Configure Discord approvals and interactions.",
+  "LIVE-AUTOMATION.md": "Understand the Infinite Flight Live data and automation workflow.",
   "SECURITY.md": "Authentication, authorization, secrets and data protection.",
   "API-COMPLIANCE.md": "Infinite Flight API data-use requirements and scopes.",
   "INFINITE-FLIGHT-TESTING-COMPLIANCE.md": "Testing access limits and API request safeguards.",
@@ -113,11 +117,21 @@ export default function DocsPage() {
   const doc = params["*"] || params.doc || "";
   const [query, setQuery] = useState("");
   const [mobileOpen, setMobileOpen] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const handleShortcut = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") { event.preventDefault(); searchInputRef.current?.focus(); }
+      if (event.key === "Escape") { setMobileOpen(false); if (document.activeElement === searchInputRef.current) { setQuery(""); searchInputRef.current?.blur(); } }
+    };
+    window.addEventListener("keydown", handleShortcut);
+    return () => window.removeEventListener("keydown", handleShortcut);
+  }, []);
   const currentFile = orderedFiles.find(file => slug(file) === doc) || (doc ? "" : orderedFiles[0]);
   const currentPath = currentFile ? fileFor(currentFile) : undefined;
   const content = currentPath ? modules[currentPath] : "";
   const heading = content.match(/^#\s+(.+)$/m)?.[1] || humanize(currentFile);
-  const filteredGroups = useMemo(() => groups.map(group => ({ ...group, items: group.items.filter(file => allFiles.includes(file) && (humanize(file) + " " + (descriptions[file] || "")).toLowerCase().includes(query.toLowerCase())) })).filter(group => group.items.length), [query]);
+  const matchesQuery = (file: string) => (humanize(file) + " " + (descriptions[file] || "") + " " + (modules[fileFor(file) || ""] || "")).toLowerCase().includes(query.trim().toLowerCase());
+  const filteredGroups = useMemo(() => groups.map(group => ({ ...group, items: group.items.filter(file => allFiles.includes(file) && matchesQuery(file)) })).filter(group => group.items.length), [query]);
   const currentIndex = orderedFiles.indexOf(currentFile);
   const previous = orderedFiles[currentIndex - 1];
   const next = orderedFiles[currentIndex + 1];
@@ -126,18 +140,18 @@ export default function DocsPage() {
     <header className="docs-topbar">
       <div className="docs-brand"><Brand/></div>
       <Link className="nav-account-link veyro-center-account" to="/account">My Veyro <ArrowUpRight size={13}/></Link>
-      <div className="docs-top-actions"><ThemeToggle/><button className="docs-mobile-toggle" onClick={() => setMobileOpen(v => !v)} aria-label="Toggle documentation menu">{mobileOpen ? <X/> : <Menu/>}</button></div>
+      <div className="docs-top-actions"><ThemeToggle/><button className="docs-mobile-toggle" type="button" onClick={() => setMobileOpen(v => !v)} aria-label="Toggle documentation menu" aria-expanded={mobileOpen} aria-controls="docs-navigation">{mobileOpen ? <X/> : <Menu/>}</button></div>
     </header>
     <div className="docs-layout">
-      <aside className={"docs-sidebar" + (mobileOpen ? " is-open" : "")}>
+      <aside id="docs-navigation" className={"docs-sidebar" + (mobileOpen ? " is-open" : "")}>
         <Link className="docs-back" to="/"><ArrowLeft size={14}/> Back to VEYRO Live</Link>
         <div className="docs-nav-title">DOCUMENTATION</div>
-        <label className="docs-search"><Search size={15}/><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search documentation"/><kbd>⌘ K</kbd></label>
+        <label className="docs-search"><Search size={15}/><input ref={searchInputRef} value={query} onChange={e => setQuery(e.target.value)} placeholder="Search documentation" aria-label="Search all documentation"/><kbd>⌘ K</kbd></label>
         <nav>
           <Link className={"docs-nav-item docs-overview" + (!doc ? " active" : "")} to="/docs"><BookOpen size={15}/> Overview</Link>
           {filteredGroups.map(group => <section className="docs-nav-group" key={group.name}><div>{group.name}</div>{group.items.map(file => <Link key={file} onClick={() => setMobileOpen(false)} className={"docs-nav-item" + (currentFile === file ? " active" : "")} to={"/docs/" + slug(file)}><FileText size={14}/><span>{humanize(file)}</span>{currentFile === file && <ChevronRight size={13}/>}</Link>)}</section>)}
-          {orderedFiles.some(file => !groups.some(group => group.items.includes(file))) && <section className="docs-nav-group"><div>REFERENCE</div>{orderedFiles.filter(file => !groups.some(group => group.items.includes(file)) && (humanize(file) + " " + (descriptions[file] || "")).toLowerCase().includes(query.toLowerCase())).map(file => <Link key={file} onClick={() => setMobileOpen(false)} className={"docs-nav-item" + (currentFile === file ? " active" : "")} to={"/docs/" + slug(file)}><FileText size={14}/><span>{humanize(file)}</span>{currentFile === file && <ChevronRight size={13}/>}</Link>)}</section>}
-          {query && !filteredGroups.length && <p className="docs-no-results">No guides match your search.</p>}
+          {orderedFiles.some(file => !groups.some(group => group.items.includes(file))) && <section className="docs-nav-group"><div>REFERENCE</div>{orderedFiles.filter(file => !groups.some(group => group.items.includes(file)) && matchesQuery(file)).map(file => <Link key={file} onClick={() => setMobileOpen(false)} className={"docs-nav-item" + (currentFile === file ? " active" : "")} to={"/docs/" + slug(file)}><FileText size={14}/><span>{humanize(file)}</span>{currentFile === file && <ChevronRight size={13}/>}</Link>)}</section>}
+          {query && !orderedFiles.some(file => matchesQuery(file)) && <p className="docs-no-results" role="status">No guides match “{query}”. Search titles and guide content.</p>}
         </nav>
         <div className="docs-sidebar-foot"><span className="docs-status-dot"/> Documentation sourced from repository Markdown</div>
       </aside>
