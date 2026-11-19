@@ -351,3 +351,47 @@ textarea.text-field { min-height: 112px; resize: vertical; }
  .admin-request-actions { width: 100%; justify-content: space-between; }
  .admin-queue-heading { align-items: flex-start; }
 }
+
+
+/* Combined phases 4–6 — public discovery, documentation and final QA polish */
+.sr-only { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip: rect(0, 0, 0, 0) !important; white-space: nowrap !important; border: 0 !important; }
+.directory-tools { display: flex; justify-content: flex-end; margin: 12px 0 14px; }
+.directory-search { display: flex; align-items: center; gap: 12px; width: min(100%, 420px); min-height: 42px; padding: 0 12px; border: 1px solid var(--veyro-border); border-radius: 10px; background: var(--veyro-surface); }
+.directory-search:focus-within { border-color: var(--veyro-accent); box-shadow: 0 0 0 3px var(--veyro-accent-soft); }
+.directory-search input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--veyro-text); font-size: 12px; }
+.directory-search input::placeholder { color: var(--veyro-text-soft); }
+.directory-search > span:last-child { flex: none; color: var(--veyro-text-muted); font-size: 10px; font-variant-numeric: tabular-nums; }
+.org-directory-card { min-width: 0; }
+.org-directory-copy strong, .org-directory-copy span { max-width: 100%; }
+.docs-search:focus-within { border-color: var(--veyro-accent); box-shadow: 0 0 0 3px var(--veyro-accent-soft); }
+.docs-search input:focus-visible { outline: 0; }
+.docs-search kbd { color: var(--veyro-text-muted); }
+.docs-nav-item { min-height: 39px; border: 1px solid transparent; }
+.docs-nav-item.active { border-color: var(--veyro-border); }
+.docs-markdown pre, .docs-code { max-width: 100%; overflow-x: auto; }
+.docs-markdown img { max-width: 100%; height: auto; border-radius: 10px; }
+.docs-markdown table { display: block; max-width: 100%; overflow-x: auto; }
+.docs-article { min-width: 0; }
+.docs-article-layout { min-width: 0; }
+.docs-pagination > a { min-width: 0; }
+.docs-pagination > a strong { overflow-wrap: anywhere; }
+.docs-mobile-toggle { min-width: 40px; min-height: 40px; cursor: pointer; }
+.not-found-panel { margin: clamp(36px, 8vw, 90px) auto; max-width: 720px; padding: clamp(22px, 5vw, 42px); }
+.not-found-panel h1 { margin: 12px 0; font-size: clamp(27px, 4vw, 38px); letter-spacing: -.055em; }
+.not-found-panel p { max-width: 520px; color: var(--veyro-text-muted); font-size: 13px; line-height: 1.7; }
+.not-found-actions { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 20px; }
+.not-found-actions .button { min-width: 120px; justify-content: center; }
+.launch-console-top .launch-online { letter-spacing: .08em; }
+@media (max-width: 760px) {
+ .directory-tools { justify-content: stretch; }
+ .directory-search { width: 100%; }
+ .docs-sidebar { padding-bottom: max(18px, env(safe-area-inset-bottom)); }
+ .docs-main { padding-bottom: max(48px, env(safe-area-inset-bottom)); }
+ .docs-pagination { grid-template-columns: minmax(0, 1fr); }
+ .docs-pagination > a.next { align-items: flex-start; text-align: left; }
+ .not-found-actions { display: grid; grid-template-columns: minmax(0, 1fr); }
+ .not-found-actions .button { width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+ .docs-sidebar { transition: none !important; }
+}
