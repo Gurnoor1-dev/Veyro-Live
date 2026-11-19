@@ -41,6 +41,8 @@ const readFile = (file: File) => new Promise<string>((resolve, reject) => {
 export function OrganizationDirectory() {
   const [organizations, setOrganizations] = useState<PublicOrg[]>([]);
   const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState("");
+  const filteredOrganizations = useMemo(() => organizations.filter((org) => [org.display_name, org.tagline, org.description].some((value) => String(value || "").toLowerCase().includes(query.trim().toLowerCase()))), [organizations, query]);
   useEffect(() => {
     let active = true;
     if (!supabase) { setLoading(false); return () => { active = false; }; }
@@ -49,9 +51,11 @@ export function OrganizationDirectory() {
   }, []);
   return <section className="directory-section">
     <div className="directory-heading"><div><div className="eyebrow">THE VEYRO NETWORK</div><h2>Explore virtual airlines</h2><p>Public portals from organisations connected to Infinite Flight Live.</p></div><Link className="button button-quiet" to="/apply">Apply for a portal <ArrowUpRight size={14}/></Link></div>
-    {loading ? <div className="directory-empty">Loading registered organisations…</div> : organizations.length === 0 ? <div className="directory-empty">The directory is getting ready. Approved organisation portals will appear here.</div> :
-      <div className="org-directory-grid">{organizations.map((org) => <Link className="org-directory-card" key={org.id} to={"/" + org.slug}>
-        <div className="org-directory-logo">{org.logo_url ? <img src={org.logo_url} alt={org.display_name + " logo"}/> : <span>{org.display_name.slice(0, 1).toUpperCase()}</span>}</div>
+    {!loading && organizations.length > 0 && <div className="directory-tools"><label className="directory-search"><span className="sr-only">Search organisations</span><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search airlines and organisations…"/><span>{filteredOrganizations.length} of {organizations.length}</span></label></div>}
+    {loading ? <div className="directory-empty" role="status" aria-live="polite">Loading registered organisations…</div> : organizations.length === 0 ? <div className="directory-empty">The directory is getting ready. Approved organisation portals will appear here.</div> :
+      filteredOrganizations.length === 0 ? <div className="directory-empty" role="status">No organisations match “{query}”. Try another name.</div> :
+      <div className="org-directory-grid" aria-live="polite">{filteredOrganizations.map((org) => <Link className="org-directory-card" key={org.id} to={"/" + org.slug}>
+        <div className="org-directory-logo">{org.logo_url ? <img src={org.logo_url} alt={org.display_name + " logo"}/> : <span aria-hidden="true">{org.display_name.slice(0, 1).toUpperCase()}</span>}</div>
         <div className="org-directory-copy"><strong>{org.display_name}</strong><span>{org.tagline || "Infinite Flight Live organisation"}</span><small>Open portal <ArrowUpRight size={12}/></small></div>
       </Link>)}</div>}
   </section>;
