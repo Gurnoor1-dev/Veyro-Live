@@ -484,4 +484,25 @@ function PilotDashboard(){
   </div><Footer/></main>;
 }
 function NotFound(){return <main className="shell narrow"><Header/><section className="panel not-found-panel"><div className="eyebrow">404 · ROUTE NOT FOUND</div><h1>This flight plan ends here.</h1><p>The page may have moved, or the address may be incomplete. Choose a destination below to continue.</p><div className="not-found-actions"><Link className="button button-primary" to="/">Back to VEYRO</Link><Link className="button button-quiet" to="/docs">Documentation</Link><Link className="button button-quiet" to="/login">Sign in</Link></div></section><Footer/></main>}
-export default function App(){return <Routes><Route path="/" element={<Landing/>}/><Route path="/docs/*" element={<DocsPage/>}/><Route path="/login" element={<Login/>}/><Route path="/account" element={<MyVeyro/>}/><Route path="/org/:slug/*" element={<Organization/>}/><Route path="/pilot/:organizationId/*" element={<PilotDashboard/>}/><Route path="/:slug/admin/*" element={<AdminPortal/>}/><Route path="/:slug/pilot-sign-in" element={<PilotSignIn/>}/><Route path="/:slug/pilot/:pilotId/*" element={<PilotDashboard/>}/><Route path="/apply" element={<OrganizationApplicationPage/>}/><Route path="/application-status/:trackingCode" element={<ApplicationStatusPage/>}/><Route path="/:slug" element={<PublicOrganizationPage/>}/><Route path="*" element={<NotFound/>}/></Routes>}
+function RouteMetadata(){
+ const {pathname}=useLocation();
+ useEffect(()=>{
+  const parts=pathname.split("/").filter(Boolean);
+  const slug=parts[0]||"";
+  let title="VEYRO Live — Virtual Airline Operations";
+  if(slug==="docs")title=(parts[1]?parts[1].replace(/-/g," ").replace(/\b\w/g,(letter)=>letter.toUpperCase())+" · ":"")+"Documentation | VEYRO Live";
+  else if(slug==="login")title="Connect Infinite Flight | VEYRO Live";
+  else if(slug==="account")title="My Veyro | VEYRO Live";
+  else if(slug==="apply")title="Create an Organisation Portal | VEYRO Live";
+  else if(slug==="application-status")title="Application Status | VEYRO Live";
+  else if(parts[1]==="admin")title="Organisation Admin | VEYRO Live";
+  else if(parts[1]==="pilot-sign-in")title="Pilot Sign In | VEYRO Live";
+  else if(parts[1]==="pilot")title="Pilot Workspace | VEYRO Live";
+  else if(slug)title=slug.replace(/-/g," ").replace(/\b\w/g,(letter)=>letter.toUpperCase())+" | VEYRO Live";
+  document.title=title;
+  const description=document.querySelector('meta[name="description"]');
+  if(description)description.setAttribute("content","VEYRO Live connects Infinite Flight virtual airlines with public organisation portals, pilot workspaces, fleet information and documentation.");
+ },[pathname]);
+ return null;
+}
+export default function App(){return <><RouteMetadata/><Routes><Route path="/" element={<Landing/>}/><Route path="/docs/*" element={<DocsPage/>}/><Route path="/login" element={<Login/>}/><Route path="/account" element={<MyVeyro/>}/><Route path="/org/:slug/*" element={<Organization/>}/><Route path="/pilot/:organizationId/*" element={<PilotDashboard/>}/><Route path="/:slug/admin/*" element={<AdminPortal/>}/><Route path="/:slug/pilot-sign-in" element={<PilotSignIn/>}/><Route path="/:slug/pilot/:pilotId/*" element={<PilotDashboard/>}/><Route path="/apply" element={<OrganizationApplicationPage/>}/><Route path="/application-status/:trackingCode" element={<ApplicationStatusPage/>}/><Route path="/:slug" element={<PublicOrganizationPage/>}/><Route path="*" element={<NotFound/>}/></Routes></>}
