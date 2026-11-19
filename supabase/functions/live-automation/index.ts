@@ -245,9 +245,34 @@ async function runOrganization(org: {id:string;live_organization_id:string}, cou
       if (!Number.isFinite(arrivalMs) || ageMs < -2 * 60_000) continue;
       const active = activeMap.get(aircraft.id);
       if (!isCurrentGroundState(position, arrivalMs, active)) continue;
+      const landingWindow = ageMs <= 30 * 60_000 && ageMs >= 0;
+      const revisorWindow = ageMs >= 12 * 60 * 60_000 && [1,8].includes(Number(next.status)) && (next.crew ?? []).length < 3;
+      if (!landingWindow && !revisorWindow) continue;
+      const landingKey = "landing:" + completed.id;
+      const revisorKey = "revisor:" + next.id;
+      const { data: priorEvents } = await admin.from("live_automation_events").select("event_key,status")
+        .in("event_key", [landingKey, revisorKey]);
+      const sentKeys = new Set((priorEvents ?? []).filter((event) => event.status === "sent").map((event) => event.event_key));
+      const shouldDispatch = landingWindow && !sentKeys.has(landingKey) && Boolean(position.lastPilotUsername && position.lastPilotId);
+      const shouldRevise = revisorWindow && !sentKeys.has(revisorKey);
+      if (!shouldDispatch && !shouldRevise) continue;
+
+      // Confirm the persisted schedule against the aircraft's actual Live flight log.
+      // A newer active flight invalidates the old ground state.
+      const flightPage = await ifRequest<{items:Array<{status:number;originIcao?:string|null;destinationIcao?:string|null;actualArrivalUtc?:string|null;actualDepartureUtc?:string|null}>}>(
+        token, "/live/aircraft/" + aircraft.id + "/flights", {}, undefined, true);
+      const flightLog = flightPage?.items ?? [];
+      const newerActiveFlight = flightLog.some((flight) => Number(flight.status) === 0 &&
+        flight.actualDepartureUtc && Date.parse(flight.actualDepartureUtc) >= arrivalMs - 2 * 60_000);
+      const matchingCompletedFlight = flightLog.some((flight) => Number(flight.status) === 1 &&
+        flight.actualArrivalUtc &&
+        Math.abs(Date.parse(flight.actualArrivalUtc) - arrivalMs) <= 30 * 60_000 &&
+        String(flight.originIcao ?? "").toUpperCase() === String(completed.originIcao ?? "").toUpperCase() &&
+        String(flight.destinationIcao ?? "").toUpperCase() === String(completed.destinationIcao ?? "").toUpperCase());
+      if (newerActiveFlight || !matchingCompletedFlight) continue;
 
       // Landing dispatch: recent, confirmed arrival; only the next assigned pilot is mentioned.
-      if (ageMs <= 30 * 60_000 && ageMs >= 0 && position.lastPilotUsername && position.lastPilotId) {
+      if (shouldDispatch) {
         const crew = [...(next.crew ?? [])].sort((a, b) => a.role - b.role);
         const assignedPilot = crew.find((member) => member.userId);
         if (assignedPilot) {
@@ -264,12 +289,12 @@ async function runOrganization(org: {id:string;live_organization_id:string}, cou
       }
 
       // Revisor: only future legs still in Scheduled/Delayed state, with capacity.
-      if (ageMs >= 12 * 60 * 60_000 && [1,8].includes(Number(next.status)) && (next.crew ?? []).length < 3) {
+      if (shouldRevise) {
         const { data: existingBooking } = await admin.from("booking_requests").select("id").eq("organization_id", org.id)
           .eq("live_schedule_id", next.id).in("status", ["pending_approval","approved","sync_failed"]).limit(1).maybeSingle();
         if (existingBooking) continue;
         const sent = await publishEvent(org.id, settings.approval_channel_id, {
-          event_key: "revisor:" + next.id, event_type: "schedule_revisor",
+          event_key: revisorKey, event_type: "schedule_revisor",
           schedule_id: next.id, related_schedule_id: completed.id, aircraft_id: aircraft.id,
         }, eventPayload("schedule_revisor", completed, next, aircraft));
         if (sent) counters.revised++;
