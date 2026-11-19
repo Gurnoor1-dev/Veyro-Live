@@ -15,6 +15,10 @@ Supabase Cron invokes `live-automation` once per minute. The worker uses the enc
 5. Discord receives one message in the configured channel. It displays the previous pilot's IFC username as plain text and mentions only the next assigned pilot.
 6. A database event key based on the completed schedule ID prevents duplicate messages.
 
+### Unassigned first-leg notification
+
+If an aircraft has no earlier scheduled legs and its first Scheduled/Delayed leg has no crew assigned, the worker posts a self-service claim card as soon as Infinite Flight reports a fresh on-ground position and no active session flight. Pilots can choose Captain or First Officer; the organisation's connected Infinite Flight Admin/Owner account assigns the crew directly. This path does not require a previous arrival or a 12-hour wait. The claim handler rechecks that the leg is still the first leg, remains unassigned, and the aircraft is still grounded before writing the assignment.
+
 ### 12-hour schedule revisor → direct crew assignment
 
 1. An aircraft completes a scheduled leg and remains on the ground.
