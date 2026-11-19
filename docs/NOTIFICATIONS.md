@@ -28,10 +28,11 @@ SET
   unassigned_legs_channel_id = NULLIF('PASTE_UNASSIGNED_LEGS_CHANNEL_ID', 'PASTE_UNASSIGNED_LEGS_CHANNEL_ID'),
   schedule_revisor_channel_id = NULLIF('PASTE_SCHEDULE_REVISOR_CHANNEL_ID', 'PASTE_SCHEDULE_REVISOR_CHANNEL_ID'),
   approval_channel_id = 'PASTE_BOOKING_APPROVALS_CHANNEL_ID',
-  activity_log_channel_id = NULLIF('PASTE_LIVE_ACTIVITY_CHANNEL_ID', 'PASTE_LIVE_ACTIVITY_CHANNEL_ID');
+  activity_log_channel_id = NULLIF('PASTE_LIVE_ACTIVITY_CHANNEL_ID', 'PASTE_LIVE_ACTIVITY_CHANNEL_ID')
+WHERE organization_id = 'PASTE_ORGANIZATION_UUID';
 ~~~
 
-The update above affects every row in `discord_settings`. For a multi-organisation deployment, add a `WHERE organization_id = '...'` condition to target one organisation. Do not run the unfiltered statement if different organisations have different Discord servers.
+Replace `PASTE_ORGANIZATION_UUID` with the target organisation's UUID from `public.organizations`. The `WHERE` clause is intentional: it prevents channel IDs from being overwritten across every organisation.
 
 Blank notification destinations disable that notification type. Keep the booking approvals channel configured separately.
 
