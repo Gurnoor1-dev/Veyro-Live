@@ -117,8 +117,8 @@ async function processScheduleClaim(interaction: any, scheduleId: string, seatRo
   let claimId: string | null = null;
   try {
     const { data: event, error: eventError } = await admin.from("live_automation_events")
-      .select("id,organization_id,schedule_id,aircraft_id,discord_message_id,status")
-      .eq("event_type", "schedule_revisor").eq("schedule_id", scheduleId).eq("status", "sent").maybeSingle();
+      .select("id,organization_id,event_type,schedule_id,aircraft_id,discord_message_id,status")
+      .in("event_type", ["schedule_revisor", "initial_schedule_open"]).eq("schedule_id", scheduleId).eq("status", "sent").maybeSingle();
     if (eventError || !event || !event.discord_message_id) {
       await editOriginal(applicationId, interactionToken, { content: "This self-service schedule is no longer available.", components: [] });
       return;
@@ -167,26 +167,33 @@ async function processScheduleClaim(interaction: any, scheduleId: string, seatRo
       await editOriginal(applicationId, interactionToken, { content: "This schedule is no longer available to claim.", components: [] });
       return;
     }
-    const previous = (schedules ?? []).filter((item: any) => Number(item.sequence) < Number(schedule.sequence) &&
-      Number(item.status) === 11 && item.actualArrivalUtc)
+    const isInitialEvent = event.event_type === "initial_schedule_open";
+    const earlierSchedules = (schedules ?? []).filter((item: any) => Number(item.sequence) < Number(schedule.sequence));
+    const previous = earlierSchedules.filter((item: any) => Number(item.status) === 11 && item.actualArrivalUtc)
       .sort((a: any,b: any) => Number(b.sequence) - Number(a.sequence))[0];
-    if (!previous?.actualArrivalUtc || Date.now() - Date.parse(previous.actualArrivalUtc) < 12 * 60 * 60_000) {
+    if (isInitialEvent) {
+      if (earlierSchedules.length > 0 || (Array.isArray(schedule.crew) && schedule.crew.length > 0)) {
+        await editOriginal(applicationId, interactionToken, { content: "This is no longer an unassigned first leg.", components: [] });
+        return;
+      }
+    } else if (!previous?.actualArrivalUtc || Date.now() - Date.parse(previous.actualArrivalUtc) < 12 * 60 * 60_000) {
       await editOriginal(applicationId, interactionToken, { content: "This aircraft has not yet met the 12-hour ground-time requirement.", components: [] });
       return;
     }
     const position = await ifRequest<any>(token, "/live/aircraft/" + event.aircraft_id + "/position");
     const positionTime = Date.parse(String(position?.updatedAt ?? ""));
     if (position?.isOnGround !== true || !Number.isFinite(positionTime) ||
-      positionTime < Date.parse(previous.actualArrivalUtc) - 15 * 60_000 || positionTime > Date.now() + 2 * 60_000) {
+      (isInitialEvent ? Date.now() - positionTime > 2 * 60_000 || positionTime > Date.now() + 30_000 :
+        positionTime < Date.parse(previous.actualArrivalUtc) - 15 * 60_000 || positionTime > Date.now() + 2 * 60_000)) {
       await editOriginal(applicationId, interactionToken, { content: "Infinite Flight no longer confirms this aircraft as grounded. The schedule cannot be claimed right now.", components: [] });
       return;
     }
     const flightPage = await ifRequest<any>(token, "/live/aircraft/" + event.aircraft_id + "/flights", {}, undefined, true);
     const flightLog = Array.isArray(flightPage?.items) ? flightPage.items : [];
-    const previousArrivalMs = Date.parse(previous.actualArrivalUtc);
+    const previousArrivalMs = isInitialEvent ? 0 : Date.parse(previous.actualArrivalUtc);
     const newerActiveFlight = flightLog.some((flight: any) => Number(flight.status) === 0 &&
-      flight.actualDepartureUtc && Date.parse(flight.actualDepartureUtc) >= previousArrivalMs - 2 * 60_000);
-    const matchingCompletedFlight = flightLog.some((flight: any) => Number(flight.status) === 1 &&
+      (!isInitialEvent || flight.actualDepartureUtc));
+    const matchingCompletedFlight = isInitialEvent || flightLog.some((flight: any) => Number(flight.status) === 1 &&
       flight.actualArrivalUtc && Math.abs(Date.parse(flight.actualArrivalUtc) - previousArrivalMs) <= 30 * 60_000 &&
       String(flight.originIcao ?? "").toUpperCase() === String(previous.originIcao ?? "").toUpperCase() &&
       String(flight.destinationIcao ?? "").toUpperCase() === String(previous.destinationIcao ?? "").toUpperCase());
