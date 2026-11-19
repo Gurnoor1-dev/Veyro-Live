@@ -124,8 +124,9 @@ async function processScheduleClaim(interaction: any, scheduleId: string, seatRo
       return;
     }
     const { data: settings } = await admin.from("discord_settings")
-      .select("guild_id,approval_channel_id,enabled").eq("organization_id", event.organization_id).maybeSingle();
-    if (!settings?.enabled || interaction.guild_id !== settings.guild_id || interaction.channel_id !== settings.approval_channel_id) {
+      .select("guild_id,approval_channel_id,unassigned_legs_channel_id,schedule_revisor_channel_id,enabled").eq("organization_id", event.organization_id).maybeSingle();
+    const expectedChannelId = event.event_type === "initial_schedule_open" ? settings?.unassigned_legs_channel_id : settings?.schedule_revisor_channel_id;
+    if (!settings?.enabled || !expectedChannelId || interaction.guild_id !== settings.guild_id || interaction.channel_id !== expectedChannelId) {
       await editOriginal(applicationId, interactionToken, { content: "This claim did not come from the configured organisation channel.", components: [] });
       return;
     }
