@@ -39,3 +39,12 @@ Blank notification destinations disable that notification type. Keep the booking
 ## Discord permissions
 
 The bot needs View Channel and Send Messages in each configured destination. For Unassigned Legs and Schedule Revisor, it also needs permission to use the interaction components delivered with the message. Do not make these channels public unless that is intentional for your organisation.
+
+
+## Automation cadence
+
+The `veyro-live-automation` cron job runs every five minutes (`*/5 * * * *`). This reduces Infinite Flight polling while preserving the existing eligibility checks and idempotent event delivery.
+
+## Test a notification
+
+Open **Organisation Admin → Notifications**, choose a notification destination in **Send a test notification**, and press **Send test embed**. The server verifies the signed-in organisation administrator, uses the saved channel ID, and sends the corresponding automation-style embed with sample data. The test does not call the Infinite Flight API, create an automation event, or change a schedule. Claim buttons in test messages are disabled. The Live Activity option tests channel permissions and the example activity-log layout; it does not enable an activity-log publisher.
