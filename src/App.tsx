@@ -430,6 +430,7 @@ function PilotDashboard(){
  schedules.forEach(item=>{const key=String(item.aircraftId||"");if(!schedulesByAircraft.has(key))schedulesByAircraft.set(key,[]);schedulesByAircraft.get(key)!.push(item)});
  schedulesByAircraft.forEach(items=>items.sort((a,b)=>(a.sequence??0)-(b.sequence??0)));
  const positionedCount=Object.keys(positions).length;
+ const nextPilotSchedule=[...schedules].filter(item=>item.scheduledDepartureUtc&&new Date(item.scheduledDepartureUtc).getTime()>=Date.now()).sort((a,b)=>new Date(a.scheduledDepartureUtc).getTime()-new Date(b.scheduledDepartureUtc).getTime())[0]||schedules[0]||null;
 
  return <main className="shell pilot-shell">
   <Header/>
@@ -440,6 +441,21 @@ function PilotDashboard(){
     {requestNotice&&<div className="notice success"><span>{requestNotice.message}</span>{requestNotice.url&&<a href={requestNotice.url} target="_blank" rel="noreferrer">Open Discord approval <ArrowUpRight size={13}/></a>}</div>}
     {error&&<ToastNotice message={error} onDismiss={()=>setError("")}/>}
     {page==="overview" ? <>
+      <section className="pilot-flight-hero">
+       <div className="pilot-flight-hero-copy">
+        <span className="pilot-flight-kicker"><span className="pilot-flight-live-dot"/> YOUR FLIGHT DESK</span>
+        <h2>{nextPilotSchedule?"Your next leg is in sight.":"Your next flight starts here."}</h2>
+        <p>{nextPilotSchedule?"Explore the published schedule and request the seat that works for you.":"Browse your organisation’s published schedules to find an available leg."}</p>
+        <div className="pilot-flight-actions">
+         <Link className="button button-primary" to={slug?"/"+slug+"/pilot/"+pilotId+"/schedules":"/pilot/"+organizationId+"/schedules"}>Browse schedules <ArrowRight size={14}/></Link>
+         <Link className="button button-quiet" to={slug?"/"+slug+"/pilot/"+pilotId+"/bookings":"/pilot/"+organizationId+"/bookings"}>View my bookings</Link>
+        </div>
+       </div>
+       <div className="pilot-next-leg">
+        <span className="pilot-next-leg-label">{nextPilotSchedule?"NEXT PUBLISHED LEG":"SCHEDULE STATUS"}</span>
+        {nextPilotSchedule?<><strong className="pilot-next-route">{nextPilotSchedule.originIcao||"—"} <span>→</span> {nextPilotSchedule.destinationIcao||"—"}</strong><span className="pilot-next-callsign">{nextPilotSchedule.callsign||"Scheduled flight"} · {nextPilotSchedule.isTimeless?"Flexible date":nextPilotSchedule.scheduledDepartureUtc?new Date(nextPilotSchedule.scheduledDepartureUtc).toLocaleString([],{dateStyle:"medium",timeStyle:"short"}):"Date to be confirmed"}</span><span className="pilot-next-status">{scheduleStatusLabel(nextPilotSchedule.status??1)}</span></>:<strong className="pilot-next-empty">No published legs yet</strong>}
+       </div>
+      </section>
       <div className="dashboard-stats"><article className="stat-card"><span>Fleet aircraft</span><strong>{aircraft.length}</strong><small><Plane size={12}/> Live organisation fleet</small></article><article className="stat-card"><span>Published schedules</span><strong>{schedules.length}</strong><small><CalendarDays size={12}/> Current schedules</small></article><article className="stat-card"><span>Your Live role</span><strong>{organization?.role===2?"Owner":organization?.role===1?"Admin":organization?"Member":"—"}</strong><small><ShieldCheck size={12}/> Verified by Infinite Flight</small></article><article className="stat-card"><span>Last refreshed</span><strong className="stat-time">{lastUpdated?lastUpdated.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}):"—"}</strong><small>Live API v3</small></article></div>
       <section className="panel dashboard-panel aircraft-map-panel">
        <div className="section-heading"><div><h2>Live fleet map</h2><p>Airborne and ground aircraft, positioned live across your fleet</p></div><button className="button button-quiet" onClick={()=>void fetchFleetData(false)} disabled={positionLoading||aircraft.length===0}><RefreshCw size={13}/>{positionLoading?"Updating…":"Refresh positions"}</button></div>
