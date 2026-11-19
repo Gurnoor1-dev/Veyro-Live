@@ -51,6 +51,11 @@ VEYRO Live is a multi-tenant operations portal for Infinite Flight Live Virtual 
 | [API compliance](docs/API-COMPLIANCE.md) | Infinite Flight API data-use and retention requirements |
 | [Infinite Flight testing compliance](docs/INFINITE-FLIGHT-TESTING-COMPLIANCE.md) | Testing limits and operational safeguards |
 | [Contributing](docs/CONTRIBUTING.md) | Branching, migrations, reviews and coding standards |
+| [Release checklist](docs/RELEASE-CHECKLIST.md) | Route smoke tests, responsive checks, authorization and production release gates |
+
+## Continuous integration
+
+GitHub Actions runs `npm install` and `npm run build` for pushes to `main` and pull requests targeting `main`. The production build includes the TypeScript project checks before Vite bundles the client. This automated check does not replace the external integration and release verification in [the release checklist](docs/RELEASE-CHECKLIST.md).
 
 ## Technology
 
