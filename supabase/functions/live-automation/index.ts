@@ -177,7 +177,7 @@ async function runOrganization(org: {id:string;live_organization_id:string}, cou
   if (!lockToken) return;
   try {
     const { data: settings } = await admin.from("discord_settings")
-      .select("guild_id,approval_channel_id,enabled").eq("organization_id", org.id).maybeSingle();
+      .select("guild_id,approval_channel_id,landing_dispatch_channel_id,unassigned_legs_channel_id,schedule_revisor_channel_id,activity_log_channel_id,enabled").eq("organization_id", org.id).maybeSingle();
     if (!settings?.enabled || !settings.approval_channel_id) return;
     const { data: connection, error: connectionError } = await admin.from("if_connections")
       .select("live_role,granted_scopes").eq("organization_id", org.id).maybeSingle();
@@ -249,7 +249,8 @@ async function runOrganization(org: {id:string;live_organization_id:string}, cou
         const { data: priorInitial } = await admin.from("live_automation_events").select("status")
           .eq("event_key", initialKey).maybeSingle();
         if (priorInitial?.status === "sent") continue;
-        const sent = await publishEvent(org.id, settings.approval_channel_id, {
+        if (!settings.unassigned_legs_channel_id) { counters.skipped++; continue; }
+        const sent = await publishEvent(org.id, settings.unassigned_legs_channel_id, {
           event_key: initialKey, event_type: "initial_schedule_open",
           schedule_id: firstUnassigned.id, related_schedule_id: null, aircraft_id: aircraft.id,
         }, eventPayload("initial_schedule_open", firstUnassigned, firstUnassigned, aircraft));
@@ -297,11 +298,14 @@ async function runOrganization(org: {id:string;live_organization_id:string}, cou
           const { data: profile } = await admin.from("profiles").select("discord_user_id")
             .eq("infinite_flight_user_id", assignedPilot.userId).maybeSingle();
           if (profile?.discord_user_id) {
-            const sent = await publishEvent(org.id, settings.approval_channel_id, {
+            if (!settings.landing_dispatch_channel_id) { counters.skipped++; }
+            else {
+            const sent = await publishEvent(org.id, settings.landing_dispatch_channel_id, {
               event_key: "landing:" + completed.id, event_type: "landing_dispatch",
               schedule_id: completed.id, related_schedule_id: next.id, aircraft_id: aircraft.id,
             }, eventPayload("landing_dispatch", completed, next, aircraft, position, profile.discord_user_id));
             if (sent) counters.dispatched++;
+            }
           }
         }
       }
@@ -311,7 +315,8 @@ async function runOrganization(org: {id:string;live_organization_id:string}, cou
         const { data: existingBooking } = await admin.from("booking_requests").select("id").eq("organization_id", org.id)
           .eq("live_schedule_id", next.id).in("status", ["pending_approval","approved","sync_failed"]).limit(1).maybeSingle();
         if (existingBooking) continue;
-        const sent = await publishEvent(org.id, settings.approval_channel_id, {
+        if (!settings.schedule_revisor_channel_id) { counters.skipped++; continue; }
+        const sent = await publishEvent(org.id, settings.schedule_revisor_channel_id, {
           event_key: revisorKey, event_type: "schedule_revisor",
           schedule_id: next.id, related_schedule_id: completed.id, aircraft_id: aircraft.id,
         }, eventPayload("schedule_revisor", completed, next, aircraft));
