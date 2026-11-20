@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { Link, Navigate, Route, Routes, useNavigate, useParams, useLocation } from "react-router-dom";
-import { ArrowRight, ArrowUpRight, CalendarDays, ChevronRight, Plane, RefreshCw, ShieldCheck, Users, Building2 } from "lucide-react";
+import { ArrowRight, ArrowUpRight, CalendarDays, ChevronDown, ChevronRight, Plane, RefreshCw, ShieldCheck, Users, Building2 } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import { isSupabaseConfigured, supabase } from "./lib/supabase";
 import { invokeFunction } from "./lib/functions";
@@ -520,6 +520,7 @@ function PilotDashboard(){
             return rank(a)-rank(b)||(a.sequence??0)-(b.sequence??0);
           });
           const position=positions[plane.id];
+          const state=position?(position.isOnGround?"On ground":position.state===5?"Maintenance":position.state===3?"Cancelled":"In flight"):"Position unavailable";
           const isCollapsed=collapsedAircraftIds.includes(plane.id);
           return <article className={"pilot-schedule-aircraft "+(isCollapsed?"is-collapsed":"")} key={plane.id}>
             <button type="button" className="pilot-schedule-aircraft-heading" onClick={()=>setCollapsedAircraftIds(current=>current.includes(plane.id)?current.filter(id=>id!==plane.id):[...current,plane.id])} aria-expanded={!isCollapsed}>
