@@ -658,3 +658,80 @@ button:focus:not(:focus-visible), a:focus:not(:focus-visible), [role="button"]:f
 @media(max-width:980px){.launch-hero{padding:0 30px 20px}.launch-hero-grid{grid-template-columns:1fr;gap:38px;padding:65px 0 45px}.launch-copy{max-width:700px}.launch-console{justify-self:center;max-width:680px;transform:none}.launch-workflow{grid-template-columns:1fr;gap:30px}}
 @media(max-width:680px){.landing-reimagined{width:calc(100% - 22px);padding-top:10px}.launch-hero{min-height:0;padding:0 17px 16px;border-radius:19px}.launch-header{grid-template-columns:1fr auto;min-height:67px}.launch-nav{display:none}.launch-header-actions{gap:8px}.launch-account{padding:8px 10px;font-size:9px}.launch-hero-grid{padding:55px 0 34px;gap:30px}.launch-copy h1{font-size:clamp(42px,11vw,62px)}.launch-lede{font-size:12px}.launch-cta-row{align-items:flex-start;flex-direction:column;gap:16px}.launch-proof{gap:10px 14px;margin-top:28px}.launch-proof span{font-size:8px}.launch-console{padding:14px;border-radius:15px}.launch-metrics{gap:6px}.launch-metrics>div{padding:9px}.launch-metrics small{font-size:5px}.launch-metrics strong{font-size:21px}.launch-route strong{font-size:21px}.launch-hero-bottom{flex-wrap:wrap;font-size:6px}.launch-hero-bottom span:last-child{display:none}.launch-intro,.launch-directory-heading,.launch-final{grid-template-columns:1fr;gap:18px;padding:70px 3% 30px}.launch-feature-grid{grid-template-columns:1fr;padding:0 3%}.launch-feature{min-height:0}.launch-feature p{min-height:0}.launch-workflow{margin-top:70px;padding:45px 3%}.launch-steps{grid-template-columns:1fr;gap:23px}.launch-steps article{display:grid;grid-template-columns:32px 1fr;column-gap:13px}.launch-steps article>span{grid-row:span 2}.launch-steps h3{margin:2px 0 6px}.launch-steps p{grid-column:2}.launch-directory{padding:70px 3% 10px}.launch-final{margin-top:65px;padding:35px 22px}.launch-final>div:last-child{gap:15px}}
 @media(prefers-reduced-motion:reduce){.launch-primary,.launch-feature,.launch-account{transition:none}}
+
+
+/* Pilot schedules — aircraft-grouped flight cards and live aircraft detail sheet */
+.pilot-schedules-map-panel { margin-bottom: 15px; }
+.pilot-schedules-board { overflow: hidden; }
+.pilot-schedule-toolbar { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:14px 0 16px; }
+.pilot-schedule-sort { display:flex; align-items:center; gap:10px; min-width:0; color:var(--veyro-text-muted); font-size:12px; }
+.pilot-schedule-sort .text-field { min-width:180px; min-height:44px; }
+.pilot-schedule-aircraft-list { display:flex; flex-direction:column; gap:12px; }
+.pilot-schedule-aircraft { overflow:hidden; border:1px solid var(--veyro-border); border-radius:15px; background:var(--veyro-surface); }
+.pilot-schedule-aircraft-heading { display:flex; width:100%; min-height:68px; align-items:center; gap:12px; padding:14px 17px; border:0; border-left:3px solid var(--veyro-accent); background:var(--veyro-surface-subtle); color:var(--veyro-text); text-align:left; cursor:pointer; }
+.pilot-schedule-aircraft-heading > svg { flex:none; transition:transform .2s ease; }
+.pilot-schedule-aircraft.is-collapsed .pilot-schedule-aircraft-heading > svg { transform:rotate(-90deg); }
+.pilot-schedule-aircraft-heading > strong { font-size:15px; letter-spacing:.04em; }
+.pilot-schedule-aircraft-heading > small { color:var(--veyro-text-muted); font-size:10px; }
+.pilot-schedule-aircraft-status { padding:5px 9px; border-radius:999px; background:color-mix(in srgb,var(--veyro-success) 12%,transparent); color:var(--veyro-success); font-size:10px; white-space:nowrap; }
+.pilot-schedule-aircraft-count { margin-left:auto; color:var(--veyro-text-muted); font-size:10px; white-space:nowrap; }
+.pilot-schedule-aircraft-count b { color:var(--veyro-text); }
+.pilot-schedule-leg-list { border-top:1px solid var(--veyro-border); }
+.pilot-schedule-leg { padding:20px 22px; border-bottom:1px solid var(--veyro-border); }
+.pilot-schedule-leg:last-child { border-bottom:0; }
+.pilot-schedule-leg-top { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.pilot-schedule-leg-top > strong { color:var(--veyro-text); font-size:17px; font-weight:800; letter-spacing:.02em; }
+.pilot-schedule-leg-kind { display:block; margin-top:8px; color:var(--veyro-text-muted); font-size:12px; }
+.pilot-schedule-route { display:grid; grid-template-columns:minmax(0,1fr) minmax(45px,1.4fr) minmax(0,1fr); align-items:center; gap:12px; margin:23px 0 14px; }
+.pilot-schedule-route > div { display:flex; min-width:0; flex-direction:column; gap:4px; }
+.pilot-schedule-route > div:last-child { text-align:right; }
+.pilot-schedule-route strong { color:var(--veyro-text); font-size:22px; letter-spacing:-.035em; }
+.pilot-schedule-route small { overflow:hidden; color:var(--veyro-text-muted); font-size:11px; text-overflow:ellipsis; white-space:nowrap; }
+.pilot-schedule-route-line { height:1px; border-top:1px dashed var(--veyro-border-strong); position:relative; }
+.pilot-schedule-route-line:after { content:""; position:absolute; right:0; top:-4px; width:7px; height:7px; border-top:1px solid var(--veyro-text-muted); border-right:1px solid var(--veyro-text-muted); transform:rotate(45deg); }
+.pilot-schedule-availability { margin:12px 0 24px; color:var(--veyro-text-muted); font-size:12px; }
+.pilot-schedule-times { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin-bottom:20px; }
+.pilot-schedule-times > div { display:flex; min-width:0; flex-direction:column; gap:7px; }
+.pilot-schedule-times span { color:var(--veyro-text-muted); font-size:11px; }
+.pilot-schedule-times strong { overflow-wrap:anywhere; color:var(--veyro-text); font-size:13px; font-weight:650; }
+.pilot-schedule-request { width:100%; min-height:48px !important; justify-content:center; }
+.aircraft-detail-backdrop { position:fixed; z-index:1000; inset:0; display:flex; align-items:flex-end; justify-content:center; background:rgba(0,0,0,.58); backdrop-filter:blur(5px); }
+.aircraft-detail-sheet { width:min(100%,760px); max-height:min(92dvh,920px); overflow:auto; border:1px solid var(--veyro-border); border-bottom:0; border-radius:25px 25px 0 0; background:var(--veyro-surface); color:var(--veyro-text); box-shadow:0 -20px 70px rgba(0,0,0,.35); animation:aircraft-sheet-in .24s ease-out; }
+.aircraft-detail-grabber { width:58px; height:6px; margin:13px auto 17px; border-radius:99px; background:var(--veyro-border-strong); }
+.aircraft-detail-header { display:flex; align-items:center; justify-content:space-between; padding:0 22px 17px; border-bottom:1px solid var(--veyro-border); font-size:15px; font-weight:750; }
+.aircraft-detail-header button { display:grid; width:42px; height:42px; place-items:center; border:1px solid var(--veyro-border); border-radius:50%; background:transparent; color:var(--veyro-text); font-size:27px; cursor:pointer; }
+.aircraft-detail-content { padding:22px; }
+.aircraft-detail-identity { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:20px; }
+.aircraft-detail-identity h2 { margin:0 0 7px; font-size:25px; letter-spacing:-.04em; }
+.aircraft-detail-type { color:var(--veyro-text-muted); font-size:12px; }
+.aircraft-detail-live { display:inline-flex; flex:none; align-items:center; gap:7px; padding:7px 11px; border-radius:999px; background:color-mix(in srgb,var(--veyro-success) 13%,transparent); color:var(--veyro-success); font-size:11px; font-weight:700; }
+.aircraft-detail-live i { width:8px; height:8px; border-radius:50%; background:currentColor; }
+.aircraft-detail-live.is-ground { color:var(--veyro-text-muted); background:var(--veyro-surface-subtle); }
+.aircraft-detail-photo { display:block; width:100%; max-height:310px; aspect-ratio:16/9; object-fit:cover; border:1px solid var(--veyro-border); border-radius:14px; background:var(--veyro-surface-subtle); }
+.aircraft-detail-flight { margin-top:18px; padding:17px; border:1px solid var(--veyro-border); border-radius:14px; background:var(--veyro-surface-subtle); }
+.aircraft-detail-flight-top,.aircraft-detail-flight-meta { display:flex; justify-content:space-between; align-items:center; gap:10px; color:var(--veyro-text-muted); font-size:11px; }
+.aircraft-detail-flight-top strong { color:var(--veyro-text); }
+.aircraft-detail-route { display:grid; grid-template-columns:1fr 1fr; align-items:center; gap:14px; margin:19px 0; }
+.aircraft-detail-route strong { font-size:24px; }
+.aircraft-detail-route span { display:none; }
+.aircraft-detail-flight-meta { flex-wrap:wrap; }
+.aircraft-detail-flight-meta b { color:var(--veyro-text); }
+.aircraft-detail-stats { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:23px 18px; padding:24px 0 12px; }
+.aircraft-detail-stats > div { display:flex; min-width:0; flex-direction:column; gap:7px; }
+.aircraft-detail-stats span { color:var(--veyro-text-muted); font-size:12px; }
+.aircraft-detail-stats strong { color:var(--veyro-text); font-size:15px; overflow-wrap:anywhere; }
+@keyframes aircraft-sheet-in { from { transform:translateY(35px); opacity:.7; } to { transform:translateY(0); opacity:1; } }
+@media(max-width:600px) {
+ .pilot-schedule-toolbar { align-items:stretch; }
+ .pilot-schedule-sort { flex:1; }
+ .pilot-schedule-sort .text-field { min-width:0; width:100%; }
+ .pilot-schedule-aircraft-heading { flex-wrap:wrap; gap:9px; padding:13px 12px; }
+ .pilot-schedule-aircraft-heading > small { flex-basis:calc(100% - 95px); margin-left:30px; }
+ .pilot-schedule-aircraft-status { margin-left:auto; }
+ .pilot-schedule-aircraft-count { flex-basis:100%; margin-left:30px; }
+ .pilot-schedule-leg { padding:17px 14px; }
+ .pilot-schedule-times { grid-template-columns:repeat(2,minmax(0,1fr)); row-gap:17px; }
+ .aircraft-detail-content { padding:17px; }
+ .aircraft-detail-identity { align-items:flex-start; flex-direction:column; }
+ .aircraft-detail-photo { max-height:235px; }
+}
