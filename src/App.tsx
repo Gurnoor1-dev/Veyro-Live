@@ -260,6 +260,10 @@ function currentRateBudget(rateLimit:{remaining:number|null;resetAt:string|null;
  const resetTime=value?(Number.isFinite(numeric)?(numeric<1e12?numeric*1000:numeric):Date.parse(value)):0;
  return resetTime&&resetTime>Date.now()?rateLimit.remaining??undefined:undefined;
 }
+function airportCode(value:any):string{
+ if(typeof value==="string")return value;
+ return String(value?.icao||value?.icaoCode||value?.code||"—");
+}
 function scheduleStatusLabel(status:number){
  return ({0:"Unknown",1:"Scheduled",2:"Boarding",3:"Boarded",4:"Taxiing to runway",6:"In flight",7:"Diverted",8:"Delayed",9:"Cancelled",10:"Taxiing to parking",11:"Arrived"} as Record<number,string>)[status]||"Scheduled";
 }
@@ -314,6 +318,7 @@ function PilotDashboard(){
  const lastUserActivity=useRef(Date.now());
  const tail=location.pathname.split("/").filter(Boolean).at(-1)||"overview";
  const page=["overview","schedules","fleet","members","bookings","profile"].includes(tail)?tail:"overview";
+ const selectedMapFlight=selectedMapAircraft?latestFlights[selectedMapAircraft.aircraft.id]:null;
 
  useEffect(()=>{let active=true;supabase?.auth.getSession().then(({data})=>{if(active)setSession(data.session)}).finally(()=>{if(active)setSessionLoading(false)});return()=>{active=false}},[]);
  useEffect(()=>{
@@ -548,8 +553,8 @@ function PilotDashboard(){
          <img className="aircraft-detail-photo" src={"/aircrafts/"+encodeURIComponent(String(selectedMapAircraft.aircraft.registration||""))+"/aircraft.png"} alt={(selectedMapAircraft.aircraft.registration||"Aircraft")+" aircraft"} onError={e=>{e.currentTarget.style.display="none"}}/>
          <div className="aircraft-detail-flight">
           <div className="aircraft-detail-flight-top"><span>{selectedMapAircraft.position.isOnGround?"On the ground":"In the air now"} · Live position</span><strong>{selectedMapAircraft.position.lastPilotUsername||"Pilot unknown"}</strong></div>
-          <div className="aircraft-detail-route"><strong>{selectedMapAircraft.position.latitude.toFixed(2)}°</strong><span/><strong>{selectedMapAircraft.position.longitude.toFixed(2)}°</strong></div>
-          <div className="aircraft-detail-flight-meta"><span>Position updated <b>{selectedMapAircraft.position.updatedAt?new Date(selectedMapAircraft.position.updatedAt).toLocaleTimeString():"Unknown"}</b></span><span>Heading <b>{Math.round(selectedMapAircraft.position.heading||0)}°</b></span></div>
+          <div className="aircraft-detail-route"><div><strong>{airportCode(selectedMapFlight?.departureAirport||selectedMapFlight?.originIcao||selectedMapFlight?.departureAirportIcao)}</strong><small>Departure</small></div><div><strong>{airportCode(selectedMapFlight?.arrivalAirport||selectedMapFlight?.destinationIcao||selectedMapFlight?.arrivalAirportIcao)}</strong><small>Arrival</small></div></div>
+          <div className="aircraft-detail-flight-meta"><span>{selectedMapFlight?.departureTime?"Departed "+new Date(selectedMapFlight.departureTime).toLocaleTimeString():"Position updated"} <b>{selectedMapAircraft.position.updatedAt?new Date(selectedMapAircraft.position.updatedAt).toLocaleTimeString():"Unknown"}</b></span><span>Heading <b>{Math.round(selectedMapAircraft.position.heading||0)}°</b></span></div>
          </div>
          <div className="aircraft-detail-stats">
           <div><span>Altitude</span><strong>{Math.round(selectedMapAircraft.position.altitude||0).toLocaleString()} ft</strong></div>
