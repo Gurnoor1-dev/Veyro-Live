@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback, type PointerEvent } from "rea
 import { Building2, CalendarDays, ClipboardList, LayoutDashboard, Plane, ShieldCheck, UserRound, Users } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { chakra } from "@chakra-ui/react";
+import { Button as ChakraButton } from "@chakra-ui/react";
 
 function iconForNavLabel(label: string) {
   const value = label.toLowerCase();
@@ -177,14 +178,14 @@ export default function SpotlightNavbar({
       <chakra.div className="spotlight-shell-glow" aria-hidden="true" />
 
       {orientation === "horizontal" && scrollState.canScrollLeft && (
-        <chakra.button
+        <ChakraButton
           type="button"
           className="spotlight-scroll-cue left"
           onClick={() => scrollByAmount(-1)}
           aria-label="Scroll navigation left"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
-        </chakra.button>
+        </ChakraButton>
       )}
 
       <chakra.nav
@@ -260,14 +261,14 @@ export default function SpotlightNavbar({
       </chakra.nav>
 
       {orientation === "horizontal" && scrollState.canScrollRight && (
-        <chakra.button
+        <ChakraButton
           type="button"
           className="spotlight-scroll-cue right"
           onClick={() => scrollByAmount(1)}
           aria-label="Scroll navigation right"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
-        </chakra.button>
+        </ChakraButton>
       )}
     </chakra.div>
   );
