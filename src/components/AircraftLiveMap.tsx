@@ -79,24 +79,6 @@ function markerElement(position: AircraftPosition, tone: string) {
   return root;
 }
 
-function popupElement(aircraft: any, position: AircraftPosition, state: ReturnType<typeof aircraftState>) {
-  const root = document.createElement("div");
-  root.className = "veyro-map-popup";
-  const title = document.createElement("strong");
-  title.textContent = aircraft.registration || "Fleet aircraft";
-  const subtitle = document.createElement("span");
-  subtitle.textContent = (position.lastPilotUsername || "Pilot not reported") + " · " + state.label;
-  const metrics = document.createElement("div");
-  [Math.round(position.altitude || 0).toLocaleString() + " ft", Math.round(position.speed || 0) + " kt", Math.round(position.heading || 0) + "° HDG", Math.round(position.verticalSpeed || 0) + " ft/min"].forEach(value => {
-    const item = document.createElement("b");
-    item.textContent = value;
-    metrics.append(item);
-  });
-  const coordinates = document.createElement("small");
-  coordinates.textContent = position.latitude.toFixed(4) + ", " + position.longitude.toFixed(4) + " · " + ageLabel(position.updatedAt);
-  root.append(title, subtitle, metrics, coordinates);
-  return root;
-}
 function styleUrl(dark: boolean) {
   const key = import.meta.env.VITE_MAPTILER_API_KEY?.trim();
   if (!key) return "https://demotiles.maplibre.org/style.json";
