@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { Moon, Sun } from "lucide-react";
-import { chakra } from "@chakra-ui/react";
 import { Button as ChakraButton } from "@chakra-ui/react";
 
 function getInitialTheme(): boolean {
