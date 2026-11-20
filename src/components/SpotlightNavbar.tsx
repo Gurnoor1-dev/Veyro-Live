@@ -228,7 +228,7 @@ export default function SpotlightNavbar({
             return (
               <chakra.a
                 key={item.href}
-                ref={(el) => {
+                ref={(el: HTMLAnchorElement | null) => {
                   itemRefs.current[index] = el;
                 }}
                 href={item.href}
