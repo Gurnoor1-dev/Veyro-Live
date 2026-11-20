@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Moon, Sun } from "lucide-react";
 import { chakra } from "@chakra-ui/react";
+import { Button as ChakraButton } from "@chakra-ui/react";
 
 function getInitialTheme(): boolean {
   try {
@@ -27,7 +28,7 @@ export default function ThemeToggle() {
   }, [dark]);
 
   return (
-    <chakra.button
+    <ChakraButton
       className="theme-toggle"
       type="button"
       onClick={() => setDark((value) => !value)}
@@ -36,6 +37,6 @@ export default function ThemeToggle() {
       title={dark ? "Light theme" : "Dark theme"}
     >
       {dark ? <Sun size={16} aria-hidden="true" /> : <Moon size={16} aria-hidden="true" />}
-    </chakra.button>
+    </ChakraButton>
   );
 }
