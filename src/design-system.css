@@ -432,3 +432,8 @@ textarea.text-field { min-height: 112px; resize: vertical; }
 .admin-notification-test { grid-column: 1 / -1; }
 .admin-notification-test .admin-field { max-width: 420px; }
 .admin-notification-test .button { margin-top: 4px; }
+
+
+/* Chakra UI motion tokens used by data-state disclosure surfaces. */
+@keyframes veyro-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes veyro-slide-up { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
