@@ -116,6 +116,8 @@ export default function AircraftLiveMap({ aircraft, positions, dark, onAircraftS
   const hasFittedRef = useRef(false);
   const [mapError, setMapError] = useState("");
   const [mapReady, setMapReady] = useState(false);
+  const onAircraftSelectRef = useRef(onAircraftSelect);
+  useEffect(() => { onAircraftSelectRef.current = onAircraftSelect; }, [onAircraftSelect]);
   const tracked = useMemo<TrackedAircraft[]>(() => aircraft.flatMap(item => {
     const position = positions[item.id];
     return position &&
@@ -172,11 +174,9 @@ export default function AircraftLiveMap({ aircraft, positions, dark, onAircraftS
     markersRef.current.forEach(marker => marker.remove());
     markersRef.current = tracked.map(({ aircraft: item, position }) => {
       const state = aircraftState(position);
-      const popup = new maplibregl.Popup({ offset: 18, closeButton: true, maxWidth: "280px" })
-        .setDOMContent(popupElement(item, position, state));
       const element = markerElement(position, state.tone);
       element.style.cursor = "pointer";
-      element.addEventListener("click", () => onAircraftSelect?.(item, position));
+      element.addEventListener("click", () => onAircraftSelectRef.current?.(item, position));
       const marker = new maplibregl.Marker({ element, anchor: "center" })
         .setLngLat([position.longitude, position.latitude]).addTo(map);
       return marker;
@@ -190,7 +190,7 @@ export default function AircraftLiveMap({ aircraft, positions, dark, onAircraftS
       }
       hasFittedRef.current = true;
     }
-  }, [mapReady, tracked, onAircraftSelect]);
+  }, [mapReady, tracked]);
 
   return (
     <div className="aircraft-map-layout">
@@ -216,7 +216,7 @@ export default function AircraftLiveMap({ aircraft, positions, dark, onAircraftS
             const position = positions[item.id];
             const state = aircraftState(position);
             const hasPosition = !!position && Number.isFinite(position.latitude) && Number.isFinite(position.longitude);
-            return <button type="button" className="aircraft-map-roster-item" key={item.id} onClick={() => position && hasPosition && onAircraftSelect?.(item, position)} disabled={!hasPosition}>
+            return <button type="button" className="aircraft-map-roster-item" key={item.id} onClick={() => position && hasPosition && onAircraftSelectRef.current?.(item, position)} disabled={!hasPosition}>
               <span className={"aircraft-status-dot " + state.tone}/>
               <div className="aircraft-map-roster-copy">
                 <strong>{item.registration || "Aircraft"}</strong>
