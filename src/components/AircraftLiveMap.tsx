@@ -104,10 +104,11 @@ function styleUrl(dark: boolean) {
   return "https://api.maptiler.com/maps/" + style + "/style.json?key=" + encodeURIComponent(key);
 }
 
-export default function AircraftLiveMap({ aircraft, positions, dark }: {
+export default function AircraftLiveMap({ aircraft, positions, dark, onSelectAircraft }: {
   aircraft: any[];
   positions: Record<string, AircraftPosition>;
   dark: boolean;
+  onSelectAircraft?: (aircraft: any) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
@@ -173,10 +174,11 @@ export default function AircraftLiveMap({ aircraft, positions, dark }: {
       const state = aircraftState(position);
       const popup = new maplibregl.Popup({ offset: 18, closeButton: true, maxWidth: "280px" })
         .setDOMContent(popupElement(item, position, state));
-      const marker = new maplibregl.Marker({
-        element: markerElement(position, state.tone),
-        anchor: "center",
-      }).setLngLat([position.longitude, position.latitude]).setPopup(popup).addTo(map);
+      const element = markerElement(position, state.tone);
+      element.style.cursor = "pointer";
+      element.addEventListener("click", () => onSelectAircraft?.(item));
+      const marker = new maplibregl.Marker({ element, anchor: "center" })
+        .setLngLat([position.longitude, position.latitude]).setPopup(popup).addTo(map);
       return marker;
     });
     if (!hasFittedRef.current && tracked.length) {
@@ -188,7 +190,7 @@ export default function AircraftLiveMap({ aircraft, positions, dark }: {
       }
       hasFittedRef.current = true;
     }
-  }, [mapReady, tracked]);
+  }, [mapReady, tracked, onSelectAircraft]);
 
   return (
     <div className="aircraft-map-layout">
