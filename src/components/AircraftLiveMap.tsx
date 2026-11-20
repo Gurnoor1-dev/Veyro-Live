@@ -116,6 +116,8 @@ export default function AircraftLiveMap({ aircraft, positions, dark, onSelectAir
   const hasFittedRef = useRef(false);
   const [mapError, setMapError] = useState("");
   const [mapReady, setMapReady] = useState(false);
+  const onSelectRef = useRef(onSelectAircraft);
+  useEffect(() => { onSelectRef.current = onSelectAircraft; }, [onSelectAircraft]);
   const tracked = useMemo<TrackedAircraft[]>(() => aircraft.flatMap(item => {
     const position = positions[item.id];
     return position &&
@@ -176,7 +178,7 @@ export default function AircraftLiveMap({ aircraft, positions, dark, onSelectAir
         .setDOMContent(popupElement(item, position, state));
       const element = markerElement(position, state.tone);
       element.style.cursor = "pointer";
-      element.addEventListener("click", () => onSelectAircraft?.(item));
+      element.addEventListener("click", () => onSelectRef.current?.(item));
       const marker = new maplibregl.Marker({ element, anchor: "center" })
         .setLngLat([position.longitude, position.latitude]).setPopup(popup).addTo(map);
       return marker;
@@ -190,7 +192,7 @@ export default function AircraftLiveMap({ aircraft, positions, dark, onSelectAir
       }
       hasFittedRef.current = true;
     }
-  }, [mapReady, tracked, onSelectAircraft]);
+  }, [mapReady, tracked]);
 
   return (
     <div className="aircraft-map-layout">
