@@ -5,6 +5,7 @@ import mapWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 import { Plane } from "lucide-react";
 import { createRoot } from "react-dom/client";
 import "maplibre-gl/dist/maplibre-gl.css";
+import { chakra } from "@chakra-ui/react";
 
 maplibregl.setWorkerUrl(mapWorkerUrl);
 
@@ -175,46 +176,46 @@ export default function AircraftLiveMap({ aircraft, positions, dark, onAircraftS
   }, [mapReady, tracked]);
 
   return (
-    <div className="aircraft-map-layout">
-      <div className="aircraft-map-main">
-        <div className="aircraft-map-frame">
-          <div ref={containerRef} className="aircraft-live-map" />
-          {!mapReady && <div className="aircraft-map-loading-overlay">Preparing vector map…</div>}
-          {mapError && <div className="aircraft-map-error">{mapError}</div>}
-          <div className="aircraft-map-count"><span className="map-live-dot"/>{tracked.length} positioned · {aircraft.length} in fleet</div>
-        </div>
-        <div className="aircraft-map-legend" aria-label="Aircraft map legend">
-          <span><i className="tone-air"/>Airborne</span>
-          <span><i className="tone-stopped"/>Stopped</span>
-          <span><i className="tone-ground"/>On ground</span>
-          <span><i className="tone-parked"/>Parked 12h+</span>
-        </div>
-        {!import.meta.env.VITE_MAPTILER_API_KEY && <p className="aircraft-map-provider-note">Using MapLibre demo tiles. Add a MapTiler key for production map coverage.</p>}
-      </div>
-      <aside className="aircraft-map-roster">
-        <div className="aircraft-map-roster-heading"><strong>Fleet positions</strong><span>{tracked.length}/{aircraft.length} tracked</span></div>
-        <div className="aircraft-map-roster-list">
+    <chakra.div className="aircraft-map-layout">
+      <chakra.div className="aircraft-map-main">
+        <chakra.div className="aircraft-map-frame">
+          <chakra.div ref={containerRef} className="aircraft-live-map" />
+          {!mapReady && <chakra.div className="aircraft-map-loading-overlay">Preparing vector map…</chakra.div>}
+          {mapError && <chakra.div className="aircraft-map-error">{mapError}</chakra.div>}
+          <chakra.div className="aircraft-map-count"><chakra.span className="map-live-dot"/>{tracked.length} positioned · {aircraft.length} in fleet</chakra.div>
+        </chakra.div>
+        <chakra.div className="aircraft-map-legend" aria-label="Aircraft map legend">
+          <chakra.span><chakra.i className="tone-air"/>Airborne</chakra.span>
+          <chakra.span><chakra.i className="tone-stopped"/>Stopped</chakra.span>
+          <chakra.span><chakra.i className="tone-ground"/>On ground</chakra.span>
+          <chakra.span><chakra.i className="tone-parked"/>Parked 12h+</chakra.span>
+        </chakra.div>
+        {!import.meta.env.VITE_MAPTILER_API_KEY && <chakra.p className="aircraft-map-provider-note">Using MapLibre demo tiles. Add a MapTiler key for production map coverage.</chakra.p>}
+      </chakra.div>
+      <chakra.aside className="aircraft-map-roster">
+        <chakra.div className="aircraft-map-roster-heading"><chakra.strong>Fleet positions</chakra.strong><chakra.span>{tracked.length}/{aircraft.length} tracked</chakra.span></chakra.div>
+        <chakra.div className="aircraft-map-roster-list">
           {aircraft.map(item => {
             const position = positions[item.id];
             const state = aircraftState(position);
             const hasPosition = !!position && Number.isFinite(position.latitude) && Number.isFinite(position.longitude);
-            return <button type="button" className="aircraft-map-roster-item" key={item.id} onClick={() => position && hasPosition && onAircraftSelectRef.current?.(item, position)} disabled={!hasPosition}>
-              <span className={"aircraft-status-dot " + state.tone}/>
-              <div className="aircraft-map-roster-copy">
-                <strong>{item.registration || "Aircraft"}</strong>
-                <span>{state.label}{position?.lastPilotUsername ? " · " + position.lastPilotUsername : ""}</span>
-                {hasPosition && <small>{position.latitude.toFixed(2)}, {position.longitude.toFixed(2)} · {ageLabel(position.updatedAt)}</small>}
-              </div>
-            </button>;
+            return <chakra.button type="button" className="aircraft-map-roster-item" key={item.id} onClick={() => position && hasPosition && onAircraftSelectRef.current?.(item, position)} disabled={!hasPosition}>
+              <chakra.span className={"aircraft-status-dot " + state.tone}/>
+              <chakra.div className="aircraft-map-roster-copy">
+                <chakra.strong>{item.registration || "Aircraft"}</chakra.strong>
+                <chakra.span>{state.label}{position?.lastPilotUsername ? " · " + position.lastPilotUsername : ""}</chakra.span>
+                {hasPosition && <chakra.small>{position.latitude.toFixed(2)}, {position.longitude.toFixed(2)} · {ageLabel(position.updatedAt)}</chakra.small>}
+              </chakra.div>
+            </chakra.button>;
           })}
-        </div>
-        <div className="aircraft-map-roster-summary">
-          <span><i className="tone-air"/>{counts.air || 0} airborne</span>
-          <span><i className="tone-ground"/>{counts.ground || 0} ground</span>
-          <span><i className="tone-stopped"/>{counts.stopped || 0} stopped</span>
-          <span><i className="tone-parked"/>{counts.parked || 0} parked</span>
-        </div>
-      </aside>
-    </div>
+        </chakra.div>
+        <chakra.div className="aircraft-map-roster-summary">
+          <chakra.span><chakra.i className="tone-air"/>{counts.air || 0} airborne</chakra.span>
+          <chakra.span><chakra.i className="tone-ground"/>{counts.ground || 0} ground</chakra.span>
+          <chakra.span><chakra.i className="tone-stopped"/>{counts.stopped || 0} stopped</chakra.span>
+          <chakra.span><chakra.i className="tone-parked"/>{counts.parked || 0} parked</chakra.span>
+        </chakra.div>
+      </chakra.aside>
+    </chakra.div>
   );
 }
