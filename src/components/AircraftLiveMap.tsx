@@ -6,6 +6,7 @@ import { Plane } from "lucide-react";
 import { createRoot } from "react-dom/client";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { chakra } from "@chakra-ui/react";
+import { Button as ChakraButton } from "@chakra-ui/react";
 
 maplibregl.setWorkerUrl(mapWorkerUrl);
 
@@ -199,14 +200,14 @@ export default function AircraftLiveMap({ aircraft, positions, dark, onAircraftS
             const position = positions[item.id];
             const state = aircraftState(position);
             const hasPosition = !!position && Number.isFinite(position.latitude) && Number.isFinite(position.longitude);
-            return <chakra.button type="button" className="aircraft-map-roster-item" key={item.id} onClick={() => position && hasPosition && onAircraftSelectRef.current?.(item, position)} disabled={!hasPosition}>
+            return <ChakraButton type="button" className="aircraft-map-roster-item" key={item.id} onClick={() => position && hasPosition && onAircraftSelectRef.current?.(item, position)} disabled={!hasPosition}>
               <chakra.span className={"aircraft-status-dot " + state.tone}/>
               <chakra.div className="aircraft-map-roster-copy">
                 <chakra.strong>{item.registration || "Aircraft"}</chakra.strong>
                 <chakra.span>{state.label}{position?.lastPilotUsername ? " · " + position.lastPilotUsername : ""}</chakra.span>
                 {hasPosition && <chakra.small>{position.latitude.toFixed(2)}, {position.longitude.toFixed(2)} · {ageLabel(position.updatedAt)}</chakra.small>}
               </chakra.div>
-            </chakra.button>;
+            </ChakraButton>;
           })}
         </chakra.div>
         <chakra.div className="aircraft-map-roster-summary">
