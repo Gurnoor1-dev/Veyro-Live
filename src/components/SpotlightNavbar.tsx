@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, useCallback, type PointerEvent } from "react";
 import { Building2, CalendarDays, ClipboardList, LayoutDashboard, Plane, ShieldCheck, UserRound, Users } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
+import { chakra } from "@chakra-ui/react";
+import { Button as ChakraButton } from "@chakra-ui/react";
 
 function iconForNavLabel(label: string) {
   const value = label.toLowerCase();
@@ -171,22 +173,22 @@ export default function SpotlightNavbar({
     .join(" ");
 
   return (
-    <div className={wrapperClasses}>
+    <chakra.div className={wrapperClasses}>
       {/* Outer ambient glow layer */}
-      <div className="spotlight-shell-glow" aria-hidden="true" />
+      <chakra.div className="spotlight-shell-glow" aria-hidden="true" />
 
       {orientation === "horizontal" && scrollState.canScrollLeft && (
-        <button
+        <ChakraButton
           type="button"
           className="spotlight-scroll-cue left"
           onClick={() => scrollByAmount(-1)}
           aria-label="Scroll navigation left"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
-        </button>
+        </ChakraButton>
       )}
 
-      <nav
+      <chakra.nav
         ref={navRef}
         className={`spotlight-nav spotlight-nav-${orientation}`}
         aria-label="Dashboard navigation"
@@ -195,11 +197,11 @@ export default function SpotlightNavbar({
         onPointerLeave={handlePointerLeave}
       >
         {/* Cursor proximity light */}
-        <span className="spotlight-nav-light" aria-hidden="true" />
+        <chakra.span className="spotlight-nav-light" aria-hidden="true" />
 
         {/* Liquid Glass Sliding Active Pill */}
         {indicator.ready && (
-          <div
+          <chakra.div
             className="spotlight-active-pill"
             aria-hidden="true"
             style={
@@ -214,8 +216,8 @@ export default function SpotlightNavbar({
                   }
             }
           >
-            <div className="spotlight-pill-reflection" />
-          </div>
+            <chakra.div className="spotlight-pill-reflection" />
+          </chakra.div>
         )}
 
         {items.map((item, index) => {
@@ -224,9 +226,9 @@ export default function SpotlightNavbar({
 
           if (onItemClick) {
             return (
-              <a
+              <chakra.a
                 key={item.href}
-                ref={(el) => {
+                ref={(el: HTMLAnchorElement | null) => {
                   itemRefs.current[index] = el;
                 }}
                 href={item.href}
@@ -237,8 +239,8 @@ export default function SpotlightNavbar({
                   onItemClick(item, index);
                 }}
               >
-                <span className="spotlight-item-icon" aria-hidden="true">{iconForNavLabel(item.label)}</span><span className="spotlight-item-label">{item.label}</span>
-              </a>
+                <chakra.span className="spotlight-item-icon" aria-hidden="true">{iconForNavLabel(item.label)}</chakra.span><chakra.span className="spotlight-item-label">{item.label}</chakra.span>
+              </chakra.a>
             );
           }
 
@@ -252,22 +254,22 @@ export default function SpotlightNavbar({
               className={itemClass}
               aria-current={isActive ? "page" : undefined}
             >
-              <span className="spotlight-item-label">{item.label}</span>
+              <chakra.span className="spotlight-item-label">{item.label}</chakra.span>
             </Link>
           );
         })}
-      </nav>
+      </chakra.nav>
 
       {orientation === "horizontal" && scrollState.canScrollRight && (
-        <button
+        <ChakraButton
           type="button"
           className="spotlight-scroll-cue right"
           onClick={() => scrollByAmount(1)}
           aria-label="Scroll navigation right"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
-        </button>
+        </ChakraButton>
       )}
-    </div>
+    </chakra.div>
   );
 }
