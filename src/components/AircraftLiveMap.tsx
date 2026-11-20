@@ -104,10 +104,11 @@ function styleUrl(dark: boolean) {
   return "https://api.maptiler.com/maps/" + style + "/style.json?key=" + encodeURIComponent(key);
 }
 
-export default function AircraftLiveMap({ aircraft, positions, dark }: {
+export default function AircraftLiveMap({ aircraft, positions, dark, onAircraftSelect }: {
   aircraft: any[];
   positions: Record<string, AircraftPosition>;
   dark: boolean;
+  onAircraftSelect?: (aircraft: any, position: AircraftPosition) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
@@ -173,10 +174,11 @@ export default function AircraftLiveMap({ aircraft, positions, dark }: {
       const state = aircraftState(position);
       const popup = new maplibregl.Popup({ offset: 18, closeButton: true, maxWidth: "280px" })
         .setDOMContent(popupElement(item, position, state));
-      const marker = new maplibregl.Marker({
-        element: markerElement(position, state.tone),
-        anchor: "center",
-      }).setLngLat([position.longitude, position.latitude]).setPopup(popup).addTo(map);
+      const element = markerElement(position, state.tone);
+      element.style.cursor = "pointer";
+      element.addEventListener("click", () => onAircraftSelect?.(item, position));
+      const marker = new maplibregl.Marker({ element, anchor: "center" })
+        .setLngLat([position.longitude, position.latitude]).addTo(map);
       return marker;
     });
     if (!hasFittedRef.current && tracked.length) {
@@ -188,7 +190,7 @@ export default function AircraftLiveMap({ aircraft, positions, dark }: {
       }
       hasFittedRef.current = true;
     }
-  }, [mapReady, tracked]);
+  }, [mapReady, tracked, onAircraftSelect]);
 
   return (
     <div className="aircraft-map-layout">
@@ -214,14 +216,14 @@ export default function AircraftLiveMap({ aircraft, positions, dark }: {
             const position = positions[item.id];
             const state = aircraftState(position);
             const hasPosition = !!position && Number.isFinite(position.latitude) && Number.isFinite(position.longitude);
-            return <article className="aircraft-map-roster-item" key={item.id}>
+            return <button type="button" className="aircraft-map-roster-item" key={item.id} onClick={() => position && hasPosition && onAircraftSelect?.(item, position)} disabled={!hasPosition}>
               <span className={"aircraft-status-dot " + state.tone}/>
               <div className="aircraft-map-roster-copy">
                 <strong>{item.registration || "Aircraft"}</strong>
                 <span>{state.label}{position?.lastPilotUsername ? " · " + position.lastPilotUsername : ""}</span>
                 {hasPosition && <small>{position.latitude.toFixed(2)}, {position.longitude.toFixed(2)} · {ageLabel(position.updatedAt)}</small>}
               </div>
-            </article>;
+            </button>;
           })}
         </div>
         <div className="aircraft-map-roster-summary">
