@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { chakra } from "@chakra-ui/react";
 
 export default function Brand() {
   return (
@@ -18,7 +19,7 @@ export default function Brand() {
         </defs>
       </svg>
       <Link className="brand" to="/" aria-label="Veyro Live home">
-        <img className="brand-image" src="/images/veyro-live.png" alt="Veyro Live" />
+        <chakra.img className="brand-image" src="/images/veyro-live.png" alt="Veyro Live" />
       </Link>
     </>
   );
