@@ -288,6 +288,9 @@ function PilotDashboard(){
  const [selectedSeatSchedule,setSelectedSeatSchedule]=useState<any>(null);
  const [seatChoice,setSeatChoice]=useState<0|1>(0);
  const [selectedAircraftId,setSelectedAircraftId]=useState("");
+ const [selectedMapAircraft,setSelectedMapAircraft]=useState<{aircraft:any;position:AircraftPosition}|null>(null);
+ const [collapsedAircraftIds,setCollapsedAircraftIds]=useState<string[]>([]);
+ const [scheduleSort,setScheduleSort]=useState("ready");
  const location=useLocation();
  const [session,setSession]=useState<Session|null>(null);
  const [sessionLoading,setSessionLoading]=useState(true);
@@ -360,7 +363,7 @@ function PilotDashboard(){
  };
 
  useEffect(()=>{
-  if(page!=="overview"||!session||aircraft.length===0)return;
+  if(!["overview","schedules"].includes(page)||!session||aircraft.length===0)return;
   let active=true;
   const poll=async()=>{if(active&&document.visibilityState==="visible"&&Date.now()-lastUserActivity.current<15*60_000)await fetchFleetData(false)};
   void poll();
@@ -472,12 +475,78 @@ function PilotDashboard(){
       </section>
     </> : page==="members" ? <section className="panel dashboard-panel"><div className="section-heading"><div><h2>Organization crew</h2><p>Current Live members and their active lift counts.</p></div></div>{membersError&&<ToastNotice message={membersError} onDismiss={()=>setMembersError("")}/>}{membersLoading?<div className="empty-state">Loading current Infinite Flight crew…</div>:members.length===0?<div className="empty-state">No member data is available.</div>:<div className="data-list">{members.map((m:any)=><article className="data-row" key={m.userId}><div><strong>{m.username||"Infinite Flight pilot"}</strong><small>{m.role===2?"Owner":m.role===1?"Admin":"Member"} · Joined {m.joinedAt?new Date(m.joinedAt).toLocaleDateString():"—"}</small></div><span className="row-status">{m.activeLifts??0} active lifts</span></article>)}</div>}</section> : page==="bookings" ? <section className="panel dashboard-panel"><div className="section-heading"><div><h2>Your leg requests</h2><p>Requests and Live crew assignment status for this organization.</p></div></div>{bookings.length===0?<div className="empty-state">You have not requested any legs yet.</div>:<div className="data-list">{bookings.map((b:any)=><article className="data-row" key={b.id}><div><strong>{schedules.find((s:any)=>s.id===b.live_schedule_id)?.callsign||"Flight leg"}</strong><small>{b.request_note||"No request note"} · {new Date(b.created_at).toLocaleString()}</small></div><span className="row-status">{b.status.replaceAll("_"," ")}</span></article>)}</div>}</section> : page==="profile" ? <section className="panel dashboard-panel"><div className="section-heading"><div><h2>Live membership</h2><p>Your access is verified directly by Infinite Flight</p></div><ShieldCheck size={17}/></div><div className="profile-detail"><span>Organisation</span><strong>{organization?.name||"—"}</strong></div><div className="profile-detail"><span>Infinite Flight role</span><strong>{organization?.role===2?"Owner":organization?.role===1?"Admin":"Member"}</strong></div><div className="profile-detail"><span>Access type</span><strong>Personal OAuth · Encrypted server-side</strong></div><div className="profile-detail"><span>Data source</span><strong>Infinite Flight Public API v3</strong></div></section>
     : page==="fleet" ? <section className="panel dashboard-panel"><div className="section-heading"><div><h2>Aircraft fleet</h2><p>Every active organization aircraft · images shown only in the fleet view</p></div><span className="fleet-total">{aircraft.length} AIRCRAFT</span></div>{loading?<div className="empty-state">Loading fleet…</div>:aircraft.length===0?<div className="empty-state">No active aircraft were returned by Infinite Flight.</div>:<div className="fleet-aircraft-grid">{aircraft.map(item=><FleetAircraftCard key={item.id} aircraft={item}/>)}</div>}</section>
-    : page==="schedules" ? <section className="panel dashboard-panel pilot-booking-board">
-       <div className="section-heading"><div><h2>Request a flight leg</h2><p>Choose an aircraft, compare its published legs and request your preferred seat.</p></div><span className="fleet-total">{schedules.length} LEGS</span></div>
-       <label className="admin-field pilot-aircraft-select">Aircraft<select className="text-field" value={selectedAircraftId||aircraft[0]?.id||""} onChange={e=>setSelectedAircraftId(e.target.value)}><option value="">Choose aircraft</option>{aircraft.map(item=><option key={item.id} value={item.id}>{item.registration||"Aircraft"} · {item.name||item.aircraftName||"Infinite Flight"}</option>)}</select></label>
-       {loading?<div className="empty-state">Loading published schedules…</div>:aircraft.length===0?<div className="empty-state">No aircraft are attached to this organisation.</div>:<div className="table-scroll"><table className="pilot-leg-table"><thead><tr><th>Flight number</th><th>Date</th><th>Departs</th><th>Arrives</th><th>Status</th><th></th></tr></thead><tbody>{schedules.filter(item=>item.aircraftId===(selectedAircraftId||aircraft[0]?.id)).sort((a,b)=>(a.sequence??0)-(b.sequence??0)).map(item=><tr key={item.id}><td><strong>{item.callsign||"—"}</strong><small>{item.originIcao||"—"} → {item.destinationIcao||"—"}</small></td><td>{item.isTimeless?"Any date":item.scheduledDepartureUtc?new Date(item.scheduledDepartureUtc).toLocaleDateString():"—"}</td><td>{item.isTimeless?"—":item.scheduledDepartureUtc?new Date(item.scheduledDepartureUtc).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}):"—"}</td><td>{item.isTimeless?"—":item.scheduledArrivalUtc?new Date(item.scheduledArrivalUtc).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}):"—"}</td><td><span className="row-status">{scheduleStatusLabel(item.status??1)}</span></td><td><button className="button button-primary" disabled={requestBusy===item.id} onClick={()=>setSelectedSeatSchedule(item)}>Request</button></td></tr>)}</tbody></table>{!schedules.some(item=>item.aircraftId===(selectedAircraftId||aircraft[0]?.id))&&<div className="empty-state">No published legs for this aircraft.</div>}</div>}
+    : page==="schedules" ? <>
+      <section className="panel dashboard-panel pilot-schedules-map-panel">
+       <div className="section-heading"><div><div className="eyebrow">LIVE FLEET TRACKING</div><h2>Aircraft map</h2><p>Tap any aircraft on the map or in the roster to open its live flight details.</p></div><span className="fleet-total">{Object.keys(positions).length} TRACKED</span></div>
+       {positionError&&<div className="notice">{positionError}</div>}
+       {aircraft.length===0?<div className="empty-state">No aircraft are attached to this organisation.</div>:<Suspense fallback={<div className="aircraft-map-frame aircraft-map-loading">Preparing live map…</div>}><AircraftLiveMap aircraft={aircraft} positions={positions} dark={darkMap} onAircraftSelect={(item,position)=>setSelectedMapAircraft({aircraft:item,position})}/></Suspense>}
+       <div className="aircraft-map-footer"><span>{positionLoading?"Fetching aircraft positions…":positionsUpdated?"Last position refresh "+positionsUpdated.toLocaleTimeString():"Waiting for first position update"}</span><span>{Object.keys(positions).length} / {aircraft.length} positions available</span></div>
+      </section>
+      <section className="panel dashboard-panel pilot-booking-board pilot-schedules-board">
+       <div className="section-heading"><div><div className="eyebrow">FLIGHT OPERATIONS</div><h2>Published schedules</h2><p>Choose an aircraft, review its legs and request your preferred crew seat.</p></div><span className="fleet-total">{schedules.length} LEGS</span></div>
+       <div className="pilot-schedule-toolbar">
+        <label className="pilot-schedule-sort"><span>Sort</span><select className="text-field" value={scheduleSort} onChange={e=>setScheduleSort(e.target.value)}><option value="ready">Ready to fly</option><option value="route">Route</option><option value="flight">Flight number</option><option value="departure">Departure time</option></select></label>
+        <button type="button" className="button button-quiet" onClick={()=>setCollapsedAircraftIds(collapsedAircraftIds.length?[]:aircraft.map(item=>item.id))}>{collapsedAircraftIds.length?"Expand all":"Collapse all"}</button>
+       </div>
+       {loading?<div className="empty-state">Loading published schedules…</div>:aircraft.length===0?<div className="empty-state">No aircraft are attached to this organisation.</div>:<div className="pilot-schedule-aircraft-list">
+        {aircraft.map((plane:any)=>{
+          const planeSchedules=schedules.filter(item=>item.aircraftId===plane.id).slice().sort((a:any,b:any)=>{
+            if(scheduleSort==="route")return String(a.originIcao||"").localeCompare(String(b.originIcao||""));
+            if(scheduleSort==="flight")return String(a.callsign||"").localeCompare(String(b.callsign||""));
+            if(scheduleSort==="departure")return (a.scheduledDepartureUtc?Date.parse(a.scheduledDepartureUtc):Infinity)-(b.scheduledDepartureUtc?Date.parse(b.scheduledDepartureUtc):Infinity);
+            const rank=(x:any)=>x.status===1||x.status===8?0:x.status===2||x.status===3?1:x.status===9?3:2;
+            return rank(a)-rank(b)||(a.sequence??0)-(b.sequence??0);
+          });
+          const position=positions[plane.id];
+          const isCollapsed=collapsedAircraftIds.includes(plane.id);
+          const state=position?(position.isOnGround?"On ground":position.state===5?"Maintenance":position.state===3?"Cancelled":"In flight"):"Position unavailable";
+          return <article className={"pilot-schedule-aircraft "+(isCollapsed?"is-collapsed":"")} key={plane.id}>
+            <button type="button" className="pilot-schedule-aircraft-heading" onClick={()=>setCollapsedAircraftIds(current=>current.includes(plane.id)?current.filter(id=>id!==plane.id):[...current,plane.id])} aria-expanded={!isCollapsed}>
+              <ChevronDown size={17}/><span className={"aircraft-status-dot "+(position?.isOnGround?"tone-ground":position?"tone-air":"tone-muted")}/><strong>{plane.registration||"Aircraft"}</strong><small>{plane.name||plane.aircraftName||"Aircraft"}</small><span className="pilot-schedule-aircraft-status">{state}</span><span className="pilot-schedule-aircraft-count">{planeSchedules.length} legs · <b>{planeSchedules.length} open</b></span>
+            </button>
+            {!isCollapsed&&<div className="pilot-schedule-leg-list">
+              {planeSchedules.length===0?<div className="empty-state">No published legs for this aircraft.</div>:planeSchedules.map((item:any)=>{
+                const departure=item.isTimeless?"Anytime":item.scheduledDepartureUtc?new Date(item.scheduledDepartureUtc).toLocaleString([],{dateStyle:"medium",timeStyle:"short"}):"—";
+                const arrival=item.isTimeless?"—":item.scheduledArrivalUtc?new Date(item.scheduledArrivalUtc).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}):"—";
+                const status=scheduleStatusLabel(item.status??1);
+                return <article className="pilot-schedule-leg" key={item.id}>
+                  <div className="pilot-schedule-leg-top"><strong>{item.callsign||"Scheduled flight"}</strong><span className={"row-status "+(item.status===9?"tone-muted":"")}>{status}</span></div>
+                  <span className="pilot-schedule-leg-kind">Passenger flight</span>
+                  <div className="pilot-schedule-route"><div><strong>{item.originIcao||"—"}</strong><small>{item.originName||item.originCity||""}</small></div><span className="pilot-schedule-route-line"/><div><strong>{item.destinationIcao||"—"}</strong><small>{item.destinationName||item.destinationCity||""}</small></div></div>
+                  <div className="pilot-schedule-availability">Open · Captain &amp; First Officer seats</div>
+                  <div className="pilot-schedule-times"><div><span>Date</span><strong>{departure}</strong></div><div><span>Departs</span><strong>{item.isTimeless?"—":item.scheduledDepartureUtc?new Date(item.scheduledDepartureUtc).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}):"—"}</strong></div><div><span>Arrives</span><strong>{arrival}</strong></div><div><span>Block</span><strong>{item.blockTime||item.estimatedBlockTime||"—"}</strong></div></div>
+                  <button className="button button-primary pilot-schedule-request" disabled={requestBusy===item.id||item.status===9} onClick={()=>setSelectedSeatSchedule(item)}>{requestBusy===item.id?"Requesting…":"Request this leg"}</button>
+                </article>;
+              })}
+            </div>}
+          </article>;
+        })}
+       </div>}
        {schedulePagination.page<schedulePagination.totalPages&&<div className="schedule-pagination"><span>Showing {schedules.length.toLocaleString()} of {schedulePagination.totalCount.toLocaleString()} scheduled legs</span><button className="button button-quiet" onClick={()=>void loadMoreSchedules()} disabled={scheduleLoadingMore}>{scheduleLoadingMore?"Loading…":"Load more schedules"}</button></div>}
-      </section> : null}
+      </section>
+      {selectedMapAircraft&&<div className="aircraft-detail-backdrop" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget)setSelectedMapAircraft(null)}}>
+       <section className="aircraft-detail-sheet" role="dialog" aria-modal="true" aria-labelledby="aircraft-detail-title">
+        <div className="aircraft-detail-grabber"/><div className="aircraft-detail-header"><span>Aircraft</span><button type="button" aria-label="Close aircraft details" onClick={()=>setSelectedMapAircraft(null)}><span>×</span></button></div>
+        <div className="aircraft-detail-content">
+         <div className="aircraft-detail-identity"><div><h2 id="aircraft-detail-title">{selectedMapAircraft.aircraft.registration||"Aircraft"}</h2><span className="aircraft-detail-type">{selectedMapAircraft.aircraft.name||selectedMapAircraft.aircraft.aircraftName||"Infinite Flight aircraft"} · {selectedMapAircraft.aircraft.fleetRank?"Fleet #"+selectedMapAircraft.aircraft.fleetRank:"Fleet aircraft"}</span></div><span className={"aircraft-detail-live "+(selectedMapAircraft.position.isOnGround?"is-ground":"") }><i/>{selectedMapAircraft.position.isOnGround?"On ground":"In flight"}</span></div>
+         <img className="aircraft-detail-photo" src={"/aircrafts/"+encodeURIComponent(String(selectedMapAircraft.aircraft.registration||""))+"/aircraft.png"} alt={(selectedMapAircraft.aircraft.registration||"Aircraft")+" aircraft"} onError={e=>{e.currentTarget.style.display="none"}}/>
+         <div className="aircraft-detail-flight">
+          <div className="aircraft-detail-flight-top"><span>{selectedMapAircraft.position.isOnGround?"On the ground":"In the air now"} · Live position</span><strong>{selectedMapAircraft.position.lastPilotUsername||"Pilot unknown"}</strong></div>
+          <div className="aircraft-detail-route"><strong>{selectedMapAircraft.position.latitude.toFixed(2)}°</strong><span/><strong>{selectedMapAircraft.position.longitude.toFixed(2)}°</strong></div>
+          <div className="aircraft-detail-flight-meta"><span>Position updated <b>{selectedMapAircraft.position.updatedAt?new Date(selectedMapAircraft.position.updatedAt).toLocaleTimeString():"Unknown"}</b></span><span>Heading <b>{Math.round(selectedMapAircraft.position.heading||0)}°</b></span></div>
+         </div>
+         <div className="aircraft-detail-stats">
+          <div><span>Altitude</span><strong>{Math.round(selectedMapAircraft.position.altitude||0).toLocaleString()} ft</strong></div>
+          <div><span>Ground speed</span><strong>{Math.round(selectedMapAircraft.position.speed||0)} kt</strong></div>
+          <div><span>Vertical</span><strong>{(selectedMapAircraft.position.verticalSpeed||0)>=0?"Climbing ":"Descending "}{Math.abs(Math.round(selectedMapAircraft.position.verticalSpeed||0)).toLocaleString()} fpm</strong></div>
+          <div><span>Heading</span><strong>{Math.round(selectedMapAircraft.position.heading||0)}°</strong></div>
+          <div><span>Flown by</span><strong>{selectedMapAircraft.position.lastPilotUsername||"Unknown"}</strong></div>
+          <div><span>Last update</span><strong>{selectedMapAircraft.position.updatedAt?new Date(selectedMapAircraft.position.updatedAt).toLocaleString():"Unknown"}</strong></div>
+         </div>
+        </div>
+       </section>
+      </div>}
+      </> : null}
     {scheduleLoadError&&<ToastNotice message={scheduleLoadError} onDismiss={()=>setScheduleLoadError("")}/>}
     {selectedSeatSchedule&&<div className="seat-modal-backdrop" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget)setSelectedSeatSchedule(null)}}><section className="seat-modal" role="dialog" aria-modal="true" aria-labelledby="seat-modal-title"><div className="eyebrow">CREW REQUEST</div><h2 id="seat-modal-title">Choose your seat</h2><p>{selectedSeatSchedule.callsign||"Flight"} · {selectedSeatSchedule.originIcao||"—"} → {selectedSeatSchedule.destinationIcao||"—"}</p><div className="seat-choice-grid"><button type="button" className={seatChoice===0?"is-selected":""} onClick={()=>setSeatChoice(0)}><strong>Captain</strong><small>Captain seat</small></button><button type="button" className={seatChoice===1?"is-selected":""} onClick={()=>setSeatChoice(1)}><strong>First Officer</strong><small>First Officer seat</small></button></div><div className="seat-modal-actions"><button className="button button-quiet" onClick={()=>setSelectedSeatSchedule(null)}>Cancel</button><button className="button button-primary" disabled={!!requestBusy} onClick={()=>{const chosen=selectedSeatSchedule;setSelectedSeatSchedule(null);void requestLeg(chosen,seatChoice)}}>Confirm request</button></div></section></div>}<div className="hero-footnote">Your booking requests follow the organization approval policy. Infinite Flight Live remains the source of truth.</div>
    </section>
