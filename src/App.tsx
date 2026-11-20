@@ -260,6 +260,15 @@ function currentRateBudget(rateLimit:{remaining:number|null;resetAt:string|null;
  const resetTime=value?(Number.isFinite(numeric)?(numeric<1e12?numeric*1000:numeric):Date.parse(value)):0;
  return resetTime&&resetTime>Date.now()?rateLimit.remaining??undefined:undefined;
 }
+function aircraftPositionLabel(position?:AircraftPosition):string{
+ if(!position)return "Position unavailable";
+ if(position.state===5)return "Maintenance";
+ if(position.state===3)return "Cancelled";
+ if(position.state===4)return "Stopped";
+ if(position.isOnGround)return "On ground";
+ if(position.state===2||position.isOnGround===false)return "In flight";
+ return "Status unknown";
+}
 function airportCode(value:any):string{
  if(typeof value==="string")return value;
  return String(value?.icao||value?.icaoCode||value?.code||"—");
@@ -520,7 +529,7 @@ function PilotDashboard(){
             return rank(a)-rank(b)||(a.sequence??0)-(b.sequence??0);
           });
           const position=positions[plane.id];
-          const state=position?(position.isOnGround?"On ground":position.state===5?"Maintenance":position.state===3?"Cancelled":"In flight"):"Position unavailable";
+          const state=aircraftPositionLabel(position);
           const isCollapsed=collapsedAircraftIds.includes(plane.id);
           return <article className={"pilot-schedule-aircraft "+(isCollapsed?"is-collapsed":"")} key={plane.id}>
             <button type="button" className="pilot-schedule-aircraft-heading" onClick={()=>setCollapsedAircraftIds(current=>current.includes(plane.id)?current.filter(id=>id!==plane.id):[...current,plane.id])} aria-expanded={!isCollapsed}>
@@ -550,7 +559,7 @@ function PilotDashboard(){
        <section className="aircraft-detail-sheet" role="dialog" aria-modal="true" aria-labelledby="aircraft-detail-title">
         <div className="aircraft-detail-grabber"/><div className="aircraft-detail-header"><span>Aircraft</span><button type="button" aria-label="Close aircraft details" onClick={()=>setSelectedMapAircraft(null)}><span>×</span></button></div>
         <div className="aircraft-detail-content">
-         <div className="aircraft-detail-identity"><div><h2 id="aircraft-detail-title">{selectedMapAircraft.aircraft.registration||"Aircraft"}</h2><span className="aircraft-detail-type">{selectedMapAircraft.aircraft.name||selectedMapAircraft.aircraft.aircraftName||"Infinite Flight aircraft"} · {selectedMapAircraft.aircraft.fleetRank?"Fleet #"+selectedMapAircraft.aircraft.fleetRank:"Fleet aircraft"}</span></div><span className={"aircraft-detail-live "+(selectedMapAircraft.position.isOnGround?"is-ground":"") }><i/>{selectedMapAircraft.position.isOnGround?"On ground":"In flight"}</span></div>
+         <div className="aircraft-detail-identity"><div><h2 id="aircraft-detail-title">{selectedMapAircraft.aircraft.registration||"Aircraft"}</h2><span className="aircraft-detail-type">{selectedMapAircraft.aircraft.name||selectedMapAircraft.aircraft.aircraftName||"Infinite Flight aircraft"} · {selectedMapAircraft.aircraft.fleetRank?"Fleet #"+selectedMapAircraft.aircraft.fleetRank:"Fleet aircraft"}</span></div><span className={"aircraft-detail-live "+(selectedMapAircraft.position.isOnGround||selectedMapAircraft.position.state===4||selectedMapAircraft.position.state===5?"is-ground":"") }><i/>{aircraftPositionLabel(selectedMapAircraft.position)}</span></div>
          <img className="aircraft-detail-photo" src={"/aircrafts/"+encodeURIComponent(String(selectedMapAircraft.aircraft.registration||""))+"/aircraft.png"} alt={(selectedMapAircraft.aircraft.registration||"Aircraft")+" aircraft"} onError={e=>{e.currentTarget.style.display="none"}}/>
          <div className="aircraft-detail-flight">
           <div className="aircraft-detail-flight-top"><span>{selectedMapAircraft.position.isOnGround?"On the ground":"In the air now"} · Live position</span><strong>{selectedMapAircraft.position.lastPilotUsername||"Pilot unknown"}</strong></div>
