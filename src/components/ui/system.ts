@@ -2,14 +2,6 @@ import { createSystem, defaultConfig, defineConfig } from "@chakra-ui/react";
 
 const config = defineConfig({
   globalCss: {
-    "@keyframes veyro-fade-in": {
-      from: { opacity: 0 },
-      to: { opacity: 1 },
-    },
-    "@keyframes veyro-slide-up": {
-      from: { opacity: 0, transform: "translateY(14px)" },
-      to: { opacity: 1, transform: "translateY(0)" },
-    },
     '[data-state="open"]': {
       animationName: "veyro-fade-in, veyro-slide-up",
       animationDuration: "260ms",
