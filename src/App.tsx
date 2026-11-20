@@ -301,7 +301,7 @@ function PilotDashboard(){
  const [scheduleLoadError,setScheduleLoadError]=useState("");
  const [aircraftCursor,setAircraftCursor]=useState(0);
  const [positions,setPositions]=useState<Record<string,AircraftPosition>>({});
- const [,setLatestFlights]=useState<Record<string,any>>({});
+ const [latestFlights,setLatestFlights]=useState<Record<string,any>>({});
  const [apiRateLimit,setApiRateLimit]=useState<{remaining:number|null;resetAt:string|null;isPro:boolean}|null>(null);
  const [positionLoading,setPositionLoading]=useState(false);
  const [positionError,setPositionError]=useState("");
@@ -361,6 +361,24 @@ function PilotDashboard(){
   }finally{setPositionLoading(false)}
  };
 
+ const openAircraftDetails=async(item:any,position:AircraftPosition)=>{
+  setSelectedMapAircraft({aircraft:item,position});
+  if(!supabase||!resolvedOrganizationId||!session)return;
+  try{
+   const {data,error}=await invokeFunction(supabase,"pilot-live-data",{body:{
+    organizationId:resolvedOrganizationId,cacheScope,action:"aircraft_operations",aircraftIds:[item.id],
+    apiRateRemaining:currentRateBudget(apiRateLimit),apiRateResetAt:apiRateLimit?.resetAt,isPro:apiRateLimit?.isPro??false
+   }});
+   if(error)throw error;
+   if(data?.positions?.[item.id]){
+    setPositions(previous=>({...previous,[item.id]:data.positions[item.id]}));
+    setSelectedMapAircraft({aircraft:item,position:data.positions[item.id]});
+   }
+   if(data?.latestFlights)setLatestFlights(previous=>({...previous,...data.latestFlights}));
+   if(data?.rateLimit)setApiRateLimit(data.rateLimit);
+   if(data?.rateLimited)setPositionError("Live flight details are temporarily limited by your Infinite Flight API allowance.");
+  }catch(e){setPositionError(e instanceof Error?e.message:"Could not load the latest aircraft flight details.");}
+ };
  useEffect(()=>{
   if(!["overview","schedules"].includes(page)||!session||aircraft.length===0)return;
   let active=true;
@@ -478,7 +496,7 @@ function PilotDashboard(){
       <section className="panel dashboard-panel pilot-schedules-map-panel">
        <div className="section-heading"><div><div className="eyebrow">LIVE FLEET TRACKING</div><h2>Aircraft map</h2><p>Tap any aircraft on the map or in the roster to open its live flight details.</p></div><span className="fleet-total">{Object.keys(positions).length} TRACKED</span></div>
        {positionError&&<div className="notice">{positionError}</div>}
-       {aircraft.length===0?<div className="empty-state">No aircraft are attached to this organisation.</div>:<Suspense fallback={<div className="aircraft-map-frame aircraft-map-loading">Preparing live map…</div>}><AircraftLiveMap aircraft={aircraft} positions={positions} dark={darkMap} onAircraftSelect={(item,position)=>setSelectedMapAircraft({aircraft:item,position})}/></Suspense>}
+       {aircraft.length===0?<div className="empty-state">No aircraft are attached to this organisation.</div>:<Suspense fallback={<div className="aircraft-map-frame aircraft-map-loading">Preparing live map…</div>}><AircraftLiveMap aircraft={aircraft} positions={positions} dark={darkMap} onAircraftSelect={openAircraftDetails}/></Suspense>}
        <div className="aircraft-map-footer"><span>{positionLoading?"Fetching aircraft positions…":positionsUpdated?"Last position refresh "+positionsUpdated.toLocaleTimeString():"Waiting for first position update"}</span><span>{Object.keys(positions).length} / {aircraft.length} positions available</span></div>
       </section>
       <section className="panel dashboard-panel pilot-booking-board pilot-schedules-board">
