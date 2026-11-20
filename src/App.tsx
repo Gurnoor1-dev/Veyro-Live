@@ -287,7 +287,6 @@ function PilotDashboard(){
  const [requestBusy,setRequestBusy]=useState("");
  const [selectedSeatSchedule,setSelectedSeatSchedule]=useState<any>(null);
  const [seatChoice,setSeatChoice]=useState<0|1>(0);
- const [selectedAircraftId,setSelectedAircraftId]=useState("");
  const [selectedMapAircraft,setSelectedMapAircraft]=useState<{aircraft:any;position:AircraftPosition}|null>(null);
  const [collapsedAircraftIds,setCollapsedAircraftIds]=useState<string[]>([]);
  const [scheduleSort,setScheduleSort]=useState("ready");
@@ -334,7 +333,7 @@ function PilotDashboard(){
   setLoading(true);setError("");
   const {data,error}=await invokeFunction(supabase,"pilot-live-data",{body:{organizationId:resolvedOrganizationId||undefined,organizationSlug:!resolvedOrganizationId&&slug?slug:undefined,cacheScope}});
   if(error||!data?.organization){setError(data?.error||error?.message||"Could not load this Live organization.");setLoading(false);return}
-  setResolvedOrganizationId(data.organization.id);setOrganization(data.organization);setPortalId(data.portal?.id||"");setAircraft(data.aircraft||[]);setSelectedAircraftId(current=>current||(data.aircraft?.[0]?.id||""));setSchedules(data.schedules||[]);setBookings(data.bookings||[]);setSchedulePagination(data.schedulesPagination||{page:1,pageSize:100,totalCount:(data.schedules||[]).length,totalPages:1});setMembers([]);if(data.rateLimit)setApiRateLimit(data.rateLimit);
+  setResolvedOrganizationId(data.organization.id);setOrganization(data.organization);setPortalId(data.portal?.id||"");setAircraft(data.aircraft||[]);setSchedules(data.schedules||[]);setBookings(data.bookings||[]);setSchedulePagination(data.schedulesPagination||{page:1,pageSize:100,totalCount:(data.schedules||[]).length,totalPages:1});setMembers([]);if(data.rateLimit)setApiRateLimit(data.rateLimit);
   setLastUpdated(new Date());setLoading(false);
  };
  useEffect(()=>{if(session&&(resolvedOrganizationId||slug))void load();else if(!isSupabaseConfigured)setLoading(false)},[session,organizationId,slug]);
@@ -499,7 +498,6 @@ function PilotDashboard(){
           });
           const position=positions[plane.id];
           const isCollapsed=collapsedAircraftIds.includes(plane.id);
-          const state=position?(position.isOnGround?"On ground":position.state===5?"Maintenance":position.state===3?"Cancelled":"In flight"):"Position unavailable";
           return <article className={"pilot-schedule-aircraft "+(isCollapsed?"is-collapsed":"")} key={plane.id}>
             <button type="button" className="pilot-schedule-aircraft-heading" onClick={()=>setCollapsedAircraftIds(current=>current.includes(plane.id)?current.filter(id=>id!==plane.id):[...current,plane.id])} aria-expanded={!isCollapsed}>
               <ChevronDown size={17}/><span className={"aircraft-status-dot "+(position?.isOnGround?"tone-ground":position?"tone-air":"tone-muted")}/><strong>{plane.registration||"Aircraft"}</strong><small>{plane.name||plane.aircraftName||"Aircraft"}</small><span className="pilot-schedule-aircraft-status">{state}</span><span className="pilot-schedule-aircraft-count">{planeSchedules.length} legs · <b>{planeSchedules.length} open</b></span>
