@@ -110,7 +110,7 @@ function Markdown({ source }: { source: string }) {
       blocks.push(<chakra.blockquote key={blocks.length}><Inline text={quote.join(" ")}/></chakra.blockquote>);
       continue;
     }
-    if (line.trim() === "---" || line.trim() === "***") { blocks.push(<hr key={blocks.length}/>); i++; continue; }
+    if (line.trim() === "---" || line.trim() === "***") { blocks.push(<chakra.hr key={blocks.length}/>); i++; continue; }
     const paragraph = [line.trim()]; i++;
     while (i < lines.length && lines[i].trim() && !/^#{1,6}\s|^```|^~~~|^\s*[-*+]\s+|^\s*\d+\.\s+|^>|^\|.*\|$/.test(lines[i])) paragraph.push(lines[i++].trim());
     blocks.push(<chakra.p key={blocks.length}><Inline text={paragraph.join(" ")}/></chakra.p>);
@@ -152,7 +152,7 @@ export default function DocsPage() {
       <chakra.aside id="docs-navigation" className={"docs-sidebar" + (mobileOpen ? " is-open" : "")}>
         <Link className="docs-back" to="/"><ArrowLeft size={14}/> Back to VEYRO Live</Link>
         <chakra.div className="docs-nav-title">DOCUMENTATION</chakra.div>
-        <chakra.label className="docs-search"><Search size={15}/><Input ref={searchInputRef} value={query} onChange={e => setQuery(e.target.value)} placeholder="Search documentation" aria-label="Search all documentation"/><kbd>⌘ K</kbd></chakra.label>
+        <chakra.label className="docs-search"><Search size={15}/><Input ref={searchInputRef} value={query} onChange={e => setQuery(e.target.value)} placeholder="Search documentation" aria-label="Search all documentation"/><chakra.kbd>⌘ K</chakra.kbd></chakra.label>
         <chakra.nav>
           <Link className={"docs-nav-item docs-overview" + (!doc ? " active" : "")} to="/docs"><BookOpen size={15}/> Overview</Link>
           {filteredGroups.map(group => <chakra.section className="docs-nav-group" key={group.name}><chakra.div>{group.name}</chakra.div>{group.items.map(file => <Link key={file} onClick={() => setMobileOpen(false)} className={"docs-nav-item" + (currentFile === file ? " active" : "")} to={"/docs/" + slug(file)}><FileText size={14}/><chakra.span>{humanize(file)}</chakra.span>{currentFile === file && <ChevronRight size={13}/>}</Link>)}</chakra.section>)}
