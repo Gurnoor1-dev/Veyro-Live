@@ -5,6 +5,7 @@ import { ArrowLeft, ArrowUpRight, BookOpen, ChevronRight, Code2, Copy, FileText,
 import Brand from "../components/Brand";
 import ThemeToggle from "../components/ThemeToggle";
 import { chakra } from "@chakra-ui/react";
+import { Button as ChakraButton, Input } from "@chakra-ui/react";
 
 const modules = import.meta.glob("../../docs/*.md", { eager: true, query: "?raw", import: "default" }) as Record<string, string>;
 
@@ -79,7 +80,7 @@ function Markdown({ source }: { source: string }) {
       const code: string[] = [];
       while (i < lines.length && !lines[i].startsWith(marker)) code.push(lines[i++]);
       i++;
-      blocks.push(<chakra.pre className="docs-code" key={blocks.length}><chakra.div className="docs-code-head"><chakra.span><Code2 size={13}/>{lang || "CODE"}</chakra.span><chakra.button onClick={() => navigator.clipboard?.writeText(code.join("\n"))} aria-label="Copy code"><Copy size={13}/> Copy</chakra.button></chakra.div><chakra.code>{code.join("\n")}</chakra.code></chakra.pre>);
+      blocks.push(<chakra.pre className="docs-code" key={blocks.length}><chakra.div className="docs-code-head"><chakra.span><Code2 size={13}/>{lang || "CODE"}</chakra.span><ChakraButton onClick={() => navigator.clipboard?.writeText(code.join("\n"))} aria-label="Copy code"><Copy size={13}/> Copy</ChakraButton></chakra.div><chakra.code>{code.join("\n")}</chakra.code></chakra.pre>);
       continue;
     }
     if (/^#{1,6}\s/.test(line)) {
@@ -145,13 +146,13 @@ export default function DocsPage() {
     <chakra.header className="docs-topbar">
       <chakra.div className="docs-brand"><Brand/></chakra.div>
       <Link className="nav-account-link veyro-center-account" to="/account">My Veyro <ArrowUpRight size={13}/></Link>
-      <chakra.div className="docs-top-actions"><ThemeToggle/><chakra.button className="docs-mobile-toggle" type="button" onClick={() => setMobileOpen(v => !v)} aria-label="Toggle documentation menu" aria-expanded={mobileOpen} aria-controls="docs-navigation">{mobileOpen ? <X/> : <Menu/>}</chakra.button></chakra.div>
+      <chakra.div className="docs-top-actions"><ThemeToggle/><ChakraButton className="docs-mobile-toggle" type="button" onClick={() => setMobileOpen(v => !v)} aria-label="Toggle documentation menu" aria-expanded={mobileOpen} aria-controls="docs-navigation">{mobileOpen ? <X/> : <Menu/>}</ChakraButton></chakra.div>
     </chakra.header>
     <chakra.div className="docs-layout">
       <chakra.aside id="docs-navigation" className={"docs-sidebar" + (mobileOpen ? " is-open" : "")}>
         <Link className="docs-back" to="/"><ArrowLeft size={14}/> Back to VEYRO Live</Link>
         <chakra.div className="docs-nav-title">DOCUMENTATION</chakra.div>
-        <chakra.label className="docs-search"><Search size={15}/><chakra.input ref={searchInputRef} value={query} onChange={e => setQuery(e.target.value)} placeholder="Search documentation" aria-label="Search all documentation"/><kbd>⌘ K</kbd></chakra.label>
+        <chakra.label className="docs-search"><Search size={15}/><Input ref={searchInputRef} value={query} onChange={e => setQuery(e.target.value)} placeholder="Search documentation" aria-label="Search all documentation"/><kbd>⌘ K</kbd></chakra.label>
         <chakra.nav>
           <Link className={"docs-nav-item docs-overview" + (!doc ? " active" : "")} to="/docs"><BookOpen size={15}/> Overview</Link>
           {filteredGroups.map(group => <chakra.section className="docs-nav-group" key={group.name}><chakra.div>{group.name}</chakra.div>{group.items.map(file => <Link key={file} onClick={() => setMobileOpen(false)} className={"docs-nav-item" + (currentFile === file ? " active" : "")} to={"/docs/" + slug(file)}><FileText size={14}/><chakra.span>{humanize(file)}</chakra.span>{currentFile === file && <ChevronRight size={13}/>}</Link>)}</chakra.section>)}
