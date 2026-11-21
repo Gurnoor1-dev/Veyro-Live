@@ -1,0 +1,52 @@
+/* Pilot dashboard live map: tighter heading-to-map rhythm and less dead canvas. */
+.pilot-content .aircraft-map-panel {
+  padding: clamp(14px, 1.5vw, 19px);
+}
+.pilot-content .aircraft-map-panel > .section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 10px;
+}
+.pilot-content .aircraft-map-panel > .section-heading > div:first-child {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.pilot-content .aircraft-map-panel > .section-heading h2 {
+  margin: 0;
+  line-height: 1.3;
+}
+.pilot-content .aircraft-map-panel > .section-heading p {
+  max-width: 58ch;
+  margin: 3px 0 0;
+  line-height: 1.45;
+}
+.pilot-content .aircraft-map-panel .aircraft-map-frame {
+  height: clamp(260px, 26vw, 350px);
+}
+.pilot-content .aircraft-map-panel .aircraft-map-roster {
+  max-height: 350px;
+}
+.pilot-content .aircraft-map-panel .aircraft-map-legend {
+  padding-top: 7px;
+}
+.pilot-content .aircraft-map-panel .aircraft-map-provider-note {
+  margin: 6px 0 0;
+  line-height: 1.45;
+}
+@media (max-width: 900px) {
+  .pilot-content .aircraft-map-panel .aircraft-map-frame { height: 300px; }
+  .pilot-content .aircraft-map-panel .aircraft-map-roster { max-height: 210px; }
+}
+@media (max-width: 600px) {
+  .pilot-content .aircraft-map-panel { padding: 12px; }
+  .pilot-content .aircraft-map-panel > .section-heading { align-items: flex-start; }
+  .pilot-content .aircraft-map-panel > .section-heading .button { flex: 0 0 auto; }
+  .pilot-content .aircraft-map-panel .aircraft-map-frame { height: 260px; }
+  .pilot-content .aircraft-map-panel .aircraft-map-roster { max-height: 190px; }
+}
+@media (max-width: 420px) {
+  .pilot-content .aircraft-map-panel > .section-heading { flex-direction: column; }
+  .pilot-content .aircraft-map-panel > .section-heading .button { width: 100%; justify-content: center; }
+}

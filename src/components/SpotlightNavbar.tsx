@@ -5,15 +5,15 @@ import { Link, useLocation } from "react-router-dom";
 function iconForNavLabel(label: string) {
   const value = label.toLowerCase();
   const props = { size: 15, strokeWidth: 1.8 };
-  if (value.includes("overview")) return <LayoutDashboard {...props}/>;
-  if (value.includes("profile") && value.includes("public")) return <Building2 {...props}/>;
-  if (value.includes("pilot profile")) return <UserRound {...props}/>;
-  if (value.includes("approval")) return <ShieldCheck {...props}/>;
-  if (value.includes("schedule")) return <CalendarDays {...props}/>;
-  if (value.includes("fleet")) return <Plane {...props}/>;
-  if (value.includes("booking")) return <ClipboardList {...props}/>;
-  if (value.includes("crew") || value.includes("pilot")) return <Users {...props}/>;
-  return <Building2 {...props}/>;
+  if (value.includes("overview")) return <LayoutDashboard {...props} />;
+  if (value.includes("profile") && value.includes("public")) return <Building2 {...props} />;
+  if (value.includes("pilot profile")) return <UserRound {...props} />;
+  if (value.includes("approval")) return <ShieldCheck {...props} />;
+  if (value.includes("schedule")) return <CalendarDays {...props} />;
+  if (value.includes("fleet")) return <Plane {...props} />;
+  if (value.includes("booking")) return <ClipboardList {...props} />;
+  if (value.includes("crew") || value.includes("pilot")) return <Users {...props} />;
+  return <Building2 {...props} />;
 }
 
 export interface NavItem {
@@ -38,83 +38,51 @@ export default function SpotlightNavbar({
 }: SpotlightNavbarProps) {
   const location = useLocation();
   const active = activeHref ?? location.pathname;
-
   const navRef = useRef<HTMLElement>(null);
   const itemRefs = useRef<(HTMLAnchorElement | null)[]>([]);
-
-  const [indicator, setIndicator] = useState<{
-    offset: number;
-    size: number;
-    ready: boolean;
-  }>({ offset: 0, size: 0, ready: false });
-
-  const [scrollState, setScrollState] = useState({
-    canScrollLeft: false,
-    canScrollRight: false,
-  });
+  const [indicator, setIndicator] = useState({ offset: 0, size: 0, ready: false });
+  const [scrollState, setScrollState] = useState({ canScrollLeft: false, canScrollRight: false });
 
   const activeIndex = (() => {
     let bestIndex = -1;
     let bestLength = -1;
-
     items.forEach((item, index) => {
       const exactMatch = active === item.href;
-      const nestedMatch =
-        item.href !== "/" &&
-        active.startsWith(item.href.endsWith("/") ? item.href : `${item.href}/`);
-
+      const nestedMatch = item.href !== "/" && active.startsWith(item.href.endsWith("/") ? item.href : `${item.href}/`);
       if ((exactMatch || nestedMatch) && item.href.length > bestLength) {
         bestIndex = index;
         bestLength = item.href.length;
       }
     });
-
     return bestIndex;
   })();
 
   const updateScrollIndicators = useCallback(() => {
     const nav = navRef.current;
     if (!nav || orientation === "vertical") return;
-
     const { scrollLeft, scrollWidth, clientWidth } = nav;
-    setScrollState({
-      canScrollLeft: scrollLeft > 6,
-      canScrollRight: scrollLeft + clientWidth < scrollWidth - 6,
-    });
+    setScrollState({ canScrollLeft: scrollLeft > 6, canScrollRight: scrollLeft + clientWidth < scrollWidth - 6 });
   }, [orientation]);
 
   const updateIndicator = useCallback(() => {
     const activeEl = activeIndex >= 0 ? itemRefs.current[activeIndex] : null;
     const nav = navRef.current;
-
     if (!activeEl || !nav) {
-      setIndicator((prev) => ({ ...prev, ready: false }));
+      setIndicator(previous => ({ ...previous, ready: false }));
       return;
     }
-
-    if (orientation === "vertical") {
-      setIndicator({
-        offset: activeEl.offsetTop,
-        size: activeEl.offsetHeight,
-        ready: true,
-      });
-    } else {
-      setIndicator({
-        offset: activeEl.offsetLeft,
-        size: activeEl.offsetWidth,
-        ready: true,
-      });
-
+    setIndicator({
+      offset: orientation === "vertical" ? activeEl.offsetTop : activeEl.offsetLeft,
+      size: orientation === "vertical" ? activeEl.offsetHeight : activeEl.offsetWidth,
+      ready: true,
+    });
+    if (orientation === "horizontal") {
       const navLeft = nav.scrollLeft;
       const navRight = navLeft + nav.clientWidth;
       const elLeft = activeEl.offsetLeft;
       const elRight = elLeft + activeEl.offsetWidth;
-
-      if (elLeft < navLeft + 32) {
-        nav.scrollTo({ left: Math.max(0, elLeft - 32), behavior: "smooth" });
-      } else if (elRight > navRight - 32) {
-        nav.scrollTo({ left: elRight - nav.clientWidth + 32, behavior: "smooth" });
-      }
+      if (elLeft < navLeft + 32) nav.scrollTo({ left: Math.max(0, elLeft - 32), behavior: "smooth" });
+      else if (elRight > navRight - 32) nav.scrollTo({ left: elRight - nav.clientWidth + 32, behavior: "smooth" });
     }
   }, [activeIndex, orientation]);
 
@@ -125,16 +93,13 @@ export default function SpotlightNavbar({
 
   useEffect(() => {
     const nav = navRef.current;
-    if (!nav) return;
-
+    if (!nav || typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver(() => {
       updateIndicator();
       updateScrollIndicators();
     });
-
     observer.observe(nav);
     window.addEventListener("resize", updateIndicator);
-
     return () => {
       observer.disconnect();
       window.removeEventListener("resize", updateIndicator);
@@ -142,12 +107,11 @@ export default function SpotlightNavbar({
   }, [updateIndicator, updateScrollIndicators]);
 
   const handlePointerMove = (event: PointerEvent<HTMLElement>) => {
+    if (event.pointerType === "touch") return;
     const rect = event.currentTarget.getBoundingClientRect();
-    const position =
-      orientation === "vertical"
-        ? event.clientY - rect.top
-        : event.clientX - rect.left + event.currentTarget.scrollLeft;
-
+    const position = orientation === "vertical"
+      ? event.clientY - rect.top
+      : event.clientX - rect.left + event.currentTarget.scrollLeft;
     event.currentTarget.style.setProperty("--spotlight-position", `${position}px`);
     event.currentTarget.style.setProperty("--spotlight-opacity", "1");
   };
@@ -155,37 +119,23 @@ export default function SpotlightNavbar({
   const handlePointerLeave = (event: PointerEvent<HTMLElement>) => {
     event.currentTarget.style.setProperty("--spotlight-opacity", "0");
   };
-
-  const scrollByAmount = (direction: -1 | 1) => {
-    navRef.current?.scrollBy({ left: direction * 200, behavior: "smooth" });
-  };
-
+  const scrollByAmount = (direction: -1 | 1) => navRef.current?.scrollBy({ left: direction * 200, behavior: "smooth" });
   const wrapperClasses = [
     "spotlight-nav-shell",
     `spotlight-nav-shell-${orientation}`,
     scrollState.canScrollLeft ? "can-scroll-left" : "",
     scrollState.canScrollRight ? "can-scroll-right" : "",
     className,
-  ]
-    .filter(Boolean)
-    .join(" ");
+  ].filter(Boolean).join(" ");
 
   return (
     <div className={wrapperClasses}>
-      {/* Outer ambient glow layer */}
       <div className="spotlight-shell-glow" aria-hidden="true" />
-
       {orientation === "horizontal" && scrollState.canScrollLeft && (
-        <button
-          type="button"
-          className="spotlight-scroll-cue left"
-          onClick={() => scrollByAmount(-1)}
-          aria-label="Scroll navigation left"
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+        <button type="button" className="spotlight-scroll-cue left" onClick={() => scrollByAmount(-1)} aria-label="Scroll navigation left">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
         </button>
       )}
-
       <nav
         ref={navRef}
         className={`spotlight-nav spotlight-nav-${orientation}`}
@@ -194,78 +144,48 @@ export default function SpotlightNavbar({
         onPointerMove={handlePointerMove}
         onPointerLeave={handlePointerLeave}
       >
-        {/* Cursor proximity light */}
         <span className="spotlight-nav-light" aria-hidden="true" />
-
-        {/* Liquid Glass Sliding Active Pill */}
         {indicator.ready && (
           <div
             className="spotlight-active-pill"
             aria-hidden="true"
-            style={
-              orientation === "vertical"
-                ? {
-                    transform: `translateY(${indicator.offset}px)`,
-                    height: `${indicator.size}px`,
-                  }
-                : {
-                    transform: `translateX(${indicator.offset}px)`,
-                    width: `${indicator.size}px`,
-                  }
-            }
+            style={orientation === "vertical"
+              ? { transform: `translateY(${indicator.offset}px)`, height: `${indicator.size}px` }
+              : { transform: `translateX(${indicator.offset}px)`, width: `${indicator.size}px` }}
           >
             <div className="spotlight-pill-reflection" />
           </div>
         )}
-
         {items.map((item, index) => {
           const isActive = index === activeIndex;
           const itemClass = `spotlight-nav-item${isActive ? " active" : ""}`;
-
+          const content = <><span className="spotlight-item-icon" aria-hidden="true">{iconForNavLabel(item.label)}</span><span className="spotlight-item-label">{item.label}</span></>;
           if (onItemClick) {
             return (
               <a
                 key={item.href}
-                ref={(el) => {
-                  itemRefs.current[index] = el;
-                }}
+                ref={element => { itemRefs.current[index] = element; }}
                 href={item.href}
                 className={itemClass}
                 aria-current={isActive ? "page" : undefined}
-                onClick={(event) => {
-                  event.preventDefault();
-                  onItemClick(item, index);
-                }}
-              >
-                <span className="spotlight-item-icon" aria-hidden="true">{iconForNavLabel(item.label)}</span><span className="spotlight-item-label">{item.label}</span>
-              </a>
+                onClick={event => { event.preventDefault(); onItemClick(item, index); }}
+              >{content}</a>
             );
           }
-
           return (
             <Link
               key={item.href}
-              ref={(el) => {
-                itemRefs.current[index] = el;
-              }}
+              ref={element => { itemRefs.current[index] = element; }}
               to={item.href}
               className={itemClass}
               aria-current={isActive ? "page" : undefined}
-            >
-              <span className="spotlight-item-label">{item.label}</span>
-            </Link>
+            >{content}</Link>
           );
         })}
       </nav>
-
       {orientation === "horizontal" && scrollState.canScrollRight && (
-        <button
-          type="button"
-          className="spotlight-scroll-cue right"
-          onClick={() => scrollByAmount(1)}
-          aria-label="Scroll navigation right"
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+        <button type="button" className="spotlight-scroll-cue right" onClick={() => scrollByAmount(1)} aria-label="Scroll navigation right">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
         </button>
       )}
     </div>
