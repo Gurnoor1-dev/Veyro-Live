@@ -10,7 +10,6 @@ import {
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
 import { invokeFunction } from "../lib/functions";
-import AircraftLiveMap from "../components/AircraftLiveMap";
 import "./virtual-blue.css";
 
 const AircraftLiveMap = lazy(() => import("../components/AircraftLiveMap"));
