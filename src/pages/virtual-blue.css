@@ -501,3 +501,30 @@ html[data-vb-theme="light"] .vb-app {
   .vb-aircraft-sheet-backdrop,.vb-aircraft-sheet { animation:none; }
   .vb-quick-grid>button,.vb-aircraft-card { transition:none; }
 }
+
+
+
+/* SimBrief account connection and one-click OFP retrieval */
+.vb-simbrief-fetch-row {
+  display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:end; gap:10px 13px;
+  margin:0 0 14px; padding:15px; border:1px solid var(--vb-line);
+  border-radius:12px; background:var(--vb-panel-2);
+}
+.vb-simbrief-fetch-row label {
+  display:grid; gap:7px; color:var(--vb-muted); font-size:8px;
+  font-weight:800; letter-spacing:.12em;
+}
+.vb-simbrief-fetch-row input {
+  width:100%; min-width:0; min-height:41px; padding:0 11px;
+  border:1px solid var(--vb-line-strong); border-radius:9px;
+  outline:0; background:var(--vb-panel); color:var(--vb-text);
+  font:inherit; font-size:11px; letter-spacing:0;
+}
+.vb-simbrief-fetch-row input:focus { border-color:var(--vb-blue); box-shadow:0 0 0 3px rgba(74,158,255,.1); }
+.vb-simbrief-fetch-row>span { grid-column:1/-1; color:var(--vb-dim); font-size:9px; }
+.vb-simbrief-fetch-row button { min-width:178px; }
+@media(max-width:620px) {
+  .vb-simbrief-fetch-row { grid-template-columns:1fr; }
+  .vb-simbrief-fetch-row button { width:100%; }
+  .vb-simbrief-fetch-row>span { grid-column:1; }
+}
