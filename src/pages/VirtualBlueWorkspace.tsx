@@ -29,7 +29,6 @@ const statusText = (status: number) => ({
   0: "Unknown", 1: "Scheduled", 2: "Boarding", 3: "Boarded", 4: "Taxiing",
   6: "In flight", 7: "Diverted", 8: "Delayed", 9: "Cancelled", 10: "Taxiing", 11: "Arrived"
 } as Record<number, string>)[status] || "Scheduled";
-const airport = (value: any) => typeof value === "string" ? value : String(value?.icao || value?.icaoCode || value?.code || "—");
 const time = (value?: string | null) => value ? new Date(value).toLocaleString([], { dateStyle: "medium", timeStyle: "short" }) : "Any time";
 const routeText = (item: any) => (item.originIcao || "—") + " → " + (item.destinationIcao || "—");
 
