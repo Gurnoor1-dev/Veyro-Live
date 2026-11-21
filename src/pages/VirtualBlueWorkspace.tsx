@@ -14,7 +14,7 @@ import "./virtual-blue.css";
 
 const AircraftLiveMap = lazy(() => import("../components/AircraftLiveMap"));
 
-type View = "overview" | "fleet" | "schedules" | "flightbag" | "dispatch" | "crew" | "admin";
+type View = "overview" | "fleet" | "board" | "schedules" | "flightbag" | "dispatch" | "crew" | "admin";
 type AircraftPosition = {
   id: string; state?: number; isOnGround?: boolean; latitude: number; longitude: number;
   altitude?: number; heading?: number; speed?: number; verticalSpeed?: number;
@@ -23,7 +23,7 @@ type AircraftPosition = {
 const ORG_SLUG = "virtualblue";
 const LIVE_ORGANIZATION_ID = "d50dcc80-8dac-4608-970c-61d6a4739488";
 const viewLabels: Record<View, string> = {
-  overview: "Operations overview", fleet: "Fleet", schedules: "Flight schedules",
+  overview: "Operations overview", fleet: "Fleet", board: "Live flight board", schedules: "Flight schedules",
   flightbag: "Flight bag", dispatch: "Dispatch", crew: "Crew", admin: "Administration"
 };
 const statusText = (status: number) => ({
@@ -69,7 +69,7 @@ export default function VirtualBlueWorkspace() {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const requestedView = (params.get("view") || "overview") as View;
-  const view: View = ["overview", "fleet", "schedules", "flightbag", "dispatch", "crew", "admin"].includes(requestedView) ? requestedView : "overview";
+  const view: View = ["overview", "fleet", "board", "schedules", "flightbag", "dispatch", "crew", "admin"].includes(requestedView) ? requestedView : "overview";
   const [session, setSession] = useState<Session | null>(null);
   const [sessionLoading, setSessionLoading] = useState(true);
   const [loading, setLoading] = useState(true);
@@ -489,6 +489,7 @@ export default function VirtualBlueWorkspace() {
         {([
           ["overview", <Layers3 size={17}/>, "Overview"],
           ["fleet", <Plane size={17}/>, "Fleet"],
+          ["board", <Activity size={17}/>, "Live board"],
           ["schedules", <CalendarDays size={17}/>, "Schedules"],
           ["flightbag", <FileText size={17}/>, "Flight bag"],
           ["dispatch", <Compass size={17}/>, "Dispatch"],
@@ -558,6 +559,27 @@ export default function VirtualBlueWorkspace() {
           {!filteredAircraft.length && <div className="vb-empty"><Plane size={22}/><strong>No matching aircraft</strong><span>Try a different registration or aircraft type.</span></div>}
         </>}
 
+        {view === "board" && <div className="vb-board-page">
+          <div className="vb-page-heading"><div><span className="vb-kicker">INFINITE FLIGHT LIVE · OPERATIONS</span><h1>Live flight board</h1><p>Aircraft activity across the VirtualBlue fleet, updated only when you request a refresh.</p></div><div className="vb-heading-actions"><span className="vb-live-pill"><i/> LIVE DATA</span><button className="vb-primary-button" onClick={() => void refreshPositions()} disabled={positionBusy}>{positionBusy ? <><RefreshCw size={14} className="vb-spin"/> Updating…</> : <><RefreshCw size={14}/> Refresh positions</>}</button></div></div>
+          <div className="vb-metrics-grid"><Metric label="AIRBORNE" value={aircraft.filter((item: any) => !positions[item.id]?.isOnGround && positions[item.id]).length} hint="Aircraft currently in the air" icon={<Plane size={16}/>} /><Metric label="ON GROUND" value={aircraft.filter((item: any) => positions[item.id]?.isOnGround).length} hint="Aircraft reporting on ground" icon={<Activity size={16}/>} /><Metric label="TRACKED" value={Object.keys(positions).length} hint="Aircraft with a live position" icon={<Globe2 size={16}/>} /><Metric label="SCHEDULED LEGS" value={schedules.length} hint="Published Live schedules" icon={<CalendarDays size={16}/>} /></div>
+          <section className="vb-panel"><div className="vb-panel-heading"><div><span className="vb-kicker">FLEET MOVEMENT</span><h2>Aircraft operations</h2><p>{positionsUpdated ? "Last position refresh · " + new Date(positionsUpdated).toLocaleTimeString() : "Refresh to load the latest aircraft positions."}</p></div><span className="vb-result-count">{Object.keys(positions).length} POSITIONS</span></div>
+            <div className="vb-board-table">
+              <div className="vb-board-head"><span>AIRCRAFT</span><span>STATUS / PILOT</span><span>ALTITUDE</span><span>SPEED</span><span>NEXT LEG</span></div>
+              {aircraft.slice().sort((a: any,b: any) => Number(!positions[a.id]?.isOnGround) - Number(!positions[b.id]?.isOnGround)).map((item: any) => {
+                const pos = positions[item.id];
+                const nextLeg = schedules.find((leg: any) => leg.aircraftId === item.id);
+                return <button className="vb-board-row" key={item.id} onClick={() => pos && setSelectedAircraft({ aircraft: item, position: pos })} disabled={!pos}>
+                  <span className="vb-board-aircraft"><i className={pos ? pos.isOnGround ? "ground" : "air" : "unknown"}/><strong>{item.registration || "Aircraft"}</strong><small>{item.name || item.aircraftName || item.icaoCode || "VirtualBlue fleet"}</small></span>
+                  <span className="vb-board-pilot"><strong>{pos ? pos.isOnGround ? "ON GROUND" : "AIRBORNE" : "NO LIVE POSITION"}</strong><small>{pos?.lastPilotUsername || "Pilot unavailable"}</small></span>
+                  <strong className="vb-board-number">{pos ? Math.round(pos.altitude || 0).toLocaleString() + " ft" : "—"}</strong>
+                  <strong className="vb-board-number">{pos ? Math.round(pos.speed || 0) + " kt" : "—"}</strong>
+                  <span className="vb-board-next"><strong>{nextLeg?.callsign || "No next leg"}</strong><small>{nextLeg ? routeText(nextLeg) : "No published schedule"}</small></span>
+                </button>;
+              })}
+              {!aircraft.length && <div className="vb-empty-inline">No VirtualBlue aircraft were returned by Infinite Flight Live.</div>}
+            </div>
+          </section>
+        </div>}
         {view === "schedules" && <>
           <div className="vb-toolbar"><label className="vb-search"><Search size={15}/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search flight number or route…"/></label><span className="vb-result-count">{filteredSchedules.length} PUBLISHED LEGS</span></div>
           <div className="vb-schedule-groups">{aircraft.map((plane:any)=>{const items=filteredSchedules.filter((item:any)=>item.aircraftId===plane.id).sort((a:any,b:any)=>(a.sequence??0)-(b.sequence??0));if(!items.length)return null;return <section className="vb-panel vb-schedule-group" key={plane.id}><div className="vb-schedule-group-head"><div className="vb-row-plane"><Plane size={17}/></div><div><strong>{plane.registration || "Aircraft"}</strong><small>{plane.name || plane.aircraftName || "Fleet aircraft"} · {items.length} scheduled legs</small></div><span className="vb-result-count">FLEET #{plane.fleetRank ?? "—"}</span></div>{items.map((item:any)=><article className="vb-schedule-row" key={item.id}><div className="vb-schedule-flight"><strong>{item.callsign || "Flight"}</strong><span className="vb-status">{statusText(item.status ?? 1)}</span></div><div className="vb-route-large"><div><strong>{item.originIcao || "—"}</strong><small>{item.originName || item.originCity || "ORIGIN"}</small></div><span/><div><strong>{item.destinationIcao || "—"}</strong><small>{item.destinationName || item.destinationCity || "DESTINATION"}</small></div></div><div className="vb-schedule-meta"><span><Clock3 size={13}/>{time(item.scheduledDepartureUtc)}</span><span><Layers3 size={13}/>{item.blockTime || item.estimatedBlockTime || "Block time —"}</span><span><Users size={13}/>{(item.crew || []).length} / 3 crew</span></div><div className="vb-schedule-actions"><button className="vb-secondary-button" onClick={() => openScheduleDispatch(item)}><Compass size={14}/> SimBrief</button><button className="vb-primary-button vb-small-button" disabled={item.status === 9 || !!bookingBusy} onClick={() => {setSeatSchedule(item);setSeatRole(0)}}>Request leg <ArrowRight size={14}/></button></div></article>)}</section>})}</div>
