@@ -199,7 +199,7 @@ export default function VirtualBlueWorkspace() {
   const activeBookings = bookings.filter((b: any) => ["pending_approval", "approved", "sync_failed"].includes(String(b.status).toLowerCase()));
   const myBookings = adminData ? bookings.filter((b: any) => b.pilot_user_id === session?.user.id) : bookings;
   const myActiveBookings = myBookings.filter((b: any) => ["pending_approval", "approved", "sync_failed"].includes(String(b.status).toLowerCase()));
-  const airborneCount = Object.values(positions).filter((p: any) => p && !p.isOnGround && p.state !== 4 && p.state !== 5).length;
+  const airborneCount = Object.values(positions).filter((p: any) => p && (p.isOnGround === false || p.state === 2)).length;
 
   const refreshPositions = async () => {
     if (!organization || !aircraft.length) return;
@@ -230,7 +230,8 @@ export default function VirtualBlueWorkspace() {
         action: "organization_members",
         cacheScope
       });
-      setMembers(result?.members || []);
+      if (adminData) setAdminData((current: any) => current ? { ...current, liveMembers: result?.members || [] } : current);
+      else setMembers(result?.members || []);
       if (result?.rateLimited) setNotice("The Live API request allowance is currently exhausted. Try again after it resets.");
     } catch (e) { setError(e instanceof Error ? e.message : "Crew could not be loaded."); }
     finally { setMembersBusy(false); }
