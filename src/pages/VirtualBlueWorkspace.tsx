@@ -84,6 +84,7 @@ export default function VirtualBlueWorkspace() {
   const [pilotData, setPilotData] = useState<any>(null);
   const [adminData, setAdminData] = useState<any>(null);
   const [positions, setPositions] = useState<Record<string, AircraftPosition>>({});
+  const [selectedAircraft, setSelectedAircraft] = useState<{ aircraft: any; position: AircraftPosition } | null>(null);
   const [positionsUpdated, setPositionsUpdated] = useState<string | null>(null);
   const [positionBusy, setPositionBusy] = useState(false);
   const [members, setMembers] = useState<any[]>([]);
@@ -414,7 +415,7 @@ export default function VirtualBlueWorkspace() {
           </div>
           <section className="vb-panel vb-map-panel">
             <div className="vb-panel-heading"><div><span className="vb-kicker">LIVE FLEET TRACKING</span><h2>Aircraft operations map</h2><p>Position information is requested on demand to protect your API allowance.</p></div><button className="vb-secondary-button" onClick={() => void refreshPositions()} disabled={positionBusy}><RefreshCw size={14} className={positionBusy ? "vb-spin" : ""}/>{positionBusy ? "Refreshing…" : "Refresh positions"}</button></div>
-            {aircraft.length ? <AircraftLiveMap aircraft={aircraft} positions={positions} dark={dark} /> : <div className="vb-empty"><Plane size={22}/><strong>No fleet aircraft returned</strong><span>Check the VirtualBlue Infinite Flight connection.</span></div>}
+            {aircraft.length ? <AircraftLiveMap aircraft={aircraft} positions={positions} dark={dark} onAircraftSelect={(item, position) => setSelectedAircraft({ aircraft: item, position })} /> : <div className="vb-empty"><Plane size={22}/><strong>No fleet aircraft returned</strong><span>Check the VirtualBlue Infinite Flight connection.</span></div>}
             <div className="vb-map-foot"><span>{positionsUpdated ? "Last updated " + new Date(positionsUpdated).toLocaleTimeString() : "Positions not yet requested"}</span><span>{Object.keys(positions).length} / {aircraft.length} aircraft positioned</span></div>
           </section>
           <div className="vb-two-panels">
@@ -436,7 +437,7 @@ export default function VirtualBlueWorkspace() {
 
         {view === "fleet" && <>
           <div className="vb-toolbar"><label className="vb-search"><Search size={15}/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search registration or aircraft type…"/></label><button className="vb-secondary-button" onClick={() => void refreshPositions()} disabled={positionBusy}><RefreshCw size={14}/>{positionBusy ? "Refreshing…" : "Refresh positions"}</button><span className="vb-result-count">{filteredAircraft.length} AIRCRAFT</span></div>
-          <section className="vb-panel"><div className="vb-panel-heading"><div><span className="vb-kicker">FLEET OVERVIEW</span><h2>Aircraft map</h2><p>Tap a marker or roster item to inspect its current position.</p></div></div><AircraftLiveMap aircraft={filteredAircraft} positions={positions} dark={dark}/></section>
+          <section className="vb-panel"><div className="vb-panel-heading"><div><span className="vb-kicker">FLEET OVERVIEW</span><h2>Aircraft map</h2><p>Tap a marker or roster item to inspect its current position.</p></div></div><AircraftLiveMap aircraft={filteredAircraft} positions={positions} dark={dark} onAircraftSelect={(item, position) => setSelectedAircraft({ aircraft: item, position })}/></section>
           <div className="vb-aircraft-grid">{filteredAircraft.map((item:any)=><article className="vb-aircraft-card" key={item.id}><div className="vb-aircraft-image"><img src={"/aircrafts/"+encodeURIComponent(item.registration||"")+"/aircraft.png"} alt="" onError={e=>{e.currentTarget.style.display="none"}}/><span>FLEET #{item.fleetRank ?? "—"}</span></div><div className="vb-aircraft-info"><div><strong>{item.registration || "Unregistered aircraft"}</strong><small>{item.name || item.aircraftName || item.icaoCode || "Infinite Flight aircraft"}</small></div><span className={item.isFleetActiveSlot ? "vb-status is-good" : "vb-status is-muted"}>{item.isFleetActiveSlot ? "Active slot" : "Reserve"}</span></div></article>)}</div>
           {!filteredAircraft.length && <div className="vb-empty"><Plane size={22}/><strong>No matching aircraft</strong><span>Try a different registration or aircraft type.</span></div>}
         </>}
@@ -487,6 +488,29 @@ export default function VirtualBlueWorkspace() {
       <footer className="vb-footer"><span>© {new Date().getFullYear()} VEYRO LIVE</span><span>VIRTUALBLUE OPERATIONS · INFINITE FLIGHT LIVE</span><span>DATA REQUESTED ON DEMAND</span></footer>
     </section>
 
+    {selectedAircraft && <div className="vb-aircraft-sheet-backdrop" role="presentation" onMouseDown={e => { if (e.target === e.currentTarget) setSelectedAircraft(null); }}>
+      <section className="vb-aircraft-sheet" role="dialog" aria-modal="true" aria-labelledby="vb-aircraft-sheet-title">
+        <div className="vb-aircraft-sheet-top"><span className="vb-kicker">LIVE AIRCRAFT PROFILE</span><button className="vb-icon-button" aria-label="Close aircraft details" onClick={() => setSelectedAircraft(null)}><X size={16}/></button></div>
+        <div className="vb-aircraft-sheet-hero">
+          <div><span className="vb-aircraft-sheet-reg">{selectedAircraft.aircraft.registration || "UNREGISTERED AIRCRAFT"}</span><h2 id="vb-aircraft-sheet-title">{selectedAircraft.aircraft.name || selectedAircraft.aircraft.aircraftName || selectedAircraft.aircraft.icaoCode || "Aircraft profile"}</h2><p>{selectedAircraft.aircraft.icaoCode || selectedAircraft.aircraft.aircraftCode || "Infinite Flight Live"} · {selectedAircraft.aircraft.fleetRank ? "Fleet position #" + selectedAircraft.aircraft.fleetRank : "VirtualBlue fleet"}</p></div>
+          <span className={"vb-status " + (selectedAircraft.position.isOnGround ? "is-muted" : "is-good")}>{selectedAircraft.position.isOnGround ? "ON GROUND" : "AIRBORNE"}</span>
+        </div>
+        <div className="vb-aircraft-sheet-photo"><img src={"/aircrafts/" + encodeURIComponent(String(selectedAircraft.aircraft.registration || "")) + "/aircraft.png"} alt={selectedAircraft.aircraft.registration || "Aircraft"} onError={e => { e.currentTarget.style.display = "none"; }}/><span>VIRTUALBLUE · FLEET</span></div>
+        <div className="vb-aircraft-sheet-stats">
+          <div><small>ALTITUDE</small><strong>{Math.round(selectedAircraft.position.altitude || 0).toLocaleString()} <em>ft</em></strong></div>
+          <div><small>GROUND SPEED</small><strong>{Math.round(selectedAircraft.position.speed || 0)} <em>kt</em></strong></div>
+          <div><small>HEADING</small><strong>{Math.round(selectedAircraft.position.heading || 0)}°</strong></div>
+          <div><small>VERTICAL SPEED</small><strong>{Math.round(selectedAircraft.position.verticalSpeed || 0).toLocaleString()} <em>fpm</em></strong></div>
+        </div>
+        <div className="vb-aircraft-sheet-details">
+          <div><span>Current pilot</span><strong>{selectedAircraft.position.lastPilotUsername || "Not reported"}</strong></div>
+          <div><span>Latitude</span><strong>{selectedAircraft.position.latitude.toFixed(4)}°</strong></div>
+          <div><span>Longitude</span><strong>{selectedAircraft.position.longitude.toFixed(4)}°</strong></div>
+          <div><span>Last position update</span><strong>{selectedAircraft.position.updatedAt ? new Date(selectedAircraft.position.updatedAt).toLocaleString() : "Unknown"}</strong></div>
+        </div>
+        <div className="vb-aircraft-sheet-footer"><span><i/> Position supplied by Infinite Flight Live</span><button className="vb-secondary-button" onClick={() => setSelectedAircraft(null)}>Close profile</button></div>
+      </section>
+    </div>}
     {seatSchedule && <div className="vb-modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setSeatSchedule(null)}}><section className="vb-modal" role="dialog" aria-modal="true" aria-labelledby="vb-seat-title"><div className="vb-modal-top"><span className="vb-kicker">CREW RESERVATION</span><button className="vb-icon-button" onClick={()=>setSeatSchedule(null)}><X size={16}/></button></div><h2 id="vb-seat-title">Choose your seat</h2><p>{seatSchedule.callsign || "Flight"} · {routeText(seatSchedule)}</p><div className="vb-seat-options"><button className={seatRole===0?"selected":""} onClick={()=>setSeatRole(0)}><Plane size={17}/><strong>Captain</strong><small>Pilot in command</small></button><button className={seatRole===1?"selected":""} onClick={()=>setSeatRole(1)}><Plane size={17}/><strong>First Officer</strong><small>Second in command</small></button></div><div className="vb-modal-actions"><button className="vb-secondary-button" onClick={()=>setSeatSchedule(null)}>Cancel</button><button className="vb-primary-button" onClick={()=>void requestBooking()} disabled={!!bookingBusy}>{bookingBusy ? "Submitting…" : "Submit request"} <ArrowRight size={14}/></button></div></section></div>}
   </main>;
 }
