@@ -528,3 +528,11 @@ html[data-vb-theme="light"] .vb-app {
   .vb-simbrief-fetch-row button { width:100%; }
   .vb-simbrief-fetch-row>span { grid-column:1; }
 }
+
+
+.vb-map-loading {
+  display:grid; place-items:center; min-height:430px; border:1px solid var(--vb-line);
+  border-radius:12px; background:radial-gradient(ellipse at 50% 45%,rgba(65,155,233,.10),transparent 60%),var(--vb-panel-2);
+  color:var(--vb-muted); font-size:10px; letter-spacing:.06em;
+}
+@media(max-width:620px){.vb-map-loading{min-height:280px}}
