@@ -520,7 +520,7 @@ export default function VirtualBlueWorkspace() {
 
         <div className="vb-page-heading">
           <div><span className="vb-kicker">VIRTUALBLUE · FLIGHT OPERATIONS</span><h1>{viewLabels[view]}</h1><p>{view === "overview" ? "Your fleet, flight programme and crew activity — all in one place." : view === "fleet" ? "Aircraft availability and live position awareness across your airline." : view === "board" ? "A live operational picture of aircraft, pilots, altitude, speed and next scheduled legs." : view === "schedules" ? "Published Live schedules, organised by aircraft and ready for crew." : view === "flightbag" ? "Your reserved legs, flight details and operational documents." : view === "dispatch" ? "Build a flight briefing and open a pre-filled SimBrief dispatch." : view === "crew" ? "The people flying and operating VirtualBlue." : "Publish schedules and review the airline's operational readiness."}</p></div>
-          <div className="vb-heading-actions"><span className="vb-live-pill"><i/> LIVE DATA</span><button className="vb-secondary-button" onClick={() => void load(true)} disabled={refreshing}><RefreshCw size={14}/> Refresh</button></div>
+          <div className="vb-heading-actions"><span className="vb-live-pill"><i/> LIVE DATA</span><button className="vb-secondary-button" onClick={() => void (view === "board" ? refreshPositions() : load(true))} disabled={refreshing || view === "board" && positionBusy}><RefreshCw size={14} className={refreshing || view === "board" && positionBusy ? "vb-spin" : ""}/> Refresh</button></div>
         </div>
 
         {view === "overview" && <>
