@@ -8,6 +8,7 @@ import { ApplicationStatusPage, OrganizationApplicationPage, OrganizationDirecto
 import DocsPage from "./pages/DocsPage";
 import AdminPortal from "./pages/AdminPortal";
 import PilotSignIn from "./pages/PilotSignIn";
+import VirtualBlueWorkspace from "./pages/VirtualBlueWorkspace";
 import Brand from "./components/Brand";
 import ThemeToggle from "./components/ThemeToggle";
 import SpotlightNavbar from "./components/SpotlightNavbar";
@@ -605,4 +606,4 @@ function RouteMetadata(){
  },[pathname]);
  return null;
 }
-export default function App(){return <><RouteMetadata/><Routes><Route path="/" element={<Landing/>}/><Route path="/docs/*" element={<DocsPage/>}/><Route path="/login" element={<Login/>}/><Route path="/account" element={<MyVeyro/>}/><Route path="/org/:slug/*" element={<Organization/>}/><Route path="/pilot/:organizationId/*" element={<PilotDashboard/>}/><Route path="/:slug/admin/*" element={<AdminPortal/>}/><Route path="/:slug/pilot-sign-in" element={<PilotSignIn/>}/><Route path="/:slug/pilot/:pilotId/*" element={<PilotDashboard/>}/><Route path="/apply" element={<OrganizationApplicationPage/>}/><Route path="/application-status/:trackingCode" element={<ApplicationStatusPage/>}/><Route path="/:slug" element={<PublicOrganizationPage/>}/><Route path="*" element={<NotFound/>}/></Routes></>}
+export default function App(){return <><RouteMetadata/><Routes><Route path="/" element={<Navigate to="/virtualblue" replace/>}/><Route path="/virtualblue" element={<VirtualBlueWorkspace/>}/><Route path="/docs/*" element={<DocsPage/>}/><Route path="/login" element={<Login/>}/><Route path="/account" element={<MyVeyro/>}/><Route path="/org/:slug/*" element={<Organization/>}/><Route path="/pilot/:organizationId/*" element={<PilotDashboard/>}/><Route path="/:slug/admin/*" element={<AdminPortal/>}/><Route path="/:slug/pilot-sign-in" element={<PilotSignIn/>}/><Route path="/:slug/pilot/:pilotId/*" element={<PilotDashboard/>}/><Route path="/apply" element={<OrganizationApplicationPage/>}/><Route path="/application-status/:trackingCode" element={<ApplicationStatusPage/>}/><Route path="/:slug" element={<PublicOrganizationPage/>}/><Route path="*" element={<NotFound/>}/></Routes></>}
