@@ -105,6 +105,10 @@ export default function VirtualBlueWorkspace() {
   const [xmlSummary, setXmlSummary] = useState<any>(null);
   const [attachScheduleId, setAttachScheduleId] = useState("");
   const [xmlBusy, setXmlBusy] = useState(false);
+  const [simbriefUsername, setSimbriefUsername] = useState(() => {
+    try { return localStorage.getItem("veyro-simbrief-username") || ""; } catch { return ""; }
+  });
+  const [simbriefFetchBusy, setSimbriefFetchBusy] = useState(false);
   const [scheduleBusy, setScheduleBusy] = useState(false);
   const [cacheScope] = useState(() => {
     try { return crypto.randomUUID(); } catch { return undefined; }
@@ -290,10 +294,36 @@ export default function VirtualBlueWorkspace() {
         pdf: pick("files pdf link")
       };
       setXmlSummary(summary);
+      setDispatchForm(current => ({
+        ...current,
+        flightNumber: summary.callsign || current.flightNumber,
+        type: summary.aircraft || current.type,
+        registration: summary.registration || current.registration,
+        origin: summary.origin || current.origin,
+        destination: summary.destination || current.destination,
+        route: summary.route || current.route
+      }));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not read this SimBrief file.");
       setXmlFile(null);
     }
+  };
+
+  const fetchSimBriefOFP = async () => {
+    const username = simbriefUsername.trim();
+    if (!username) { setError("Enter your SimBrief username or Navigraph alias first."); return; }
+    setSimbriefFetchBusy(true); setError(""); setNotice("");
+    try {
+      const result = await call("simbrief-ofp", { username });
+      if (typeof result?.xml !== "string" || !result.xml.includes("<OFP")) {
+        throw new Error("SimBrief did not return a readable operational flight plan.");
+      }
+      try { localStorage.setItem("veyro-simbrief-username", username); } catch { /* storage is optional */ }
+      await handleXml(new File([result.xml], "simbrief-latest-ofp.xml", { type: "application/xml" }));
+      setNotice("Latest SimBrief OFP imported. Review the flight details below before attaching it to a schedule.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not fetch your latest SimBrief OFP.");
+    } finally { setSimbriefFetchBusy(false); }
   };
 
   const attachXml = async () => {
@@ -462,6 +492,11 @@ export default function VirtualBlueWorkspace() {
             <aside className="vb-panel vb-dispatch-aside"><span className="vb-kicker">DISPATCH WORKFLOW</span><h3>From schedule to OFP</h3><ol><li><b>01</b><span><strong>Choose a leg</strong><small>Start from a published VirtualBlue schedule or enter your route manually.</small></span></li><li><b>02</b><span><strong>Generate on SimBrief</strong><small>Review aircraft, route, fuel and operational flight plan in your SimBrief account.</small></span></li><li><b>03</b><span><strong>Bring the OFP back</strong><small>Download the XML from SimBrief and attach it to the schedule if you are an administrator.</small></span></li></ol></aside>
           </div>
           <section className="vb-panel vb-xml-panel"><div className="vb-panel-heading"><div><span className="vb-kicker">FLIGHT PLAN ATTACHMENT</span><h2>Import a SimBrief OFP</h2><p>Attach a downloaded XML flight plan to a published schedule. Admin permission is required.</p></div><FileText size={19}/></div>
+            <div className="vb-simbrief-fetch-row">
+              <label>SIMBRIEF USERNAME / NAVIGRAPH ALIAS<input value={simbriefUsername} onChange={e => setSimbriefUsername(e.target.value)} placeholder="Your SimBrief alias" autoComplete="username"/></label>
+              <button className="vb-primary-button" onClick={() => void fetchSimBriefOFP()} disabled={simbriefFetchBusy || !simbriefUsername.trim()}>{simbriefFetchBusy ? <><RefreshCw size={14} className="vb-spin"/> Fetching latest OFP…</> : <><Download size={14}/> Fetch latest OFP</>}</button>
+              <span>Fetches only when you ask. Your SimBrief password is never requested or stored.</span>
+            </div>
             <div className="vb-xml-controls"><label className="vb-file-picker"><Download size={17}/><span><strong>{xmlFile ? xmlFile.name : "Choose SimBrief XML"}</strong><small>XML format · Maximum 1.5 MB</small></span><input type="file" accept=".xml,text/xml,application/xml" onChange={e=>void handleXml(e.target.files?.[0] || null)}/></label><label className="vb-select-field">Attach to schedule<select value={attachScheduleId} onChange={e=>setAttachScheduleId(e.target.value)}><option value="">Choose a published leg</option>{schedules.map((item:any)=><option key={item.id} value={item.id}>{item.callsign} · {routeText(item)}</option>)}</select></label></div>
             {xmlSummary && <div className="vb-xml-preview"><div><span>ROUTE</span><strong>{xmlSummary.origin || "—"} → {xmlSummary.destination || "—"}</strong></div><div><span>AIRCRAFT</span><strong>{xmlSummary.aircraft || "—"} · {xmlSummary.registration || "No registration"}</strong></div><div><span>FLIGHT PLAN</span><strong>{xmlSummary.route || "Route not found"}</strong></div><div><span>BLOCK FUEL</span><strong>{xmlSummary.blockFuel || "—"}</strong></div></div>}
             <div className="vb-xml-actions"><span>{isAdmin ? "XML is stored with the selected schedule in VEYRO." : "Only VirtualBlue administrators can attach a shared schedule OFP."}</span><button className="vb-primary-button" disabled={!isAdmin || !xmlFile || !attachScheduleId || xmlBusy} onClick={() => void attachXml()}>{xmlBusy ? "Attaching…" : "Attach OFP to schedule"} <ArrowRight size={14}/></button></div>
