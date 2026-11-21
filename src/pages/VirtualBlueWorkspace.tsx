@@ -20,6 +20,7 @@ type AircraftPosition = {
   lastPilotId?: string | null; lastPilotUsername?: string | null; updatedAt?: string;
 };
 const ORG_SLUG = "virtualblue";
+const LIVE_ORGANIZATION_ID = "d50dcc80-8dac-4608-970c-61d6a4739488";
 const viewLabels: Record<View, string> = {
   overview: "Operations overview", fleet: "Fleet", schedules: "Flight schedules",
   flightbag: "Flight bag", dispatch: "Dispatch", crew: "Crew", admin: "Administration"
@@ -135,38 +136,41 @@ export default function VirtualBlueWorkspace() {
     if (quiet) setRefreshing(true); else setLoading(true);
     setError("");
     try {
-      const { data: org, error: orgError } = await supabase.from("organizations")
-        .select("id,slug,display_name,logo_url,live_organization_id,booking_mode,created_by")
-        .eq("slug", ORG_SLUG).eq("is_active", true).single();
-      if (orgError || !org) throw new Error("VirtualBlue's Veyro portal could not be loaded.");
-      const { data: membership } = await supabase.from("organization_memberships")
-        .select("role,is_active").eq("organization_id", org.id).eq("user_id", session.user.id).maybeSingle();
-      const canAttemptAdmin = Boolean(
-        membership?.is_active && ["owner", "admin"].includes(membership.role)
-      ) || org.created_by === session.user.id;
-      setOrganization(org);
-      setPortalId(org.id);
-      if (canAttemptAdmin) {
-        try {
-          const admin = await call("organization-admin", { action: "get_admin_portal", slug: ORG_SLUG });
-          const role = membership?.role === "admin" ? 1 : 2;
-          setAdminData(admin);
-          setPilotData({
-            role, portalId: org.id, portal: { id: org.id, slug: org.slug },
-            bookings: admin.bookingRequests || [], profile: admin.adminProfile || null
-          });
-        } catch (adminError) {
-          console.warn("[VEYRO] Admin workspace unavailable; falling back to pilot data", adminError);
-          setAdminData(null);
-          const payload = await call("pilot-live-data", { organizationId: org.live_organization_id, cacheScope });
-          if (!payload?.portal?.id) throw new Error("Your Infinite Flight membership could not be verified for VirtualBlue.");
-          setPilotData(payload);
-        }
-      } else {
-        const payload = await call("pilot-live-data", { organizationId: org.live_organization_id, cacheScope });
+      // Try the privileged admin read first. It rejects non-admins before
+      // making any Infinite Flight API requests, so pilots do not waste quota.
+      try {
+        const admin = await call("organization-admin", { action: "get_admin_portal", slug: ORG_SLUG });
+        if (!admin?.organization?.id) throw new Error("Admin portal response was incomplete.");
+        const org = admin.organization;
+        const { data: membership } = await supabase.from("organization_memberships")
+          .select("role").eq("organization_id", org.id).eq("user_id", session.user.id).maybeSingle();
+        const role = membership?.role === "admin" ? 1 : 2;
+        setOrganization(org);
+        setPortalId(org.id);
+        setAdminData(admin);
+        setPilotData({
+          role, portalId: org.id, portal: { id: org.id, slug: org.slug },
+          bookings: admin.bookingRequests || [], profile: admin.adminProfile || null
+        });
+      } catch (adminError) {
+        const payload = await call("pilot-live-data", {
+          organizationId: LIVE_ORGANIZATION_ID,
+          cacheScope
+        });
         if (!payload?.portal?.id) throw new Error("Your Infinite Flight membership could not be verified for VirtualBlue.");
+        const { data: orgRecord } = await supabase.from("organizations")
+          .select("id,slug,display_name,logo_url,live_organization_id,booking_mode")
+          .eq("id", payload.portalId || payload.portal.id).maybeSingle();
+        setOrganization(orgRecord || {
+          id: payload.portalId || payload.portal.id,
+          slug: ORG_SLUG, display_name: "VirtualBlue", live_organization_id: LIVE_ORGANIZATION_ID
+        });
+        setPortalId(payload.portalId || payload.portal.id);
         setPilotData(payload);
         setAdminData(null);
+        if (adminError instanceof Error && !/administrator access|forbidden|unauthorized/i.test(adminError.message)) {
+          console.info("[VEYRO] Using pilot workspace fallback", adminError.message);
+        }
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not load VirtualBlue operations.");
