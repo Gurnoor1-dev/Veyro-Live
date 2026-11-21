@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import type { FormEvent, ReactNode } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   Activity, ArrowDownRight, ArrowRight, ArrowUpRight, Bell, CalendarDays, Check,
@@ -53,11 +54,11 @@ function dispatchUrl(form: { airline: string; flightNumber: string; type: string
   return url.toString();
 }
 
-function AppIcon({ children }: { children: React.ReactNode }) {
+function AppIcon({ children }: { children: ReactNode }) {
   return <span className="vb-icon">{children}</span>;
 }
 
-function Metric({ label, value, hint, icon, tone = "" }: { label: string; value: React.ReactNode; hint: string; icon: React.ReactNode; tone?: string }) {
+function Metric({ label, value, hint, icon, tone = "" }: { label: string; value: ReactNode; hint: string; icon: ReactNode; tone?: string }) {
   return <article className="vb-metric">
     <div className="vb-metric-top"><span>{label}</span><AppIcon>{icon}</AppIcon></div>
     <strong className={tone}>{value}</strong><small>{hint}</small>
@@ -304,7 +305,7 @@ export default function VirtualBlueWorkspace() {
     finally { setXmlBusy(false); }
   };
 
-  const createSchedule = async (event: React.FormEvent) => {
+  const createSchedule = async (event: FormEvent) => {
     event.preventDefault();
     setScheduleBusy(true); setError("");
     try {
@@ -362,7 +363,7 @@ export default function VirtualBlueWorkspace() {
           ["flightbag", <FileText size={17}/>, "Flight bag"],
           ["dispatch", <Compass size={17}/>, "Dispatch"],
           ["crew", <Users size={17}/>, "Crew"]
-        ] as [View, React.ReactNode, string][]).map(([id, icon, label]) => <button key={id} className={view === id ? "active" : ""} onClick={() => setView(id)}>{icon}<span>{label}</span>{id === "flightbag" && activeBookings.length > 0 && <i>{activeBookings.length}</i>}</button>)}
+        ] as [View, ReactNode, string][]).map(([id, icon, label]) => <button key={id} className={view === id ? "active" : ""} onClick={() => setView(id)}>{icon}<span>{label}</span>{id === "flightbag" && activeBookings.length > 0 && <i>{activeBookings.length}</i>}</button>)}
       </nav>
       {isAdmin && <><div className="vb-nav-label vb-nav-label-spaced">MANAGEMENT</div><nav className="vb-nav"><button className={view === "admin" ? "active" : ""} onClick={() => setView("admin")}><Settings2 size={17}/><span>Administration</span></button></nav></>}
       <div className="vb-sidebar-bottom">
