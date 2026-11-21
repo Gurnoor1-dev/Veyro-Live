@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
@@ -12,6 +12,8 @@ import { supabase } from "../lib/supabase";
 import { invokeFunction } from "../lib/functions";
 import AircraftLiveMap from "../components/AircraftLiveMap";
 import "./virtual-blue.css";
+
+const AircraftLiveMap = lazy(() => import("../components/AircraftLiveMap"));
 
 type View = "overview" | "fleet" | "schedules" | "flightbag" | "dispatch" | "crew" | "admin";
 type AircraftPosition = {
@@ -450,7 +452,7 @@ export default function VirtualBlueWorkspace() {
           </div>
           <section className="vb-panel vb-map-panel">
             <div className="vb-panel-heading"><div><span className="vb-kicker">LIVE FLEET TRACKING</span><h2>Aircraft operations map</h2><p>Position information is requested on demand to protect your API allowance.</p></div><button className="vb-secondary-button" onClick={() => void refreshPositions()} disabled={positionBusy}><RefreshCw size={14} className={positionBusy ? "vb-spin" : ""}/>{positionBusy ? "Refreshing…" : "Refresh positions"}</button></div>
-            {aircraft.length ? <AircraftLiveMap aircraft={aircraft} positions={positions} dark={dark} onAircraftSelect={(item, position) => setSelectedAircraft({ aircraft: item, position })} /> : <div className="vb-empty"><Plane size={22}/><strong>No fleet aircraft returned</strong><span>Check the VirtualBlue Infinite Flight connection.</span></div>}
+            {aircraft.length ? <Suspense fallback={<div className="vb-map-loading">Preparing live map…</div>}><AircraftLiveMap aircraft={aircraft} positions={positions} dark={dark} onAircraftSelect={(item, position) => setSelectedAircraft({ aircraft: item, position })} /></Suspense> : <div className="vb-empty"><Plane size={22}/><strong>No fleet aircraft returned</strong><span>Check the VirtualBlue Infinite Flight connection.</span></div>}
             <div className="vb-map-foot"><span>{positionsUpdated ? "Last updated " + new Date(positionsUpdated).toLocaleTimeString() : "Positions not yet requested"}</span><span>{Object.keys(positions).length} / {aircraft.length} aircraft positioned</span></div>
           </section>
           <div className="vb-two-panels">
@@ -472,7 +474,7 @@ export default function VirtualBlueWorkspace() {
 
         {view === "fleet" && <>
           <div className="vb-toolbar"><label className="vb-search"><Search size={15}/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search registration or aircraft type…"/></label><button className="vb-secondary-button" onClick={() => void refreshPositions()} disabled={positionBusy}><RefreshCw size={14}/>{positionBusy ? "Refreshing…" : "Refresh positions"}</button><span className="vb-result-count">{filteredAircraft.length} AIRCRAFT</span></div>
-          <section className="vb-panel"><div className="vb-panel-heading"><div><span className="vb-kicker">FLEET OVERVIEW</span><h2>Aircraft map</h2><p>Tap a marker or roster item to inspect its current position.</p></div></div><AircraftLiveMap aircraft={filteredAircraft} positions={positions} dark={dark} onAircraftSelect={(item, position) => setSelectedAircraft({ aircraft: item, position })}/></section>
+          <section className="vb-panel"><div className="vb-panel-heading"><div><span className="vb-kicker">FLEET OVERVIEW</span><h2>Aircraft map</h2><p>Tap a marker or roster item to inspect its current position.</p></div></div><Suspense fallback={<div className="vb-map-loading">Preparing live map…</div>}><AircraftLiveMap aircraft={filteredAircraft} positions={positions} dark={dark} onAircraftSelect={(item, position) => setSelectedAircraft({ aircraft: item, position })}/></Suspense></section>
           <div className="vb-aircraft-grid">{filteredAircraft.map((item:any)=><article className="vb-aircraft-card" key={item.id}><div className="vb-aircraft-image"><img src={"/aircrafts/"+encodeURIComponent(item.registration||"")+"/aircraft.png"} alt="" onError={e=>{e.currentTarget.style.display="none"}}/><span>FLEET #{item.fleetRank ?? "—"}</span></div><div className="vb-aircraft-info"><div><strong>{item.registration || "Unregistered aircraft"}</strong><small>{item.name || item.aircraftName || item.icaoCode || "Infinite Flight aircraft"}</small></div><span className={item.isFleetActiveSlot ? "vb-status is-good" : "vb-status is-muted"}>{item.isFleetActiveSlot ? "Active slot" : "Reserve"}</span></div></article>)}</div>
           {!filteredAircraft.length && <div className="vb-empty"><Plane size={22}/><strong>No matching aircraft</strong><span>Try a different registration or aircraft type.</span></div>}
         </>}
