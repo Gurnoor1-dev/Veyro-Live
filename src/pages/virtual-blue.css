@@ -536,3 +536,41 @@ html[data-vb-theme="light"] .vb-app {
   color:var(--vb-muted); font-size:10px; letter-spacing:.06em;
 }
 @media(max-width:620px){.vb-map-loading{min-height:280px}}
+
+
+
+/* Live schedule management and crew assignment controls */
+.vb-form-actions { display:flex; flex-wrap:wrap; gap:9px; align-items:center; }
+.vb-form-actions .vb-primary-button { flex:1 1 210px; }
+.vb-admin-schedule-panel { margin-top:15px; }
+.vb-admin-schedule-group { overflow:hidden; margin-top:13px; border:1px solid var(--vb-line); border-radius:12px; background:var(--vb-panel-2); }
+.vb-admin-schedule-head { display:flex; align-items:center; gap:10px; padding:12px 14px; border-bottom:1px solid var(--vb-line); }
+.vb-admin-schedule-head strong { color:var(--vb-text); font-size:11px; }
+.vb-admin-schedule-head span { color:var(--vb-muted); font-size:9px; }
+.vb-admin-schedule-head small { margin-left:auto; color:var(--vb-dim); font-size:8px; }
+.vb-admin-schedule-row { display:flex; align-items:center; justify-content:space-between; gap:14px; padding:12px 14px; border-bottom:1px solid var(--vb-line); }
+.vb-admin-schedule-row:last-child { border-bottom:0; }
+.vb-admin-schedule-route { display:grid; gap:3px; min-width:0; }
+.vb-admin-schedule-route strong { color:var(--vb-text); font-size:10px; }
+.vb-admin-schedule-route span { color:var(--vb-muted); font-size:10px; }
+.vb-admin-schedule-route small { color:var(--vb-dim); font-size:8px; }
+.vb-admin-schedule-actions { display:flex; align-items:center; flex-wrap:wrap; justify-content:flex-end; gap:6px; }
+.vb-admin-schedule-actions .vb-icon-button { width:30px; height:30px; font-size:13px; }
+.vb-danger-action { color:var(--vb-red); }
+.vb-danger-action:hover { border-color:rgba(241,126,136,.4); background:rgba(241,126,136,.08); color:var(--vb-red); }
+.vb-crew-manager-modal { width:min(520px,100%); }
+.vb-crew-manager-form { display:grid; grid-template-columns:1.4fr .8fr; gap:10px; margin-top:18px; }
+.vb-crew-manager-form label { display:grid; gap:6px; color:var(--vb-muted); font-size:8px; font-weight:800; letter-spacing:.1em; }
+.vb-crew-manager-form select { width:100%; min-width:0; min-height:40px; padding:0 10px; border:1px solid var(--vb-line-strong); border-radius:9px; background:var(--vb-panel-2); color:var(--vb-text); font:inherit; font-size:10px; }
+.vb-crew-manager-form button { grid-column:1/-1; }
+.vb-crew-manager-current { margin-top:20px; padding-top:16px; border-top:1px solid var(--vb-line); }
+.vb-crew-manager-row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 0; border-bottom:1px solid var(--vb-line); }
+.vb-crew-manager-row>div { display:grid; gap:3px; }
+.vb-crew-manager-row strong { color:var(--vb-text); font-size:10px; }
+.vb-crew-manager-row small { color:var(--vb-muted); font-size:9px; }
+@media(max-width:700px) {
+  .vb-admin-schedule-row { align-items:flex-start; flex-direction:column; }
+  .vb-admin-schedule-actions { justify-content:flex-start; width:100%; }
+  .vb-crew-manager-form { grid-template-columns:1fr; }
+  .vb-crew-manager-form button { grid-column:1; }
+}
