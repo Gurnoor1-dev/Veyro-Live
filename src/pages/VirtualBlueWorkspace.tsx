@@ -321,7 +321,7 @@ export default function VirtualBlueWorkspace() {
     setSimbriefFetchBusy(true); setError(""); setNotice("");
     try {
       const result = await call("simbrief-ofp", { username });
-      if (typeof result?.xml !== "string" || !result.xml.includes("<OFP")) {
+      if (typeof result?.xml !== "string" || !/<OFP(?:\\s|>)/i.test(result.xml)) {
         throw new Error("SimBrief did not return a readable operational flight plan.");
       }
       try { localStorage.setItem("veyro-simbrief-username", username); } catch { /* storage is optional */ }
