@@ -136,27 +136,36 @@ export default function VirtualBlueWorkspace() {
     setError("");
     try {
       const { data: org, error: orgError } = await supabase.from("organizations")
-        .select("id,slug,display_name,logo_url,live_organization_id,booking_mode")
+        .select("id,slug,display_name,logo_url,live_organization_id,booking_mode,created_by")
         .eq("slug", ORG_SLUG).eq("is_active", true).single();
       if (orgError || !org) throw new Error("VirtualBlue's Veyro portal could not be loaded.");
-      const payload = await call("pilot-live-data", {
-        organizationId: org.live_organization_id,
-        cacheScope
-      });
-      if (!payload?.portal?.id) throw new Error("Your Infinite Flight membership could not be verified for VirtualBlue.");
+      const { data: membership } = await supabase.from("organization_memberships")
+        .select("role,is_active").eq("organization_id", org.id).eq("user_id", session.user.id).maybeSingle();
+      const canAttemptAdmin = Boolean(
+        membership?.is_active && ["owner", "admin"].includes(membership.role)
+      ) || org.created_by === session.user.id;
       setOrganization(org);
-      setPortalId(payload.portalId || payload.portal.id);
-      setPilotData(payload);
-      const isAdmin = Number(payload.role) === 1 || Number(payload.role) === 2;
-      if (isAdmin) {
+      setPortalId(org.id);
+      if (canAttemptAdmin) {
         try {
           const admin = await call("organization-admin", { action: "get_admin_portal", slug: ORG_SLUG });
+          const role = membership?.role === "admin" ? 1 : 2;
           setAdminData(admin);
+          setPilotData({
+            role, portalId: org.id, portal: { id: org.id, slug: org.slug },
+            bookings: admin.bookingRequests || [], profile: admin.adminProfile || null
+          });
         } catch (adminError) {
+          console.warn("[VEYRO] Admin workspace unavailable; falling back to pilot data", adminError);
           setAdminData(null);
-          console.warn("[VEYRO] Admin workspace unavailable", adminError);
+          const payload = await call("pilot-live-data", { organizationId: org.live_organization_id, cacheScope });
+          if (!payload?.portal?.id) throw new Error("Your Infinite Flight membership could not be verified for VirtualBlue.");
+          setPilotData(payload);
         }
       } else {
+        const payload = await call("pilot-live-data", { organizationId: org.live_organization_id, cacheScope });
+        if (!payload?.portal?.id) throw new Error("Your Infinite Flight membership could not be verified for VirtualBlue.");
+        setPilotData(payload);
         setAdminData(null);
       }
     } catch (e) {
