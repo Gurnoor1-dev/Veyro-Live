@@ -574,3 +574,30 @@ html[data-vb-theme="light"] .vb-app {
   .vb-crew-manager-form { grid-template-columns:1fr; }
   .vb-crew-manager-form button { grid-column:1; }
 }
+
+
+
+/* Compact live operations board */
+.vb-board-table { overflow-x:auto; }
+.vb-board-head,.vb-board-row {
+  display:grid; grid-template-columns:minmax(130px,1.05fr) minmax(140px,1.1fr) minmax(80px,.6fr) minmax(75px,.55fr) minmax(140px,1fr);
+  align-items:center; gap:13px; min-width:720px;
+}
+.vb-board-head { padding:0 13px 10px; color:var(--vb-dim); font-size:8px; font-weight:850; letter-spacing:.14em; }
+.vb-board-row {
+  width:100%; padding:13px; border:0; border-top:1px solid var(--vb-line);
+  background:transparent; color:var(--vb-text); text-align:left; cursor:pointer;
+  transition:background .16s;
+}
+.vb-board-row:hover:not(:disabled) { background:rgba(89,165,232,.07); }
+.vb-board-row:disabled { cursor:default; opacity:.62; }
+.vb-board-aircraft,.vb-board-pilot,.vb-board-next { display:grid; gap:3px; min-width:0; }
+.vb-board-aircraft { grid-template-columns:8px minmax(0,1fr); align-items:center; }
+.vb-board-aircraft i { grid-row:span 2; width:7px; height:7px; border-radius:50%; background:var(--vb-dim); }
+.vb-board-aircraft i.air { background:var(--vb-green); box-shadow:0 0 0 4px rgba(80,213,164,.1); }
+.vb-board-aircraft i.ground { background:var(--vb-amber); }
+.vb-board-aircraft strong,.vb-board-pilot strong,.vb-board-next strong { overflow:hidden; color:var(--vb-text); font-size:10px; text-overflow:ellipsis; white-space:nowrap; }
+.vb-board-aircraft small,.vb-board-pilot small,.vb-board-next small { overflow:hidden; color:var(--vb-muted); font-size:8px; text-overflow:ellipsis; white-space:nowrap; }
+.vb-board-pilot strong { color:var(--vb-blue); font-size:8px; letter-spacing:.08em; }
+.vb-board-number { color:var(--vb-text); font-size:10px; font-variant-numeric:tabular-nums; }
+@media(max-width:620px){.vb-board-table{margin-inline:-5px}.vb-board-head,.vb-board-row{min-width:680px}}
