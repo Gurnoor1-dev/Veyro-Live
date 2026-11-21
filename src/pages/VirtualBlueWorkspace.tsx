@@ -2,11 +2,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
-  Activity, ArrowDownRight, ArrowRight, ArrowUpRight, Bell, CalendarDays, Check,
-  ChevronDown, ChevronRight, Clock3, Command, Compass, Download, ExternalLink,
-  FileText, Filter, Gauge, Globe2, Layers3, LogOut, MapPin, Menu, Moon, MoreHorizontal,
-  Plane, Plus, RefreshCw, Search, Send, Settings2, ShieldCheck, SlidersHorizontal,
-  Sun, Users, X, Zap
+  Activity, ArrowRight, ArrowUpRight, Bell, CalendarDays, Check,
+  ChevronDown, ChevronRight, Clock3, Compass, Download, ExternalLink,
+  FileText, Globe2, Layers3, LogOut, Menu, Moon, Plane, RefreshCw, Search,
+  Settings2, ShieldCheck, Sun, Users, X, Zap
 } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
@@ -340,7 +339,6 @@ export default function VirtualBlueWorkspace() {
   }
 
   const setView = (next: View) => { setSearch(""); setParams(next === "overview" ? {} : { view: next }); };
-  const selectedSchedule = schedules.find((item: any) => item.id === attachScheduleId);
   const openScheduleDispatch = (item: any) => openDispatch(item);
   const buildDispatch = () => {
     if (!dispatchForm.origin.trim() || !dispatchForm.destination.trim() || !dispatchForm.type.trim()) {
