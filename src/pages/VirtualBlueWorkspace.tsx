@@ -111,6 +111,11 @@ export default function VirtualBlueWorkspace() {
   });
   const [simbriefFetchBusy, setSimbriefFetchBusy] = useState(false);
   const [scheduleBusy, setScheduleBusy] = useState(false);
+  const [editingScheduleId, setEditingScheduleId] = useState("");
+  const [crewSchedule, setCrewSchedule] = useState<any>(null);
+  const [crewUserId, setCrewUserId] = useState("");
+  const [crewRole, setCrewRole] = useState<0 | 1>(0);
+  const [adminActionBusy, setAdminActionBusy] = useState("");
   const [cacheScope] = useState(() => {
     try { return crypto.randomUUID(); } catch { return undefined; }
   });
@@ -356,6 +361,77 @@ export default function VirtualBlueWorkspace() {
     finally { setXmlBusy(false); }
   };
 
+  const localDateInput = (value?: string | null) => {
+    if (!value) return "";
+    const date = new Date(value);
+    if (!Number.isFinite(date.getTime())) return "";
+    return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+  };
+
+  const editSchedule = (item: any) => {
+    setEditingScheduleId(item.id);
+    setScheduleForm({
+      aircraftId: item.aircraftId || "", callsign: item.callsign || "",
+      flightType: Number(item.flightType ?? 1), originIcao: item.originIcao || "",
+      destinationIcao: item.destinationIcao || "", timeless: Boolean(item.isTimeless),
+      departure: localDateInput(item.scheduledDepartureUtc), arrival: localDateInput(item.scheduledArrivalUtc),
+      briefing: item.briefing || "", flightPlan: item.flightPlan || ""
+    });
+    setView("admin");
+    setNotice("Editing " + (item.callsign || "selected schedule") + ". Save changes to publish them to Infinite Flight Live.");
+  };
+
+  const deleteSchedule = async (item: any) => {
+    if (!window.confirm("Delete " + (item.callsign || "this schedule") + " from Infinite Flight Live? Its attached SimBrief XML will also be removed.")) return;
+    setAdminActionBusy("delete:" + item.id); setError("");
+    try {
+      await call("organization-admin", { action: "delete_schedule", slug: ORG_SLUG, scheduleId: item.id });
+      setNotice("Schedule deleted from Infinite Flight Live.");
+      await load(true);
+    } catch (e) { setError(e instanceof Error ? e.message : "Could not delete this schedule."); }
+    finally { setAdminActionBusy(""); }
+  };
+
+  const moveSchedule = async (item: any, direction: "up" | "down") => {
+    const group = schedules.filter((entry: any) => entry.aircraftId === item.aircraftId).slice().sort((a: any, b: any) => (a.sequence ?? 0) - (b.sequence ?? 0));
+    const index = group.findIndex((entry: any) => entry.id === item.id);
+    if (index < 0 || direction === "up" && index === 0 || direction === "down" && index === group.length - 1) return;
+    const afterId = direction === "up" ? (index > 1 ? group[index - 2].id : null) : group[index + 1].id;
+    setAdminActionBusy("move:" + item.id); setError("");
+    try {
+      await call("organization-admin", { action: "reorder_schedule", slug: ORG_SLUG, scheduleId: item.id, aircraftId: item.aircraftId, afterId });
+      setNotice("Flight order updated.");
+      await load(true);
+    } catch (e) { setError(e instanceof Error ? e.message : "Could not reorder this schedule."); }
+    finally { setAdminActionBusy(""); }
+  };
+
+  const openCrewManager = (item: any) => { setCrewSchedule(item); setCrewUserId(""); setCrewRole(0); };
+
+  const assignScheduleCrew = async () => {
+    if (!crewSchedule || !crewUserId) { setError("Choose a Live crew member first."); return; }
+    setAdminActionBusy("crew:" + crewSchedule.id); setError("");
+    try {
+      await call("organization-admin", { action: "assign_schedule_crew", slug: ORG_SLUG, scheduleId: crewSchedule.id, userId: crewUserId, role: crewRole });
+      setNotice("Crew member assigned to " + (crewSchedule.callsign || "the schedule") + ".");
+      setCrewSchedule(null);
+      await load(true);
+    } catch (e) { setError(e instanceof Error ? e.message : "Could not assign this crew member."); }
+    finally { setAdminActionBusy(""); }
+  };
+
+  const removeScheduleCrew = async (member: any) => {
+    if (!crewSchedule || !member?.userId) return;
+    setAdminActionBusy("crew-remove:" + member.userId); setError("");
+    try {
+      await call("organization-admin", { action: "remove_schedule_crew", slug: ORG_SLUG, scheduleId: crewSchedule.id, userId: member.userId });
+      setNotice("Crew member removed from the schedule.");
+      setCrewSchedule(null);
+      await load(true);
+    } catch (e) { setError(e instanceof Error ? e.message : "Could not remove this crew member."); }
+    finally { setAdminActionBusy(""); }
+  };
+
   const createSchedule = async (event: FormEvent) => {
     event.preventDefault();
     setScheduleBusy(true); setError("");
@@ -372,9 +448,13 @@ export default function VirtualBlueWorkspace() {
         flightPlan: scheduleForm.flightPlan || null
       };
       await call("organization-admin", {
-        action: "create_schedule", slug: ORG_SLUG, aircraftId: scheduleForm.aircraftId, schedule
+        action: editingScheduleId ? "update_schedule" : "create_schedule",
+        slug: ORG_SLUG,
+        ...(editingScheduleId ? { scheduleId: editingScheduleId } : { aircraftId: scheduleForm.aircraftId }),
+        schedule
       });
-      setNotice("The new schedule has been published to Infinite Flight Live.");
+      setNotice(editingScheduleId ? "Schedule changes published to Infinite Flight Live." : "The new schedule has been published to Infinite Flight Live.");
+      setEditingScheduleId("");
       setScheduleForm({ aircraftId: "", callsign: "", flightType: 1, originIcao: "", destinationIcao: "", timeless: true, departure: "", arrival: "", briefing: "", flightPlan: "" });
       await load(true);
     } catch (e) { setError(e instanceof Error ? e.message : "The schedule could not be created."); }
@@ -518,8 +598,8 @@ export default function VirtualBlueWorkspace() {
 
         {view === "admin" && isAdmin && <>
           <div className="vb-metrics-grid"><Metric label="PENDING APPROVALS" value={pendingBookings.length} hint="Requests awaiting action" icon={<Bell size={16}/>} tone="vb-number-amber"/><Metric label="ACTIVE PILOTS" value={(adminData?.members || []).filter((m:any)=>m.is_active).length} hint="Veyro portal membership" icon={<Users size={16}/>} /><Metric label="DISCORD APPROVALS" value={adminData?.discord?.enabled ? "READY" : "SETUP"} hint="Approval integration status" icon={<ShieldCheck size={16}/>} /></div>
-          <div className="vb-admin-layout"><section className="vb-panel"><div className="vb-panel-heading"><div><span className="vb-kicker">PUBLISH TO INFINITE FLIGHT</span><h2>Create a schedule</h2><p>New legs are published directly to the VirtualBlue Live fleet.</p></div></div>
-            <form className="vb-create-form" onSubmit={createSchedule}><label>Aircraft<select required value={scheduleForm.aircraftId} onChange={e=>setScheduleForm({...scheduleForm,aircraftId:e.target.value})}><option value="">Select aircraft</option>{aircraft.map((a:any)=><option key={a.id} value={a.id}>{a.registration || "Aircraft"} · #{a.fleetRank ?? "—"}</option>)}</select></label><label>Flight number<input required value={scheduleForm.callsign} onChange={e=>setScheduleForm({...scheduleForm,callsign:e.target.value})} placeholder="VBL204"/></label><label>Origin ICAO<input required maxLength={4} value={scheduleForm.originIcao} onChange={e=>setScheduleForm({...scheduleForm,originIcao:e.target.value.toUpperCase()})} placeholder="EGLL"/></label><label>Destination ICAO<input required maxLength={4} value={scheduleForm.destinationIcao} onChange={e=>setScheduleForm({...scheduleForm,destinationIcao:e.target.value.toUpperCase()})} placeholder="EDDF"/></label><label>Flight type<select value={scheduleForm.flightType} onChange={e=>setScheduleForm({...scheduleForm,flightType:Number(e.target.value)})}><option value={1}>Commercial passenger</option><option value={2}>Charter</option><option value={3}>Cargo</option><option value={4}>Training</option><option value={5}>Test flight</option></select></label><label className="vb-check-field"><input type="checkbox" checked={scheduleForm.timeless} onChange={e=>setScheduleForm({...scheduleForm,timeless:e.target.checked})}/> Timeless schedule</label>{!scheduleForm.timeless && <><label>Departure (local)<input type="datetime-local" required value={scheduleForm.departure} onChange={e=>setScheduleForm({...scheduleForm,departure:e.target.value})}/></label><label>Arrival (local)<input type="datetime-local" required value={scheduleForm.arrival} onChange={e=>setScheduleForm({...scheduleForm,arrival:e.target.value})}/></label></>}<label className="vb-form-wide">Briefing<textarea value={scheduleForm.briefing} onChange={e=>setScheduleForm({...scheduleForm,briefing:e.target.value})} rows={3} placeholder="Operational notes for the crew"/></label><label className="vb-form-wide">Flight plan / route<input value={scheduleForm.flightPlan} onChange={e=>setScheduleForm({...scheduleForm,flightPlan:e.target.value})} placeholder="Optional route"/></label><button className="vb-primary-button vb-form-wide" disabled={scheduleBusy || !aircraft.length}>{scheduleBusy ? "Publishing…" : "Publish Live schedule"} <ArrowRight size={14}/></button></form>
+          <div className="vb-admin-layout"><section className="vb-panel"><div className="vb-panel-heading"><div><span className="vb-kicker">PUBLISH TO INFINITE FLIGHT</span><h2>{editingScheduleId ? "Edit schedule" : "Create a schedule"}</h2><p>{editingScheduleId ? "Update the published leg in Infinite Flight Live." : "New legs are published directly to the VirtualBlue Live fleet."}</p></div></div>
+            <form className="vb-create-form" onSubmit={createSchedule}><label>Aircraft<select required value={scheduleForm.aircraftId} onChange={e=>setScheduleForm({...scheduleForm,aircraftId:e.target.value})}><option value="">Select aircraft</option>{aircraft.map((a:any)=><option key={a.id} value={a.id}>{a.registration || "Aircraft"} · #{a.fleetRank ?? "—"}</option>)}</select></label><label>Flight number<input required value={scheduleForm.callsign} onChange={e=>setScheduleForm({...scheduleForm,callsign:e.target.value})} placeholder="VBL204"/></label><label>Origin ICAO<input required maxLength={4} value={scheduleForm.originIcao} onChange={e=>setScheduleForm({...scheduleForm,originIcao:e.target.value.toUpperCase()})} placeholder="EGLL"/></label><label>Destination ICAO<input required maxLength={4} value={scheduleForm.destinationIcao} onChange={e=>setScheduleForm({...scheduleForm,destinationIcao:e.target.value.toUpperCase()})} placeholder="EDDF"/></label><label>Flight type<select value={scheduleForm.flightType} onChange={e=>setScheduleForm({...scheduleForm,flightType:Number(e.target.value)})}><option value={1}>Commercial passenger</option><option value={2}>Charter</option><option value={3}>Cargo</option><option value={4}>Training</option><option value={5}>Test flight</option></select></label><label className="vb-check-field"><input type="checkbox" checked={scheduleForm.timeless} onChange={e=>setScheduleForm({...scheduleForm,timeless:e.target.checked})}/> Timeless schedule</label>{!scheduleForm.timeless && <><label>Departure (local)<input type="datetime-local" required value={scheduleForm.departure} onChange={e=>setScheduleForm({...scheduleForm,departure:e.target.value})}/></label><label>Arrival (local)<input type="datetime-local" required value={scheduleForm.arrival} onChange={e=>setScheduleForm({...scheduleForm,arrival:e.target.value})}/></label></>}<label className="vb-form-wide">Briefing<textarea value={scheduleForm.briefing} onChange={e=>setScheduleForm({...scheduleForm,briefing:e.target.value})} rows={3} placeholder="Operational notes for the crew"/></label><label className="vb-form-wide">Flight plan / route<input value={scheduleForm.flightPlan} onChange={e=>setScheduleForm({...scheduleForm,flightPlan:e.target.value})} placeholder="Optional route"/></label><div className="vb-form-actions vb-form-wide"><button className="vb-primary-button" disabled={scheduleBusy || !aircraft.length}>{scheduleBusy ? "Saving…" : editingScheduleId ? "Save schedule changes" : "Publish Live schedule"} <ArrowRight size={14}/></button>{editingScheduleId && <button type="button" className="vb-secondary-button" onClick={() => { setEditingScheduleId(""); setScheduleForm({ aircraftId: "", callsign: "", flightType: 1, originIcao: "", destinationIcao: "", timeless: true, departure: "", arrival: "", briefing: "", flightPlan: "" }); }}>Cancel edit</button>}</div></form>
           </section><aside className="vb-panel"><div className="vb-panel-heading"><div><span className="vb-kicker">ADMINISTRATION</span><h2>Control centre</h2></div></div><div className="vb-admin-shortcuts"><Link to="/virtualblue/admin"><Settings2 size={16}/><span><strong>Portal settings</strong><small>Branding, pilots and Discord integration</small></span><ChevronRight size={15}/></Link><button onClick={() => setView("dispatch")}><Compass size={16}/><span><strong>SimBrief dispatch</strong><small>Generate and attach operational flight plans</small></span><ChevronRight size={15}/></button><button onClick={() => setView("schedules")}><CalendarDays size={16}/><span><strong>Manage schedule board</strong><small>{schedules.length} published legs</small></span><ChevronRight size={15}/></button></div><div className="vb-admin-note"><ShieldCheck size={16}/><span>Infinite Flight Live remains the source of truth. VEYRO stores only booking state and explicitly attached documents.</span></div></aside></div>
           <section className="vb-panel"><div className="vb-panel-heading"><div><span className="vb-kicker">REQUEST QUEUE</span><h2>Latest booking requests</h2></div><span className="vb-result-count">{bookings.length} RECENT</span></div>{bookings.slice(0,12).map((b:any)=><div className="vb-list-row" key={b.id}><span className="vb-row-plane"><Users size={15}/></span><div className="vb-row-main"><strong>{b.pilot_display_name || "VirtualBlue pilot"} · {b.flight_number || "Flight request"}</strong><small>{b.origin_icao || "—"} → {b.destination_icao || "—"} · {b.seat_role === 1 ? "First Officer" : "Captain"}</small></div><span className={"vb-status " + (b.status === "approved" ? "is-good" : "is-pending")}>{String(b.status).replaceAll("_"," ")}</span></div>)}</section>
         </>}
