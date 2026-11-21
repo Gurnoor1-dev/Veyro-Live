@@ -286,8 +286,12 @@ export default function VirtualBlueWorkspace() {
       const parsed = new DOMParser().parseFromString(text, "application/xml");
       if (parsed.querySelector("parsererror") || parsed.documentElement.tagName.toLowerCase() !== "ofp") throw new Error("This does not appear to be a valid SimBrief OFP XML file.");
       const pick = (...selectors: string[]) => selectors.map((selector) => parsed.querySelector(selector)?.textContent?.trim()).find(Boolean) || "";
+      const airline = pick("general icao_airline");
+      const flightNumber = pick("general flight_number");
       const summary = {
-        callsign: pick("general icao_airline", "general flight_number", "general callsign"),
+        airline,
+        flightNumber,
+        callsign: pick("general callsign") || [airline, flightNumber].filter(Boolean).join(" "),
         origin: pick("origin icao_code"), destination: pick("destination icao_code"),
         aircraft: pick("aircraft icaotype", "aircraft icao_code"), registration: pick("aircraft reg"),
         route: pick("general route"), distance: pick("general air_distance"), blockFuel: pick("fuel plan_ramp"),
@@ -296,7 +300,8 @@ export default function VirtualBlueWorkspace() {
       setXmlSummary(summary);
       setDispatchForm(current => ({
         ...current,
-        flightNumber: summary.callsign || current.flightNumber,
+        airline: summary.airline || current.airline,
+        flightNumber: summary.flightNumber || current.flightNumber,
         type: summary.aircraft || current.type,
         registration: summary.registration || current.registration,
         origin: summary.origin || current.origin,
